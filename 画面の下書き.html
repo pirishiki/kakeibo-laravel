@@ -232,7 +232,7 @@ body.pc .lk-cal .amt-short { display: none; }
 
   <p class="howto"><span class="pin" style="margin-left:0">1</span> のような青い番号の印は、<b>Claude が決めたので確認してほしいところ</b>です。画面の中の印の場所を見て、画面の下の同じ番号の説明と合わせて確かめてください。4 章・5.1〜5.10 の印は、すべて確認済みです（直すところなし）。</p>
 
-  <div class="group">設計はすべて終わり（10月11日）：画面設計で選んだことの一覧</div>
+  <div class="group">設計で選んだことの一覧（受け入れ基準を書いて見つかったものも、ここに足していく）</div>
   <div class="tabs" role="tablist">
     <button role="tab" id="t-choices" aria-selected="true" data-p="p-choices">選んだことの一覧</button>
   </div>
@@ -241,7 +241,18 @@ body.pc .lk-cal .amt-short { display: none; }
     <button id="w-sp" aria-pressed="false">スマホ（縦に並べる）</button>
   </div>
   <details class="past">
-  <summary>比べた画面を見る（データベースの持ち方、見た目の決まり、5.1〜5.13 など）</summary>
+  <summary>比べた画面を見る（受け入れ基準で見つかったこと、データベースの持ち方、見た目の決まり、5.1〜5.13 など）</summary>
+  <div class="group">受け入れ基準で見つかったこと ①「使わない」口座にお金が残っているとき（決定：イ）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-uai" aria-selected="false" data-p="p-uai">✓ イ：残高 0 のときだけ「使わない」にできる</button>
+    <button role="tab" id="t-uaa" aria-selected="false" data-p="p-uaa">ア：合計には入れる</button>
+    <button role="tab" id="t-uau" aria-selected="false" data-p="p-uau">ウ：合計に入れない</button>
+  </div>
+  <div class="group">受け入れ基準で見つかったこと ② 先の日付で入れた記録（決定：ア）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-fda" aria-selected="false" data-p="p-fda">✓ ア：今の残高には今日までの記録だけ</button>
+    <button role="tab" id="t-fdi" aria-selected="false" data-p="p-fdi">イ：日付に関係なく全部入れる</button>
+  </div>
   <div class="group">データベースの持ち方 ①「今回はなし」をどこに覚えさせるか（決定：イ 専用の表）</div>
   <div class="tabs" role="tablist">
     <button role="tab" id="t-dsi" aria-selected="false" data-p="p-dsi">✓ イ：今回はなし専用の表</button>
@@ -1232,6 +1243,139 @@ body.pc .lk-cal .amt-short { display: none; }
     </div>
   </section>
 
+  <!-- 受け入れ基準 ①「使わない」口座のお金 -->
+  <section id="p-uaa" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：前に使っていたネット銀行の口座を「使わない」にした。でも、その口座に <b>3,000 円</b>残ったままだった。ホームの「今の残高の合計」はいくらになる？（ほかの口座：銀行口座 412,000・現金 8,500・カードA -48,300）</div>
+    <div class="phone">
+      <div class="bar">家計簿（ホーム） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full">
+          <h3>今の残高の合計</h3>
+          <b style="font-size:1.4rem">375,200</b>
+          <table class="rec">
+            <tr><td>銀行口座</td><td class="n">412,000</td></tr>
+            <tr><td>現金</td><td class="n">8,500</td></tr>
+            <tr><td>カードA</td><td class="n" style="color:#c0392b">-48,300</td></tr>
+            <tr><td style="color:var(--muted)">「使わない」口座の分</td><td class="n" style="color:var(--muted)">3,000</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ア：「使わない」口座のお金も、合計には入れる</h2>
+      <ul>
+        <li>口座ごとの一覧には出さないが、合計と使える額には 3,000 円が入る。そのため、合計が口座の行を足した額と合わないので、「『使わない』口座の分」の行を足して説明する。</li>
+        <li>お金は本当にあるので、合計は正しい。</li>
+        <li>そのかわり、使わない口座の残高が、ずっと合計に入りつづける。使えないお金が「使える額」にも入ってしまう。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-uai" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：前に使っていたネット銀行の口座を「使わない」にしたい。でも、その口座に <b>3,000 円</b>残っている。</div>
+    <div class="phone">
+      <div class="bar">口座を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <span>名前 [ネット銀行　　　　]</span>
+          <span>[ ] 使う</span>
+          <span style="color:#c0392b;font-size:.85rem">残高が 3,000 円あるので「使わない」にできません。お金をほかの口座へ移す記録をつけるか、残高を合わせて 0 円にしてください。</span>
+          <span style="color:var(--accent)">残高を合わせる ›</span>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>イ：残高が 0 円のときだけ「使わない」にできる</h2>
+      <ul>
+        <li>お金が残っている口座は「使わない」にできない。先に、ほかの口座へ移す（移動の記録）か、残高を合わせて 0 円にする。</li>
+        <li>「使わない」口座には、いつも 0 円しかない。だから、ホームで出さなくても合計がずれない。合計の説明の行も要らない。</li>
+        <li>そのかわり、「使わない」にする前に、ひと手間かかる（ふつうは、口座を使わなくなるときにお金を移しているので、0 円のことが多い）。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-uau" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：前に使っていたネット銀行の口座を「使わない」にした。でも、その口座に <b>3,000 円</b>残ったままだった。</div>
+    <div class="phone">
+      <div class="bar">家計簿（ホーム） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full">
+          <h3>今の残高の合計</h3>
+          <b style="font-size:1.4rem">372,200</b>
+          <table class="rec">
+            <tr><td>銀行口座</td><td class="n">412,000</td></tr>
+            <tr><td>現金</td><td class="n">8,500</td></tr>
+            <tr><td>カードA</td><td class="n" style="color:#c0392b">-48,300</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ウ：「使わない」口座のお金は、合計に入れない</h2>
+      <ul>
+        <li>ホームに出ている口座だけを足すので、見た目はわかりやすい。</li>
+        <li>そのかわり、3,000 円が<b>どこにも出なくなる</b>。過去の月の残高のグラフ（第 3 段階）とも合わなくなり、「お金が消えた」ように見える。</li>
+        <li>まちがえて「使わない」にした口座のお金に、気づきにくい。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 受け入れ基準 ② 先の日付の記録 -->
+  <section id="p-fda" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：今日は 10月9日。来週 10月15日に払う予定の旅行代金 20,000 円を、忘れないように先に記録しておいた（日付は 10月15日・銀行口座）。銀行口座の今の残高は？（その記録の前は 412,000）</div>
+    <div class="phone">
+      <div class="bar">家計簿（ホーム） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full">
+          <h3>銀行口座（今日 10月9日）</h3>
+          <b style="font-size:1.4rem">412,000</b>
+          <small style="color:var(--muted)">10月15日の 20,000 は、その日になったら引かれる</small>
+        </div>
+        <div class="block full">
+          <h3>カレンダー</h3>
+          <span>15日のマスに 20,000（その日の支出として出る）</span>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ア：今の残高には、今日までの日付の記録だけを入れる</h2>
+      <ul>
+        <li>「今の残高」が、本当に今、口座にある金額になる。通帳や財布とくらべやすい。</li>
+        <li>残高を合わせる画面（5.7）の「アプリの残高」は、もう「今日までの残高」と決めてある。ホームも同じ数え方になり、2 つの画面で残高が食いちがわない。</li>
+        <li>先の日付の記録は、カレンダーと記録の一覧には、その日のところに出る。月の収支にも、その月の分として入る。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-fdi" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：今日は 10月9日。来週 10月15日に払う予定の旅行代金 20,000 円を、忘れないように先に記録しておいた（日付は 10月15日・銀行口座）。銀行口座の今の残高は？（その記録の前は 412,000）</div>
+    <div class="phone">
+      <div class="bar">家計簿（ホーム） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full">
+          <h3>銀行口座</h3>
+          <b style="font-size:1.4rem">392,000</b>
+          <small style="color:var(--muted)">10月15日の 20,000 も、もう引いてある</small>
+        </div>
+        <div class="block full">
+          <h3>残高を合わせる（アプリの残高）</h3>
+          <span>412,000 ← 今日までの残高なので、ホームと食いちがう</span>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>イ：日付に関係なく、全部の記録を入れる</h2>
+      <ul>
+        <li>先に払うと決まっているお金も引かれるので、使いすぎの心配は少ない。</li>
+        <li>そのかわり、通帳を見ると 412,000 円あるのに、アプリは 392,000 円で、くらべにくい。</li>
+        <li>残高を合わせる画面の「アプリの残高」（今日までの残高）とも食いちがう。そろえるには、5.7 の決まりも変える必要がある。</li>
+        <li>これから払う予定は、もともと定期的な記録と「使える額」で引く仕組みがある（第 2 段階）。</li>
+      </ul>
+    </div>
+  </section>
+
   <section id="p-choices" class="stage">
     <div class="ch">
       <div class="notes">
@@ -1315,6 +1459,13 @@ body.pc .lk-cal .amt-short { display: none; }
         <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
         <tr><td>10月11日</td><td>「今回はなし」を覚えさせる場所</td><td>ア 月ごとの金額の表に印／イ 今回はなし専用の表</td><td class="pick">イ 専用の表（recurring_skips）</td><td><button class="goto" data-goto="t-dsi">イ</button> <button class="goto" data-goto="t-dsa">ア</button></td></tr>
         <tr><td>10月11日</td><td>「選んだ月だけ」の覚えさせ方</td><td>ア 1 つの列にまとめる／イ 月ごとの表を作る</td><td class="pick">ア 1 つの列（recurrings.months）</td><td><button class="goto" data-goto="t-dma">ア</button> <button class="goto" data-goto="t-dmi">イ</button></td></tr>
+      </table></div>
+
+      <h2>受け入れ基準を書いて見つかったこと</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月11日</td><td>「使わない」口座にお金が残っているとき</td><td>ア 合計には入れる／イ 残高 0 のときだけ「使わない」にできる／ウ 合計に入れない</td><td class="pick">イ 残高 0 のときだけ</td><td><button class="goto" data-goto="t-uai">イ</button> <button class="goto" data-goto="t-uaa">ア</button> <button class="goto" data-goto="t-uau">ウ</button></td></tr>
+        <tr><td>10月11日</td><td>先の日付で入れた記録と今の残高</td><td>ア 今日までの記録だけ／イ 日付に関係なく全部</td><td class="pick">ア 今日までの記録だけ</td><td><button class="goto" data-goto="t-fda">ア</button> <button class="goto" data-goto="t-fdi">イ</button></td></tr>
       </table></div>
     </div>
   </section>
