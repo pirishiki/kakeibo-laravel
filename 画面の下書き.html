@@ -235,9 +235,9 @@ body.pc .lk-cal .amt-short { display: none; }
 
   <p class="howto"><span class="pin" style="margin-left:0">1</span> のような青い番号の印は、<b>Claude が決めたので確認してほしいところ</b>です。画面の中の印の場所を見て、画面の下の同じ番号の説明と合わせて確かめてください。4 章・5.1〜5.10 の印は、すべて確認済みです（直すところなし）。</p>
 
-  <div class="group">いま確認してほしいもの：PR #12 の第三者チェックで直したところ（Claude が決めた点は印 ①〜③）</div>
+  <div class="group">いま確認してほしいもの：10.1・10.3・10.4 のレビューのあと Claude が決めた点（印 ①〜㉑）</div>
   <div class="tabs" role="tablist">
-    <button role="tab" id="t-fix2" aria-selected="true" data-p="p-fix2">第三者チェックの直し（16 件）</button>
+    <button role="tab" id="t-s4" aria-selected="true" data-p="p-s4">Claude が決めた点（21 件）</button>
   </div>
   <div class="widths">見る幅：
     <button id="w-pc" aria-pressed="true">パソコン（横に並べる）</button>
@@ -297,6 +297,27 @@ body.pc .lk-cal .amt-short { display: none; }
     <button role="tab" id="t-ov2a" aria-selected="false" data-p="p-ov2a">✓ ア：先に予定を直すよう知らせて止める</button>
     <button role="tab" id="t-ov2i" aria-selected="false" data-p="p-ov2i">イ：予定もいっしょに「使わない」にする</button>
     <button role="tab" id="t-ov2u" aria-selected="false" data-p="p-ov2u">ウ：予定はそのまま動く</button>
+  </div>
+  <div class="group">10.1 レビュー A：「使わない」口座の過去の記録を直す・消すとき（決定：イ）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-raI" aria-selected="false" data-p="p-raI">✓ イ：0 円でなくなる直しだけ止める</button>
+    <button role="tab" id="t-raA" aria-selected="false" data-p="p-raA">ア：「使わない」口座の記録は直せない</button>
+    <button role="tab" id="t-raU" aria-selected="false" data-p="p-raU">ウ：直せて、0 円でなくなったら知らせる</button>
+  </div>
+  <div class="group">10.1 レビュー B：残高を合わせるとき、今日でない日付を選んだら（決定：イ）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-rbI" aria-selected="false" data-p="p-rbI">✓ イ：その日までの残高とくらべる</button>
+    <button role="tab" id="t-rbA" aria-selected="false" data-p="p-rbA">ア：日付は今日だけにする</button>
+    <button role="tab" id="t-rbU" aria-selected="false" data-p="p-rbU">ウ：日付は変えられるが、今日の残高とくらべる</button>
+  </div>
+  <div class="group">10.1・10.3 レビュー C：小分類を移すと、過ぎた月の予算の状況が変わるとき（決定：ア）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-rcA" aria-selected="false" data-p="p-rcA">✓ ア：変わることを小窓で知らせて移す</button>
+    <button role="tab" id="t-rcI" aria-selected="false" data-p="p-rcI">イ：予算があるあいだは移せない</button>
+  </div>
+  <div class="group">PR #12 の第三者チェックで直したところ（印 ①〜③ 確認済み）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-fix2" aria-selected="false" data-p="p-fix2">第三者チェックの直し（16 件）</button>
   </div>
   <div class="group">10.4 全部の段階に共通（非機能要件）の受け入れ基準（確認済み）</div>
   <div class="tabs" role="tablist">
@@ -514,8 +535,217 @@ body.pc .lk-cal .amt-short { display: none; }
   </div>
   </details>
 
+  <!-- 10.1・10.3・10.4 レビューのあと Claude が決めた点 -->
+  <section id="p-s4" class="stage">
+    <div class="howto" style="margin:0">10.1・10.3・10.4 の第三者レビュー（24 件）のうち、選んでもらった 3 件（A・B・C）のほかを、Claude が決めて設計書と受け入れ基準に書きました（コミット 4700000。受け入れ基準は全部で 217 項目）。選ぶほどではないが、決めておかないと作るときに迷う点です。印 ⑩⑪㉑ は、決めごとではなく、受け入れ基準に項目を足しただけのものです。</div>
+    <div class="checks">
+      <h2>10.1 第 1 段階</h2>
+      <div><i class="pin">1</i><span>調整の記録を編集するときの金額は「0 以外の整数」（マイナスも入れられる、0 にはできない）。これまでの「0 以下は保存できない」は、ふつうの記録だけの決まり。</span></div>
+      <div><i class="pin">2</i><span>ログインで止まるのは、同じメールアドレス・同じ IP アドレスで 1 分に 5 回まちがえたとき。6 回目から 60 秒のあいだ「ログインの回数が多すぎます。○ 秒後にもう一度ためしてください」と出す（Laravel の最初の値のまま）。</span></div>
+      <div><i class="pin">3</i><span>登録の画面の口座の最初の値「最後に保存した記録」は、<b>入力した日時</b>でいちばんあとに新しく登録した記録（編集したものはふくめない）。続けて入力するときに、さっきと同じ口座が入るように。</span></div>
+      <div><i class="pin">4</i><span>相手を選んだときの「前回」は、その相手の記録のうち<b>日付</b>がいちばん新しいもの（今日まで。同じ日ならあとで入力したもの）。つけ忘れを前の日付で入れても、「前回」が古い記録に変わらないように。相手の一覧の「最近使った順」と同じ数え方。</span></div>
+      <div><i class="pin">5</i><span>ホームの最近の記録 5 件は、入力した日時の新しい順（上がいちばん新しい）。記録の日付の順ではない。</span></div>
+      <div><i class="pin">6</i><span>残高を合わせる画面の「＋ つけ忘れを記録する」から開いたときは、相手を選んでも口座はその口座のまま（分類・小分類は入る）。口座が入れかわると、差が変わらないまま保存してしまうため。</span></div>
+      <div><i class="pin">7</i><span>金額の上限は 99,999,999 円（1 億円未満）。0 の打ちすぎに気づけるように。最初の残高・記録・調整・定期的な記録・予算・目標額の、全部の金額の欄で同じ（最初の残高と調整はマイナスも同じ大きさまで）。</span></div>
+      <div><i class="pin">8</i><span>今月の先の日付の記録は、今の残高には入らないが、今月の収支・多く使った分類・カレンダーのその日のマス（ふつうの字）には入る。記録の一覧・月のまとめの月の合計と同じ数え方にするため。</span></div>
+      <div><i class="pin">9</i><span>カレンダーで記録のない日を押したときは、その日より前でいちばん近い記録のある日の見出しまで動く（なければ一覧のいちばん上）。</span></div>
+      <div><i class="pin">10</i><span>（項目を足しただけ）ホームの口座ごとの残高は口座の管理と同じ順で、「使わない」口座は出ない。</span></div>
+      <div><i class="pin">11</i><span>（項目を足しただけ）メニューと設定の画面の項目：どの画面からでも 1 回で記録の登録へ、ログイン画面にはメニューなし、設定の件数は「使う」ものだけ、第 1 段階では定期的な記録・予算・貯金の目標は出ない。</span></div>
+      <h2>10.3 第 3 段階</h2>
+      <div><i class="pin">12</i><span>予算の % は 1 % 未満を切り捨てて出す。80% 以上かどうかは切り捨てる前の値で決める（79.95% は出ない）。ちょうど予算と同じ額なら「予算の 100% です（あと 0 円）」、「こえました」は予算より多いときだけ。</span></div>
+      <div><i class="pin">13</i><span>大分類を「使わない」にすると、その下の小分類の予算も「使わない」分類と同じ扱い（小分類も記録で選べなくなるため）。「使わない」分類の予算の扱い（過ぎた月は出す）と、記録のない分類を削除すると予算も消えることを、10.3 に項目として足した。</span></div>
+      <div><i class="pin">14</i><span>残高の折れ線グラフでは、最初の残高は使い始めた月の初めからあったものとして、どの月の残高にも入れる。「使わない」口座も、過去の月の残高に入れる（その月には使っていたため）。</span></div>
+      <div><i class="pin">15</i><span>貯金の目標が使っている口座は、種類をクレジットカードに変えられない（「使わない」・削除と同じく止めて、どの目標が使っているかを出す）。</span></div>
+      <div><i class="pin">16</i><span>期限を過ぎた目標も、期限を変えずに名前や目標額だけ直すなら、そのまま保存できる（期限を変えるときは今月より前を選べない）。</span></div>
+      <div><i class="pin">17</i><span>目標の進み具合（%）は 1 % 未満を切り捨てる（99.67% → 99%。100% は達成したときだけ）。残高がマイナスなら 0% で、棒は出さない。</span></div>
+      <h2>10.4 非機能要件</h2>
+      <div><i class="pin">18</i><span>N-12 のはかり方：AWS にデプロイした環境に、テスト用のデータ（口座 5・分類 20・相手 50・記録 1 万件）を入れ、ブラウザの開発者ツールで、2 回目以降に開いたときの読みこみが終わるまでの時間をはかる。字の最初の読みこみはふくめない。合格は「1 秒以内」（8 章の「1 秒ほど」を、はかれる形にした）。</span></div>
+      <div><i class="pin">19</i><span>N-06 で Git に入っていないことを確かめるファイルに、Terraform の値のファイル（*.tfvars）と状態のファイル（*.tfstate。データベースのパスワードがそのまま書かれる）を名前であげた。</span></div>
+      <div><i class="pin">20</i><span>N-14 で destroy のあと確かめるのは、このアプリのタグがついたリソースが、ap-southeast-2 にも us-east-1（CloudFront などを使ったとき）にも残っていないこと。Terraform の状態を置く場所など残すものは、全体の構成で決めて README に書く。</span></div>
+      <div><i class="pin">21</i><span>（項目を足しただけ）N-08（計算で出せるものの列がテーブルにない）と、N-18（master を守るルールセット）の確かめ方を 10.4 に足した。</span></div>
+    </div>
+  </section>
+
+  <!-- 10.1 レビュー A：使わない口座の過去の記録 -->
+  <section id="p-raI" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：旧カードは残高 0 円にして「使わない」にした。あとで、旧カードの 3月12日の支出 5,000（スーパー）がまちがいだと気づいた。削除すると、旧カードの残高は +5,000 になる。でも「使わない」口座はホームに出さないので、合計に出ないお金ができてしまう（「使わない」口座はいつも 0 円、という前提がくずれる）。</div>
+    <div class="phone">
+      <div class="bar">記録を直す（旧カード・3月12日） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <div class="field"><span>メモ</span><div class="box">レシートなし</div></div>
+          <small style="color:var(--muted);font-size:.78rem">メモ・分類・相手・品物・日付（同じ口座のまま）を直すのは、今までどおりできる</small>
+        </div>
+        <div class="dialog full">
+          <b style="font-size:.9rem">この記録を消すと、「使わない」口座の旧カードの残高が 5,000 円になるので、削除できません。</b>
+          <span style="font-size:.85rem">先に旧カードを「使う」に戻してから、直してください。</span>
+          <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn">閉じる</span><span class="btn primary">旧カードを開く</span></div>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>イ：残高が 0 円でなくなる直し・削除だけ止める（おすすめ）</h2>
+      <ul>
+        <li>止めるのは、金額・口座を変える、削除する、のうち「使わない」口座の残高が 0 円でなくなるものだけ。メモや分類を直すのは、今までどおりできる。</li>
+        <li>「使わない」口座はいつも 0 円、という前提が守られる（口座を 0 円のときだけ使わないにできるようにしたのと同じ考え方）。</li>
+        <li>止めるときは、何がだめかと「先に『使う』に戻す」ことを出す（レビュー 2 と同じ形）。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-raA" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：旧カードは残高 0 円にして「使わない」にした。あとで、旧カードの 3月12日の支出 5,000（スーパー）がまちがいだと気づいた。</div>
+    <div class="phone">
+      <div class="bar">記録を見る（旧カード・3月12日） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full" style="opacity:.75"><span style="font-size:.88rem">旧カードは「使わない」口座なので、この記録は直せません。直すときは、先に旧カードを「使う」に戻してください。</span></div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ア：「使わない」口座の記録は、どこも直せない・消せない</h2>
+      <ul>
+        <li>しくみがいちばんかんたん。</li>
+        <li>でも、メモや分類のように残高に関係ない直しまでできなくなる。分類を整理したいだけでも、口座を「使う」に戻す手間がかかる。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-raU" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：旧カードは残高 0 円にして「使わない」にした。あとで、旧カードの 3月12日の支出 5,000（スーパー）がまちがいだと気づいた。</div>
+    <div class="phone">
+      <div class="bar">家計簿（ホーム） <small>ログアウト</small></div>
+      <div class="screen" style="background:var(--bg)">
+        <div class="lk-cards full">
+          <div class="lk-card wide" style="background:var(--warn-soft)"><span style="font-size:.88rem"><span class="warn-txt">お知らせ</span> 「使わない」口座の旧カードに 5,000 円あります</span></div>
+          <div class="lk-card wide"><span class="lab">口座ごと</span><span style="font-size:.85rem">旧カード（使わない） 5,000 も、合計に入れて出す</span></div>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ウ：直せる。0 円でなくなったら、ホームに出してお知らせする</h2>
+      <ul>
+        <li>止められないので、手間がない。</li>
+        <li>「使わない」口座がホームに出たり出なかったりして、決まりが複雑になる（口座を 0 円のときだけ使わないにした理由がくずれる）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 10.1 レビュー B：残高を合わせる日付 -->
+  <section id="p-rbI" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：今日は 10月9日。財布の中身を 10月6日に数えたメモ（実際は 8,500）が出てきたので、日付を 10月6日にして残高を合わせる。アプリの 10月6日までの残高は 9,200、今日までの残高は 8,000（7日・8日の記録がある）。</div>
+    <div class="phone">
+      <div class="bar">現金の残高を合わせる <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <div class="field"><span>日付</span><div class="box">10月6日（火）<span>▼</span></div></div>
+          <div class="field"><span>アプリの残高</span><div style="text-align:right">9,200<br><small style="color:var(--muted)">10月6日の終わりまでの残高</small></div></div>
+          <div class="field"><span>実際の金額</span><div class="box amount">8,500</div></div>
+          <div class="field"><span>差</span><div style="text-align:right;color:#c0392b;font-weight:700">-700</div></div>
+          <small style="color:var(--muted);font-size:.78rem">選べるのは今日までの日付。先の日付は選べない</small>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>イ：選んだ日の終わりまでの残高とくらべる（おすすめ）</h2>
+      <ul>
+        <li>日付を選ぶと、「アプリの残高」がその日の終わりまでの残高に変わり、差もその日で出す。保存すると、その日の残高が実際の金額と同じになる。</li>
+        <li>「何日に数えたか」と「その日の残高」がそろうので、まちがった調整にならない。</li>
+        <li>先の日付は選べない（数える前の金額は、まだわからないため）。</li>
+        <li>受け入れ基準は「選んだ日の残高が実際の金額と同じになる」にする。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-rbA" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：今日は 10月9日。財布の中身を 10月6日に数えたメモ（実際は 8,500）が出てきた。</div>
+    <div class="phone">
+      <div class="bar">現金の残高を合わせる <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <div class="field"><span>日付</span><div>10月9日（金）（今日・変えられない）</div></div>
+          <small style="color:var(--muted);font-size:.78rem">6日のメモは使えない。もう一度、今の財布を数える</small>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ア：日付は今日だけにする</h2>
+      <ul>
+        <li>しくみがいちばんかんたん。まちがいが起きない。</li>
+        <li>でも、5.7 で確認した「調整の日付は今日が入っているが、変えられる」（印 ④）と合わなくなる。</li>
+        <li>前に数えたメモや、通帳の前の日の残高で合わせることができない。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-rbU" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：今日は 10月9日。財布の中身を 10月6日に数えたメモ（実際は 8,500）が出てきたので、日付を 10月6日にして残高を合わせる。アプリの 10月6日までの残高は 9,200、今日までの残高は 8,000。</div>
+    <div class="phone">
+      <div class="bar">現金の残高を合わせる <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <div class="field"><span>日付</span><div class="box">10月6日（火）<span>▼</span></div></div>
+          <div class="field"><span>アプリの残高</span><div style="text-align:right">8,000（今日まで）</div></div>
+          <div class="field"><span>差</span><div style="text-align:right;font-weight:700">+500</div></div>
+          <small style="color:#c0392b;font-size:.8rem">6日の時点ではずれは -700 だったのに、+500 の調整になってしまう</small>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ウ：日付は変えられるが、差はいつも今日の残高でくらべる</h2>
+      <ul>
+        <li>差の出し方は今の設計書のまま。</li>
+        <li>でも、日付を前にすると、その日のずれとちがう金額の調整ができてしまい、7日・8日の記録とつじつまが合わなくなる。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 10.1・10.3 レビュー C：小分類を移すと過去の予算の状況が変わる -->
+  <section id="p-rcA" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：9 月の食費は予算 30,000 で 29,000 使った（そのうち外食 12,000）。11 月に、外食を食費から交際費の下へ移す。分類の管理（5.8）で「小分類を移すと、過去の記録もいっしょに移り、過去の月のまとめも新しい分け方で出る」と決めてある。すると 9 月の食費は 17,000 になり、交際費（予算 5,000）は 9 月に予算をこえたように見える。予算で決めた「過去の数字を変えない」とぶつかる。</div>
+    <div class="phone">
+      <div class="bar">小分類を直す（外食） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="dialog full">
+          <b style="font-size:.9rem">外食の記録 48 件もいっしょに交際費へ移ります。</b>
+          <span style="font-size:.85rem">過去の月のまとめも新しい分け方で出るので、食費・交際費の過去の月の予算の状況（こえた・こえていない）も変わります。</span>
+          <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn">やめる</span><span class="btn primary">移す</span></div>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>ア：予算の状況も変わることを、移す前の小窓で知らせて移す（おすすめ）</h2>
+      <ul>
+        <li>小分類を移すのは「分け方そのものを見直す」ことで、過去も新しい分け方で見たいことが多い（5.8 で決めたとおり）。</li>
+        <li>予算で決めた「過去の数字を変えない」は、予算の<b>金額</b>を変えたときの話。分け方を変えたときは、使った額が新しい分け方で数え直されることを、前もって知らせる。</li>
+        <li>作るものは小窓の文が増えるだけ。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-rcI" class="stage" hidden>
+    <div class="howto" style="margin:0"><b>例</b>：9 月の食費は予算 30,000 で 29,000 使った（そのうち外食 12,000）。11 月に、外食を食費から交際費の下へ移したい。</div>
+    <div class="phone">
+      <div class="bar">小分類を直す（外食） <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <span style="color:#c0392b;font-size:.85rem">食費・交際費に予算があるので、外食をほかの大分類へ移せません。先に予算をやめてください。</span>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>イ：移す元か移す先の大分類に予算があるあいだは、小分類を移せない</h2>
+      <ul>
+        <li>過去の予算の状況は、ぜったいに変わらない。</li>
+        <li>でも、予算をやめても過去の月の予算は残る（変えた月からの決まり）ので、いつまでも移せないことがある。分け方を見直したいときに困る。</li>
+      </ul>
+    </div>
+  </section>
+
   <!-- PR #12 の第三者チェックの直し -->
-  <section id="p-fix2" class="stage">
+  <section id="p-fix2" class="stage" hidden>
     <div class="howto" style="margin:0">PR #12 をマージする前に、会話を知らない別の AI に、<b>レビューのあとに直したところ（PR の差分）だけ</b>を読んでもらい、文書のあいだの食いちがいと、わかりにくい文を探してもらいました。見つかった 16 件を、すべて設計書で確かめてから直しました（コミット 1e2f065 ほか）。ほとんどは書き直しだけですが、印 ①〜③ の 3 件は、これまでの決め方にそろえて Claude が決めました。</div>
     <div class="ch">
       <h2>食いちがい（10 件）</h2>
@@ -2792,6 +3022,9 @@ body.pc .lk-cal .amt-short { display: none; }
         <tr><td>10月11日</td><td>直した自動の記録を消して、もどすときの金額（レビュー 11）</td><td>ア 消した記録と同じ金額／イ 月ごとの金額に入れた金額／ウ 金額がまだに戻す</td><td class="pick">ア 消した記録と同じ金額</td><td><button class="goto" data-goto="t-ov11a">ア</button> <button class="goto" data-goto="t-ov11i">イ</button> <button class="goto" data-goto="t-ov11u">ウ</button></td></tr>
         <tr><td>10月11日</td><td>「使わない」の予定は過去の月に出るか（レビュー 12）</td><td>ア 記録済み・今回はなしの月だけ出す／イ どの月にも出さない</td><td class="pick">ア 記録のある月だけ出す</td><td><button class="goto" data-goto="t-ov12a">ア</button> <button class="goto" data-goto="t-ov12i">イ</button></td></tr>
         <tr><td>10月11日</td><td>ふだんの予算を変えたとき、過ぎた月の予算（10.3）</td><td>ア 過ぎた月も新しい金額／イ 変えた月から新しい金額</td><td class="pick">イ 変えた月から（budgets に いつから・いつまで）</td><td><button class="goto" data-goto="t-bh-i">イ</button> <button class="goto" data-goto="t-bh-a">ア</button></td></tr>
+        <tr><td>10月11日</td><td>「使わない」口座の過去の記録を直す・消すとき（10.1 レビュー A）</td><td>ア 直せない／イ 0 円でなくなる直しだけ止める／ウ 直せて知らせる</td><td class="pick">イ 0 円でなくなる直しだけ止める</td><td><button class="goto" data-goto="t-raI">イ</button> <button class="goto" data-goto="t-raA">ア</button> <button class="goto" data-goto="t-raU">ウ</button></td></tr>
+        <tr><td>10月11日</td><td>残高を合わせるとき、今日でない日付を選んだら（10.1 レビュー B）</td><td>ア 今日だけ／イ その日までの残高とくらべる／ウ 今日の残高とくらべる</td><td class="pick">イ その日までの残高</td><td><button class="goto" data-goto="t-rbI">イ</button> <button class="goto" data-goto="t-rbA">ア</button> <button class="goto" data-goto="t-rbU">ウ</button></td></tr>
+        <tr><td>10月11日</td><td>小分類を移すと過ぎた月の予算の状況が変わるとき（レビュー C）</td><td>ア 小窓で知らせて移す／イ 予算があるあいだは移せない</td><td class="pick">ア 小窓で知らせて移す</td><td><button class="goto" data-goto="t-rcA">ア</button> <button class="goto" data-goto="t-rcI">イ</button></td></tr>
       </table></div>
     </div>
   </section>
