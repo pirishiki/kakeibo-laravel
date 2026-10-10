@@ -1,6 +1,7 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>家計簿 画面の下書き</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
 <style>
 /* 下書き：スマホ幅の枠に、線と文字だけの画面を描く。色は「ここが大事」を示すアクセント1色と、使いすぎの赤だけ */
 :root {
@@ -14,7 +15,7 @@
   --warn: #b3412e;
   --warn-soft: #f6e3df;
   --c1: #2f6b4f; --c2: #6f9a5d; --c3: #a9b97a; --c4: #d4c88a; --c5: #c79a6a; --c6: #9a7b8f; --c7: #b9bdb4;
-  --font: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --font: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #181a17; --paper: #222520; --ink: #e8ebe4; --muted: #9ea597; --line: #3f443b;
@@ -45,6 +46,13 @@ body.pc .screen { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items:
 body.pc .screen > .month, body.pc .screen > .divider, body.pc .screen > .subtabs, body.pc .screen > .full { grid-column: 1 / -1; }
 @media (max-width: 700px) { body.pc .screen { grid-template-columns: minmax(0, 1fr); } }
 .notes { background: var(--paper); border: 1px dashed var(--line); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+/* データベースの表の見本 */
+.dbwrap { overflow-x: auto; }
+.dbt { font-size: .82rem; font-variant-numeric: tabular-nums; }
+.dbt th { text-align: left; font-weight: 700; padding: 4px 8px 4px 0; border-bottom: 2px solid var(--line); white-space: nowrap; }
+.dbt td { padding: 4px 8px 4px 0; white-space: nowrap; }
+.dbt .newcol { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.dbname { font-family: ui-monospace, Consolas, monospace; font-weight: 700; }
 .notes h2 { font-size: 1rem; margin: 0 0 8px; }
 .notes ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
 .notes .tag { display: inline-block; font-size: .75rem; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 700; margin-right: 4px; }
@@ -171,18 +179,160 @@ body.pc .navb .screen { padding-bottom: 64px; }
 .state { display: inline-block; font-size: .72rem; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; margin-top: 2px; }
 .skip td { color: var(--muted); }
 .skip td b { text-decoration: line-through; font-weight: 400; }
+.past { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; margin: 0 0 20px; background: var(--paper); }
+.past summary { cursor: pointer; color: var(--accent); font-weight: 700; font-size: .9rem; }
+.past summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.past[open] summary { margin-bottom: 12px; }
+.ch { display: grid; gap: 16px; }
+.ch h2 { font-size: 1rem; margin: 8px 0 0; }
+.ch-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.ch table { font-size: .85rem; min-width: 640px; }
+.ch th { text-align: left; font-size: .78rem; color: var(--muted); padding: 6px 8px; border-bottom: 2px solid var(--line); white-space: nowrap; }
+.ch td { padding: 6px 8px; vertical-align: top; }
+.ch td.pick { font-weight: 700; color: var(--accent); }
+.ch .no { color: var(--muted); }
+.goto { font: inherit; font-size: .78rem; border: 1px solid var(--accent); color: var(--accent); background: var(--paper); border-radius: 999px; padding: 1px 10px; cursor: pointer; white-space: nowrap; }
+.goto:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* 見た目の型の見本 */
+.lk-list .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px 2px; border-bottom: 1px solid var(--line); font-size: .9rem; }
+.lk-list .row:last-child { border-bottom: 0; }
+.lk-list .row small { display: block; color: var(--muted); font-size: .76rem; }
+.lk-list .row .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lk-list .head { font-size: .78rem; color: var(--muted); letter-spacing: .06em; padding: 12px 2px 4px; border-bottom: 2px solid var(--line); }
+.lk-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lk-card { background: var(--paper); border-radius: 14px; padding: 12px; box-shadow: 0 2px 8px rgb(0 0 0 / .10); display: grid; gap: 4px; min-width: 0; }
+.lk-card.wide { grid-column: 1 / -1; }
+.lk-card .lab { font-size: .75rem; color: var(--muted); }
+.lk-card .val { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.lk-card .val.small { font-size: 1.05rem; }
+.lk-card.hero { background: var(--accent); color: var(--paper); }
+.lk-card.hero .lab { color: var(--accent-soft); }
+.lk-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; font-size: .7rem; text-align: center; }
+.lk-cal .dow { color: var(--muted); padding: 2px 0; }
+.lk-cal .d { border: 1px solid var(--line); border-radius: 4px; min-height: 2.8em; padding: 2px; display: grid; align-content: start; gap: 1px; min-width: 0; overflow: hidden; }
+.lk-cal .d span { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.lk-cal i { font-style: normal; }
+.lk-cal .amt-full { display: none; }
+body.pc .lk-cal .amt-full { display: inline; }
+body.pc .lk-cal .amt-short { display: none; }
+@media (max-width: 700px) { body.pc .lk-cal .amt-full { display: none; } body.pc .lk-cal .amt-short { display: inline; } }
+.lk-cal .d b { font-weight: 400; color: var(--muted); }
+.lk-cal .d span { font-variant-numeric: tabular-nums; color: var(--warn); font-size: .66rem; }
+.lk-cal .d span.in { color: var(--accent); }
+.lk-cal .d.today { border: 2px solid var(--accent); }
+.lk-cal .d.sel { background: var(--accent-soft); }
+.lk-cal .d.plan span { color: var(--muted); }
+.cssframe { width: 100%; height: 640px; border: 2px solid var(--line); border-radius: 12px; background: #fff; }
 .auto { font-size: .68rem; border: 1px solid var(--accent); color: var(--accent); border-radius: 4px; padding: 0 4px; margin-left: 4px; }
 </style>
 
 <div class="wrap">
   <h1>家計簿 画面の下書き</h1>
-  <p class="lead">画面の形を比べるための下書きです。線と文字だけで、色やフォントは本番では変わります。数字はすべて例です。</p>
+  <p class="lead">画面の形を比べるための下書きです。画面ごとの下書きは線と文字だけで、本番の色と字は「見た目の決まり」（画面設計書 6 章）のタブのとおりです。数字はすべて例です。</p>
 
-  <p class="howto"><span class="pin" style="margin-left:0">1</span> のような青い番号の印は、<b>Claude が決めたので確認してほしいところ</b>です。画面の中の印の場所を見て、画面の下の同じ番号の説明と合わせて確かめてください。4 章・5.1〜5.9 の印は、10月9日にすべて確認済みです（直すところなし）。</p>
+  <p class="howto"><span class="pin" style="margin-left:0">1</span> のような青い番号の印は、<b>Claude が決めたので確認してほしいところ</b>です。画面の中の印の場所を見て、画面の下の同じ番号の説明と合わせて確かめてください。4 章・5.1〜5.10 の印は、すべて確認済みです（直すところなし）。</p>
 
-  <div class="group">いま設計中：5.10 定期的な記録　前半：月ごとの金額（記録済みの月の直し方は決定：A）</div>
+  <div class="group">設計はすべて終わり（10月11日）：画面設計で選んだことの一覧</div>
   <div class="tabs" role="tablist">
-    <button role="tab" id="t-rmonth" aria-selected="true" data-p="p-rmonth">前半：月ごとの金額</button>
+    <button role="tab" id="t-choices" aria-selected="true" data-p="p-choices">選んだことの一覧</button>
+  </div>
+  <div class="widths">見る幅：
+    <button id="w-pc" aria-pressed="true">パソコン（横に並べる）</button>
+    <button id="w-sp" aria-pressed="false">スマホ（縦に並べる）</button>
+  </div>
+  <details class="past">
+  <summary>比べた画面を見る（データベースの持ち方、見た目の決まり、5.1〜5.13 など）</summary>
+  <div class="group">データベースの持ち方 ①「今回はなし」をどこに覚えさせるか（決定：イ 専用の表）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-dsi" aria-selected="false" data-p="p-dsi">✓ イ：今回はなし専用の表</button>
+    <button role="tab" id="t-dsa" aria-selected="false" data-p="p-dsa">ア：月ごとの金額の表に印</button>
+  </div>
+  <div class="group">データベースの持ち方 ②「選んだ月だけ」をどう覚えさせるか（決定：ア 1 つの列）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-dma" aria-selected="false" data-p="p-dma">✓ ア：1 つの列にまとめる</button>
+    <button role="tab" id="t-dmi" aria-selected="false" data-p="p-dmi">イ：月ごとの表を作る</button>
+  </div>
+  <div class="group">理由を書く（見た目の 3 件は 10月11日に「すべて OK」、画面設計書に反映済み）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-why" aria-selected="false" data-p="p-why">理由を書く（3 件・済み）</button>
+  </div>
+  <div class="group">見た目 ③-3 字の形（決定：ウ Noto Sans JP。印①〜④ 確認済み）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-fna" aria-selected="false" data-p="p-fna">ア：機械に入っている字</button>
+    <button role="tab" id="t-fni" aria-selected="false" data-p="p-fni">イ：BIZ UDPゴシック</button>
+    <button role="tab" id="t-fnu" aria-selected="false" data-p="p-fnu">✓ ウ：Noto Sans JP</button>
+  </div>
+  <div class="group">見た目 ③-2 色の役目（印①〜⑥ 確認済み。収入の緑は B に決定）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-roles" aria-selected="false" data-p="p-roles">色の役目</button>
+  </div>
+  <div class="group">見た目 ③-1 基本の色（決定：エ 青緑）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-colg" aria-selected="false" data-p="p-colg">ア：緑</button>
+    <button role="tab" id="t-colb" aria-selected="false" data-p="p-colb">イ：青</button>
+    <button role="tab" id="t-coln" aria-selected="false" data-p="p-coln">ウ：紺</button>
+    <button role="tab" id="t-colo" aria-selected="false" data-p="p-colo">✓ エ：青緑（ティール）</button>
+  </div>
+  <div class="group">見た目 ② CSS の書き方（決定：イ Bootstrap）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-cssb" aria-selected="false" data-p="p-cssb">✓ イ：Bootstrap</button>
+    <button role="tab" id="t-cssa" aria-selected="false" data-p="p-cssa">ア：自分で全部書く</button>
+    <button role="tab" id="t-cssp" aria-selected="false" data-p="p-cssp">ウ：Pico.css</button>
+  </div>
+  <div class="group">見た目 ① 並べ方の型（決定：B ホームをカード型にして、カレンダーのカードを入れる。印①〜⑥ 確認済み）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-mxb" aria-selected="false" data-p="p-mxb">✓ B：ホームにカレンダーのカード</button>
+    <button role="tab" id="t-mxa" aria-selected="false" data-p="p-mxa">A：カレンダーは記録の一覧に</button>
+  </div>
+  <div class="group">見た目 ① はじめに比べた 3 つの型（本人：使える額はカード型が見やすい、どの日にいくらはカレンダー型がよい）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-lkl" aria-selected="false" data-p="p-lkl">ア：リスト型</button>
+    <button role="tab" id="t-lkc" aria-selected="false" data-p="p-lkc">イ：カード型</button>
+    <button role="tab" id="t-lkk" aria-selected="false" data-p="p-lkk">ウ：カレンダー型</button>
+  </div>
+  <div class="group">5.13 貯金の目標（印①〜⑧ 確認済み・直しなし）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-goal" aria-selected="false" data-p="p-goal">一覧</button>
+    <button role="tab" id="t-goaledit" aria-selected="false" data-p="p-goaledit">追加・変更</button>
+  </div>
+  <div class="group">貯金の目標：1 つの口座を 2 つ以上の目標で使うとき（決定：ア）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-gla" aria-selected="false" data-p="p-gla">✓ ア：1 つの口座は 1 つの目標だけ</button>
+    <button role="tab" id="t-gli" aria-selected="false" data-p="p-gli">イ：同じ残高を両方に出す</button>
+    <button role="tab" id="t-glu" aria-selected="false" data-p="p-glu">ウ：口座の中で振り分ける</button>
+  </div>
+  <div class="group">5.12 設定（印①〜④ 確認済み・直しなし）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-set" aria-selected="false" data-p="p-set">設定</button>
+  </div>
+  <div class="group">5.11 予算を決める（入れ方は決定：ア。印①〜⑦ 確認済み・直しなし）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-bgfin" aria-selected="false" data-p="p-bgfin">予算を決める</button>
+  </div>
+  <div class="group">5.11 予算の入れ方（決定：ア）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-bga" aria-selected="false" data-p="p-bga">✓ ア：分類の表に直接入れる</button>
+    <button role="tab" id="t-bgi" aria-selected="false" data-p="p-bgi">イ：一覧＋追加・変更の画面</button>
+  </div>
+  <div class="group">5.10 後半：登録してある定期的な記録（印①〜⑬ 確認済み・直しなし）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-rlist" aria-selected="false" data-p="p-rlist">一覧</button>
+    <button role="tab" id="t-redit" aria-selected="false" data-p="p-redit">登録・変更</button>
+  </div>
+  <div class="group">5.10 後半：過ぎた月があとから記録の対象に入ったとき（決定：ア）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-bka" aria-selected="false" data-p="p-bka">✓ ア：今回はなしにする</button>
+    <button role="tab" id="t-bki" aria-selected="false" data-p="p-bki">イ：その変更をできなくする</button>
+    <button role="tab" id="t-bku" aria-selected="false" data-p="p-bku">ウ：保存するときに選ぶ</button>
+  </div>
+  <div class="group">5.10 後半：決まった金額が先の月から変わるとき（決定：ア）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-chga" aria-selected="false" data-p="p-chga">✓ ア：終わらせて続きを作る</button>
+    <button role="tab" id="t-chgi" aria-selected="false" data-p="p-chgi">イ：「いつから」を選ぶ</button>
+  </div>
+  <div class="group">5.10 前半</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-rmonth" aria-selected="false" data-p="p-rmonth">月ごとの金額</button>
   </div>
   <div class="group">5.10 の前に決めた形（エ＋月ごとの金額）</div>
   <div class="tabs" role="tablist">
@@ -251,13 +401,1234 @@ body.pc .navb .screen { padding-bottom: 64px; }
     <button role="tab" id="t-i2" aria-selected="false" data-p="p-i2">イ：予算</button>
     <button role="tab" id="t-a" aria-selected="false" data-p="p-a">ア：予算・グラフ（1画面）</button>
   </div>
-  <div class="widths">見る幅：
-    <button id="w-pc" aria-pressed="true">パソコン（横に並べる）</button>
-    <button id="w-sp" aria-pressed="false">スマホ（縦に並べる）</button>
-  </div>
+  </details>
 
   <!-- 5.10 前半：月ごとの金額 -->
-  <section id="p-rmonth" class="stage">
+  <!-- 5.10 後半：金額が先の月から変わるとき ア -->
+  <!-- 5.10 後半：一覧 -->
+  <!-- 組み合わせ A：ホームはカード型、記録の一覧でカレンダー -->
+  <section id="p-mxa" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">家計簿（ホーム） <small>ログアウト</small></div>
+      <div class="screen" style="background:var(--bg)">
+        <div class="lk-cards full">
+          <div class="lk-card wide hero"><span class="lab">使える額</span><span class="val" style="font-size:1.8rem">37,900 円</span><span class="lab">1 日あたり 1,647 ・ 1 週間あたり 11,529</span></div>
+          <div class="lk-card"><span class="lab">今の残高の合計</span><span class="val small">352,900</span><span class="lab">口座 5 つ ›</span></div>
+          <div class="lk-card"><span class="lab">今月の収支</span><span class="val small neg">-48,600</span><span class="lab">収入 0 ・ 支出 48,600</span></div>
+          <div class="lk-card wide"><span class="lab">最近の記録</span><span style="font-size:.85rem">コンビニ 680 ・ スーパー 3,240 ・ チャージ 3,000</span><span class="lab" style="color:var(--accent)">カレンダーで見る（記録の一覧）›</span></div>
+        </div>
+      </div>
+      <div class="example">ホームはカード型。カレンダーは、記録の一覧の切りかえで見る</div>
+    </div>
+    <div class="phone">
+      <div class="bar">記録の一覧 <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="subtabs full"><span>リスト</span><span class="on">カレンダー</span></div>
+        <div class="block full" style="gap:4px">
+          <div class="month"><span class="btn">‹ 9月</span><b>2026年10月</b><span class="btn">11月 ›</span></div>
+          <div class="lk-cal" id="lk-cal-a"></div>
+        </div>
+        <div class="block full">
+          <h3>10月8日（木）の記録</h3>
+          <div class="recrow"><span>スーパー</span><span class="amt">3,240</span><small>食費 · カードA</small></div>
+          <div class="recrow move"><span>現金 → 交通系IC</span><span class="amt">3,000</span></div>
+        </div>
+      </div>
+      <div class="example">記録の一覧（5.3）の上で「リスト／カレンダー」を切りかえる。8日を押したところ</div>
+    </div>
+    <div class="notes">
+      <h2>A：ホームはカード型、カレンダーは「記録の一覧」で切りかえて見る</h2>
+      <ul>
+        <li>ホームは、使える額などの大事な数字をカードで大きく出すだけ。開いてすぐ見たい数字が、スクロールせずに見える。</li>
+        <li>記録の一覧はもともと「1 か月ずつ・日付ごと」なので、同じ月をカレンダーでも見られるようにする。日を押すと、その日の記録が下に出る。</li>
+        <li>記録の一覧（5.3）に「リスト／カレンダー」の切りかえを足す。</li>
+        <li>どの日に使ったかを見るには、ホームから 1 回押して記録の一覧へ行く。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 組み合わせ B：ホームにカレンダーのカード -->
+  <!-- ③-1 基本の色：4 つ（中身は JS で同じホームを作り、色だけ変える） -->
+  <!-- ③-3 字の形：3 つ（中身は JS で同じものを作り、フォントだけ変える） -->
+  <section id="p-fna" class="stage fontsample" hidden data-font='system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif' data-name="ア：機械に入っている字（システムフォント）" data-feel="スマホやパソコンに最初から入っている字を使う。Windows なら Yu Gothic UI（游ゴシック）や Meiryo（メイリオ）、iPhone ならヒラギノ角ゴシック。字を読みこむ時間がなく、いちばん速く表示される。そのかわり、機械によって字の形が少し変わる（今あなたが見ているのは、この機械に入っている字）。"></section>
+  <section id="p-fni" class="stage fontsample" hidden data-font='"BIZ UDPGothic", sans-serif' data-name="イ：BIZ UDPゴシック" data-feel="だれにでも読みやすいように作られた字（ユニバーサルデザインフォント）。数字の 0 と 6・8、1 と 7 などが見まちがえにくい形になっている。この下書きで今まで使ってきた字。インターネットから読みこむので、はじめて開くときに少し時間がかかる。どの機械でも同じ形になる。"></section>
+  <section id="p-fnu" class="stage fontsample" hidden data-chosen="1" data-font='"Noto Sans JP", sans-serif' data-name="ウ：Noto Sans JP" data-feel="Google などが作った、とてもよく使われている字。くせがなく、すっきりしている。インターネットから読みこむので、はじめて開くときに少し時間がかかる（3 つの中でいちばんファイルが大きい）。どの機械でも同じ形になる。"></section>
+
+  <!-- ③-2 色の役目 -->
+  <section id="p-roles" class="stage" hidden>
+    <div class="block" style="background:#fff;border-color:#dfe3dc;color:#23271f">
+      <h3 style="color:#5f665b">青緑（基本の色）と収入の緑を並べて見る</h3>
+      <div id="gcmp" style="display:grid;gap:14px"></div>
+    </div>
+    <div class="phone">
+      <div class="bar" style="background:#0b7a75;color:#fff;border-color:#0b7a75">色の役目の見本 <small style="color:#dff2f0">ログアウト</small></div>
+      <div class="screen" style="background:#f3f4f2;color:#23271f">
+        <div class="block full" style="background:#fff;border-color:#dfe3dc">
+          <h3 style="color:#5f665b">色の一覧<i class="pin">1</i></h3>
+          <table class="rec">
+            <tr><td><span class="dot" style="background:#0b7a75;width:1.2em;height:1.2em"></span><b>基本の色</b>（青緑）<br><small>使える額・ボタン・選んでいるもの・「保存しました」</small></td><td class="n"><small>#0b7a75</small></td></tr>
+            <tr><td><span class="dot" style="background:#4a8f1c;width:1.2em;height:1.2em"></span><b>収入</b>（緑）<i class="pin">2</i><br><small>収入の金額「+250,000」</small></td><td class="n"><small>#4a8f1c</small></td></tr>
+            <tr><td><span class="dot" style="background:#c0392b;width:1.2em;height:1.2em"></span><b>注意</b>（赤）<i class="pin">3</i><br><small>マイナス・予算の 80% 以上とこえた・入力のまちがい・削除</small></td><td class="n"><small>#c0392b</small></td></tr>
+            <tr><td><span class="dot" style="background:#6b7166;width:1.2em;height:1.2em"></span><b>ひかえめ</b>（灰色）<br><small>移動・これからの予定・説明の小さな字・使わないもの</small></td><td class="n"><small>#6b7166</small></td></tr>
+            <tr><td><span class="dot" style="background:#23271f;width:1.2em;height:1.2em"></span><b>ふつうの字</b>（黒に近い）<i class="pin">4</i><br><small>支出の金額・ふつうの文章</small></td><td class="n"><small>#23271f</small></td></tr>
+          </table>
+        </div>
+        <div class="block full" style="background:#fff;border-color:#dfe3dc;gap:6px">
+          <h3 style="color:#5f665b">使っているところの見本</h3>
+          <div class="recrow"><span>会社</span><span class="amt" style="color:#4a8f1c;font-weight:700">+250,000</span><small>給料 · 銀行口座</small></div>
+          <div class="recrow"><span>スーパー</span><span class="amt">3,240</span><small>食費 · カードA</small></div>
+          <div class="recrow" style="color:#6b7166"><span>現金 → 交通系IC</span><span class="amt" style="color:#6b7166">3,000</span></div>
+          <div class="recrow"><span>カードA の残高</span><span class="amt" style="color:#c0392b">-48,300</span></div>
+          <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;font-size:.7rem;text-align:center;margin-top:4px">
+            <div style="border:1px solid #dfe3dc;border-radius:4px;padding:2px"><span style="color:#6b7166">8</span><br>3,240</div>
+            <div style="border:2px solid #0b7a75;border-radius:4px;padding:2px"><span style="color:#6b7166">9</span><br>890</div>
+            <div style="border:1px solid #dfe3dc;border-radius:4px;padding:2px"><span style="color:#6b7166">15</span><br><span style="color:#6b7166">5.2万</span></div>
+            <div style="border:1px solid #dfe3dc;border-radius:4px;padding:2px"><span style="color:#6b7166">23</span><br><b style="color:#4a8f1c">+25万</b></div>
+            <div></div><div></div><div></div>
+          </div>
+          <small style="color:#6b7166;font-size:.75rem">カレンダー：支出はふつうの字、収入は緑、予定は灰色、今日は基本の色の枠<i class="pin">4</i></small>
+          <div class="bud" style="margin-top:6px"><div class="row"><span>外食</span><span style="color:#c0392b">9,400 / 10,000（94%）</span></div><div class="meter"><i style="width:94%;background:#c0392b"></i></div></div>
+          <div class="bud"><div class="row"><span>食料品</span><span>12,000 / 25,000（48%）</span></div><div class="meter"><i style="width:48%;background:#0b7a75"></i></div></div>
+          <small style="color:#6b7166;font-size:.75rem">予算の棒：ふだんは基本の色、80% 以上で赤<i class="pin">5</i></small>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（③-2 色の役目）</h2>
+      <div><i class="pin">1</i><span>使う色は 5 つだけ（基本・収入・注意・ひかえめ・ふつうの字）と、背景の薄い灰色・カードの白。色を増やさないほうが、色の意味が伝わりやすいため。</span></div>
+      <div><i class="pin">2</i><span>収入は明るい黄緑よりの緑（#4a8f1c）。上の見くらべで、基本の青緑といちばん見分けやすかったため（本人が B を選んだ）。収入の金額には「+」もつける（色だけにたよらない）。この緑は白い背景の上で少しうすく見えるので、収入の金額はいつも太い字にする（カレンダーの小さな字もふくむ）。</span></div>
+      <div><i class="pin">3</i><span>赤は「気をつけて」の意味だけに使う：マイナスの金額、予算の 80% 以上・こえた、入力のまちがい、削除のボタン。</span></div>
+      <div><i class="pin">4</i><span><b>支出の金額は赤ではなく、ふつうの字にする</b>。カレンダーの支出も同じ（これまでの下書きでは赤だった）。支出は毎日あるふつうのことで、赤を「気をつけて」だけに取っておくため。</span></div>
+      <div><i class="pin">5</i><span>予算の棒は、ふだんは基本の色、80% 以上・こえたら赤（5.5 で決めたとおり）。</span></div>
+      <div><i class="pin">6</i><span>字と背景の色の組み合わせは、どれも読みやすい濃さの差にする（白い背景の上の灰色の字も、うすくなりすぎないようにする）。画面には出ていない決まり。</span></div>
+    </div>
+  </section>
+
+  <section id="p-colg" class="stage colsample" hidden data-main="#2f6b4f" data-soft="#e2eee7" data-name="ア：緑" data-feel="お金が増える・安心・落ち着き。家計簿やお金のアプリでよく使われる。収入の緑と同じ色なので、色の数が増えない。"></section>
+  <section id="p-colb" class="stage colsample" data-main="#1f5fa8" data-soft="#e3ecf8" data-name="イ：青" data-feel="信頼・まじめ・すっきり。銀行のアプリに多い。Bootstrap のもともとの色に近いので、色を変える手間が少ない。収入の緑とは別の色になる。" hidden></section>
+  <section id="p-coln" class="stage colsample" data-main="#2b3a67" data-soft="#e4e7f1" data-name="ウ：紺" data-feel="落ち着き・大人っぽい・引きしまった感じ。字が読みやすい。少し暗く、かたい印象にもなる。" hidden></section>
+  <section id="p-colo" class="stage colsample" data-main="#0b7a75" data-soft="#dff2f0" data-name="エ：青緑（ティール）" data-feel="明るい・さわやか・軽やか。毎日開くのが楽しくなりやすい。色の輪で赤の反対側にある色なので、マイナスの赤とはっきり見分けられる。（はじめに出したオレンジは、赤と近くまぎらわしいので、本人の意見でこの色にかえた）" hidden></section>
+
+  <!-- ② CSS の書き方：3 つ -->
+  <section id="p-cssb" class="stage" hidden>
+    <div class="howto" style="margin:0">この下書きのページでは、外の CSS を読みこめないため、本物の Bootstrap を表示できません。公式の見本ページを、ブラウザで直接開いて見てください：<br><b>https://getbootstrap.com/docs/5.3/examples/cheatsheet/</b>（部品の見本が 1 ページに全部並んでいる。色は青だが、緑に変えられる）</div>
+    <iframe class="cssframe" id="f-boot" title="Bootstrap の見本（CSS なし）" hidden></iframe>
+    <div class="notes">
+      <h2>イ：Bootstrap（よく使う部品の見た目のセット）</h2>
+      <ul>
+        <li>見本ページの Card・Buttons・Forms（Validation）・Modal・Toasts が、このアプリで使う部品。</li>
+        <li>カード・ボタン・入力欄・まちがいの赤字・「保存しました」・確認の小窓（4 章の 3・2・8）が、部品としてそろっている。HTML に名前（class）をつけるだけで、この形になる。</li>
+        <li>画面の幅に合わせて並べ方を変えるしくみ（パソコン 2 列・スマホ 1 列）も入っている。</li>
+        <li>カレンダーのマス目と、色だけは自分で CSS を書く。</li>
+        <li>使っている人が多く、困ったときに調べやすい。ほかのアプリと見た目が似やすい。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-cssa" class="stage" hidden>
+    <iframe class="cssframe" id="f-own" title="自分で書いた CSS で表示した見本"></iframe>
+    <div class="notes">
+      <h2>ア：自分で全部書く</h2>
+      <ul>
+        <li>上は、フレームワークを使わず、自分で書いた CSS だけで本当に表示している（この下書きと同じ作り方）。</li>
+        <li>形も色も自由。CSS の基本（余白・角の丸み・影・並べ方）が身につく。</li>
+        <li>確認の小窓・「保存しました」が数秒で消える動き・画面の幅に合わせた並べ方まで、全部自分で作る。いちばん時間がかかる。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-cssp" class="stage" hidden>
+    <div class="howto" style="margin:0">この下書きのページでは、外の CSS を読みこめないため、本物の Pico.css を表示できません。公式の見本ページを、ブラウザで直接開いて見てください：<br><b>https://picocss.com/examples</b></div>
+    <iframe class="cssframe" id="f-pico" title="Pico.css の見本（CSS なし）" hidden></iframe>
+    <div class="notes">
+      <h2>ウ：Pico.css（ふつうの HTML を書くだけで整う、小さなセット）</h2>
+      <ul>
+        <li>見本ページで、ふつうの HTML だけでどんな見た目になるかが見られる。</li>
+        <li>文字・ボタン・入力欄は、名前をつけなくても整う。&lt;article&gt; と書くとカードの形になる。</li>
+        <li>色つきのカード・2 列の並べ方・「保存しました」の表示などは、自分で書く。</li>
+        <li>3 つの中でいちばん小さく、手軽。部品の数は少ない。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p-mxb" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">家計簿（ホーム） <small>ログアウト</small></div>
+      <div class="navwrap navb">
+        <nav class="side"><span class="on">ホーム</span><span>記録の一覧</span><span>月のまとめ</span><span class="sep">設定</span><span>定期的な記録</span><span>口座</span><span>分類</span><span>相手</span><span>予算</span><span>貯金の目標</span></nav>
+        <div class="screen" style="background:var(--bg)">
+          <div class="lk-cards full">
+            <div class="lk-card wide" style="background:var(--warn-soft)"><span style="font-size:.88rem"><span class="warn-txt">お知らせ</span> 金額がまだのものが 3 件あります ▼<i class="pin">1</i></span></div>
+            <div class="lk-card wide hero"><span class="lab">使える額</span><span class="val" style="font-size:1.8rem">37,900 円</span><span class="lab">1 日あたり 1,647 ・ 1 週間あたり 11,529</span></div>
+            <div class="lk-card wide"><span class="lab">今月のカレンダー（10月）<i class="pin">2</i><i class="pin">5</i></span><div class="lk-cal" id="lk-cal-b"></div><span class="lab">黒＝支出　緑（太字）＝収入　灰色＝これからの予定<i class="pin">3</i></span><span class="lab" style="color:var(--accent)">日を押すと、その日の記録へ ›<i class="pin">4</i></span></div>
+            <div class="lk-card"><span class="lab">今の残高の合計</span><span class="val small">352,900</span><span class="lab">口座ごと ›<i class="pin">6</i></span></div>
+            <div class="lk-card"><span class="lab">今月の収支</span><span class="val small neg">-48,600</span><span class="lab">収入 0 ・ 支出 48,600</span></div>
+            <div class="lk-card"><span class="lab">多く使った分類</span><span style="font-size:.85rem">食費 18,200<br>趣味・娯楽 12,500<br>日用品 6,100</span></div>
+            <div class="lk-card"><span class="lab">貯金の目標</span><span style="font-size:.85rem">旅行 40%<br>車の買いかえ 30%</span></div>
+            <div class="lk-card wide"><span class="lab">最近の記録</span><span style="font-size:.85rem">コンビニ 680 ・ スーパー 3,240 ・ チャージ 3,000 ›</span></div>
+          </div>
+          <span class="fab">＋ 記録する</span>
+        </div>
+        <nav class="bottom"><span class="on">ホーム</span><span>記録の一覧</span><span class="plus">＋</span><span>月のまとめ</span><span>設定</span></nav>
+      </div>
+      <div class="example">数字はすべて例です（今日を 2026年10月9日（金）とした例）。「これからの予定」はカレンダーの灰色の数字に入れた</div>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（見た目 ①・ホーム）</h2>
+      <div><i class="pin">1</i><span>上から、お知らせ → 使える額（いちばん大きな色つきのカード）→ 今月のカレンダー → 小さなカードを 2 列（残高・収支・多く使った分類・貯金の目標）→ 最近の記録。</span></div>
+      <div><i class="pin">2</i><span>カレンダーは今月だけ（ホームでは月を切りかえない。前の月は記録の一覧で見る）。今日のマスは太い枠。</span></div>
+      <div><i class="pin">3</i><span>マスには、その日の支出の合計（ふつうの字。③-2 で赤から変えた）、収入（緑の太字）、まだ記録されていない予定（灰色）を出す。移動と調整は出さない（月の合計と同じ数え方）。これまでの「これからの予定」のリストは、この灰色の数字に入れて、ホームからは外す。</span></div>
+      <div><i class="pin">4</i><span>日を押すと、記録の一覧（5.3）のその月が開き、その日の見出しのところまで動く。</span></div>
+      <div><i class="pin">5</i><span>スマホではマスが小さいので、1 万円以上は「1.2万」のように短く出す（小数 1 けたまで、四捨五入。250,000 → 25万、121,600 → 12.2万）。パソコンではカレンダーのカードを横いっぱいに広げ、金額をそのまま出す。それでもマスに入らないときは、マスの外にはみ出さないように、マスの中で切る。</span></div>
+      <div><i class="pin">6</i><span>口座ごとの残高は、小さなカードに合計だけ出し、押すと口座ごとの一覧が開く（そこから残高を合わせる）。第 1 段階では、使える額・予定・貯金の目標のカードはなく、カレンダーには支出と収入だけが出る。</span></div>
+    </div>
+    <div class="notes">
+      <h2>B：ホームをカード型にして、その中に「今月のカレンダー」のカードを入れる</h2>
+      <ul>
+        <li>ホームを開くだけで、使える額と、どの日にいくら使ったかの両方が見える。</li>
+        <li>カレンダーのカードが大きいので、残高・収支・最近の記録が下へ押し出され、スクロールが増える。</li>
+        <li>スマホではマスが小さく、金額の字も小さい。</li>
+        <li>日を押すと、記録の一覧のその日へ行く。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 見た目 ア：リスト型 -->
+  <section id="p-lkl" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">家計簿 <small>ログアウト</small></div>
+      <div class="navwrap navb">
+        <nav class="side"><span class="on">ホーム</span><span>記録の一覧</span><span>月のまとめ</span><span class="sep">設定</span><span>定期的な記録</span><span>口座</span><span>分類</span><span>相手</span><span>予算</span><span>貯金の目標</span></nav>
+        <div class="screen" style="gap:0">
+          <div class="lk-list full">
+            <div class="row" style="background:var(--warn-soft)"><span><span class="warn-txt">お知らせ</span> 金額がまだのものが 3 件あります</span><span class="n" style="color:var(--accent)">▼</span></div>
+            <div class="head">使える額</div>
+            <div class="row"><span style="font-size:1.3rem;font-weight:700">37,900 円</span><span class="n"><small>1日 1,647・1週 11,529</small></span></div>
+            <div class="head">今の残高</div>
+            <div class="row"><span>銀行口座</span><span class="n">412,000</span></div>
+            <div class="row"><span>現金</span><span class="n">8,500</span></div>
+            <div class="row"><span>交通系IC</span><span class="n">2,300</span></div>
+            <div class="row"><span>カードA</span><span class="n neg">-48,300</span></div>
+            <div class="row"><span><b>合計</b></span><span class="n"><b>352,900</b></span></div>
+            <div class="head">今月（10月）の収支</div>
+            <div class="row"><span>収入 0・支出 48,600</span><span class="n neg">-48,600</span></div>
+            <div class="head">最近の記録</div>
+            <div class="row"><span>コンビニ<small>10月9日（金）・食費・現金</small></span><span class="n">680</span></div>
+            <div class="row"><span>スーパー<small>10月8日（木）・食費・カードA</small></span><span class="n">3,240</span></div>
+          </div>
+          <span class="fab">＋ 記録する</span>
+        </div>
+        <nav class="bottom"><span class="on">ホーム</span><span>記録の一覧</span><span class="plus">＋</span><span>月のまとめ</span><span>設定</span></nav>
+      </div>
+      <div class="example">数字はすべて例です（今日を 2026年10月9日（金）とした例）。中身はホーム（5.2）と同じで、並べ方だけを変えています</div>
+    </div>
+    <div class="notes">
+      <h2>ア：リスト型（1 行に 1 つ、線で区切って縦に並べる）</h2>
+      <ul>
+        <li>メールの受信箱と同じ形。見出しの下に、行を線で区切って並べる。</li>
+        <li>1 画面にたくさんの行が入る。記録の一覧・相手の管理など、数が多い画面に向く。</li>
+        <li>どの数字も同じ大きさの行に入るので、「使える額」など大事な数字が目立ちにくい。</li>
+        <li>作るのはいちばんかんたん（線と文字だけ）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 見た目 イ：カード型 -->
+  <section id="p-lkc" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">家計簿 <small>ログアウト</small></div>
+      <div class="navwrap navb">
+        <nav class="side"><span class="on">ホーム</span><span>記録の一覧</span><span>月のまとめ</span><span class="sep">設定</span><span>定期的な記録</span><span>口座</span><span>分類</span><span>相手</span><span>予算</span><span>貯金の目標</span></nav>
+        <div class="screen" style="background:var(--bg)">
+          <div class="lk-cards full">
+            <div class="lk-card wide" style="background:var(--warn-soft)"><span style="font-size:.88rem"><span class="warn-txt">お知らせ</span> 金額がまだのものが 3 件あります ▼</span></div>
+            <div class="lk-card wide hero"><span class="lab">使える額</span><span class="val" style="font-size:1.8rem">37,900 円</span><span class="lab">1 日あたり 1,647 ・ 1 週間あたり 11,529</span></div>
+            <div class="lk-card"><span class="lab">今の残高の合計</span><span class="val small">352,900</span><span class="lab">口座 5 つ ›</span></div>
+            <div class="lk-card"><span class="lab">今月の収支</span><span class="val small neg">-48,600</span><span class="lab">収入 0 ・ 支出 48,600</span></div>
+            <div class="lk-card"><span class="lab">多く使った分類</span><span style="font-size:.85rem">食費 18,200<br>趣味・娯楽 12,500<br>日用品 6,100</span></div>
+            <div class="lk-card"><span class="lab">これからの予定</span><span style="font-size:.85rem">15日 カードA<br>20日 通信費<br>23日 給料</span></div>
+            <div class="lk-card wide"><span class="lab">最近の記録</span><span style="font-size:.85rem">コンビニ 680 ・ スーパー 3,240 ・ チャージ 3,000 ›</span></div>
+          </div>
+          <span class="fab">＋ 記録する</span>
+        </div>
+        <nav class="bottom"><span class="on">ホーム</span><span>記録の一覧</span><span class="plus">＋</span><span>月のまとめ</span><span>設定</span></nav>
+      </div>
+      <div class="example">数字はすべて例です（今日を 2026年10月9日（金）とした例）</div>
+    </div>
+    <div class="notes">
+      <h2>イ：カード型（まとまりごとに、角の丸いカードに入れて並べる）</h2>
+      <ul>
+        <li>「使える額」をいちばん大きなカードにして色をつけると、開いた瞬間に目に入る。</li>
+        <li>小さなカードを 2 列に並べるので、スマホでも 1 画面に多くのまとまりが入る。</li>
+        <li>カードの中に入る行は少なめ。くわしい中身は、カードを押して別の画面で見る。</li>
+        <li>記録の一覧のように行が多い画面には向かない（カードが何十枚も並ぶ）。</li>
+        <li>影・角の丸み・色を使うので、リスト型より少し作る手間がかかる。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 見た目 ウ：カレンダー型 -->
+  <section id="p-lkk" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">家計簿 <small>ログアウト</small></div>
+      <div class="navwrap navb">
+        <nav class="side"><span class="on">ホーム</span><span>記録の一覧</span><span>月のまとめ</span><span class="sep">設定</span><span>定期的な記録</span><span>口座</span><span>分類</span><span>相手</span><span>予算</span><span>貯金の目標</span></nav>
+        <div class="screen">
+          <div class="block full" style="gap:4px">
+            <div class="row" style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:.8rem;color:var(--muted)">使える額</span><b style="font-size:1.2rem">37,900 円</b></div>
+            <div class="month"><span class="btn">‹ 9月</span><b>2026年10月</b><span class="btn">11月 ›</span></div>
+            <div class="lk-cal" id="lk-cal"></div>
+            <small style="color:var(--muted);font-size:.72rem">赤＝その日の支出、緑＝収入、灰色＝これからの予定</small>
+          </div>
+          <div class="block full">
+            <h3>10月8日（木）の記録</h3>
+            <div class="recrow"><span>スーパー</span><span class="amt">3,240</span><small>食費 · カードA</small></div>
+            <div class="recrow move"><span>現金 → 交通系IC</span><span class="amt">3,000</span></div>
+          </div>
+          <span class="fab">＋ 記録する</span>
+        </div>
+        <nav class="bottom"><span class="on">ホーム</span><span>記録の一覧</span><span class="plus">＋</span><span>月のまとめ</span><span>設定</span></nav>
+      </div>
+      <div class="example">数字はすべて例です（今日を 2026年10月9日（金）とした例）。8日を押したところ</div>
+    </div>
+    <div class="notes">
+      <h2>ウ：カレンダー型（月のマス目に、日ごとの金額を書きこむ）</h2>
+      <ul>
+        <li>紙の家計簿や手帳に近い。どの日にたくさん使ったか、何日つけ忘れたかが、ひと目でわかる。</li>
+        <li>これからの引き落とし（定期的な記録）も、同じカレンダーに灰色で出せる。</li>
+        <li>日を押すと、その日の記録が下に出る。</li>
+        <li>スマホでは 1 マスが小さく、金額の字が小さくなる。残高や収支など、カレンダーに入らないものは下へ押し出される。</li>
+        <li>カレンダーを作るのは、ア・イより手間がかかる（月ごとにマスの位置を計算する）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 選んだことの一覧 -->
+  <!-- データベースの持ち方 ①「今回はなし」 -->
+  <section id="p-dsa" class="stage" hidden>
+    <div class="howto" style="margin:0">「今回はなし」は、定期的な記録の<b>その月だけ記録しない</b>しるし（5.10）。ボーナスが出なかった月、自動で作られた記録を削除した月、止めていた予定を「使う」に戻したときの過ぎた月に使う。これをデータベースのどこに入れるかを比べる。表の中身はすべて例。</div>
+    <div class="block" style="background:var(--paper)">
+      <h3><span class="dbname">recurring_amounts</span>（月ごとの金額）に、<span class="newcol" style="padding:0 4px">is_skipped</span>（今回はなし）の列を足す</h3>
+      <div class="dbwrap"><table class="dbt">
+        <tr><th>recurring_id（どの予定）</th><th>month（何月）</th><th>amount（金額）</th><th class="newcol">is_skipped（今回はなし）</th></tr>
+        <tr><td>3（給料）</td><td>2026-10</td><td>250,000</td><td class="newcol">いいえ</td></tr>
+        <tr><td>5（カードB の引き落とし）</td><td>2026-10</td><td>48,300</td><td class="newcol">はい</td></tr>
+        <tr><td>7（通信費・決まった金額）</td><td>2026-11</td><td style="color:var(--muted)">（空）</td><td class="newcol">はい</td></tr>
+      </table></div>
+      <small style="color:var(--muted)">金額は、今回はなしでないときだけ必須になる（データベースでは空を許し、アプリでチェックする）。決まった金額の予定を今回はなしにすると、金額が空の行ができる（3 行目）。</small>
+    </div>
+    <div class="block" style="background:var(--paper)">
+      <h3>操作ごとに、データベースの何が変わるか</h3>
+      <table class="rec">
+        <tr><td><b>今回はなし</b>を押す</td><td>その月の行の「今回はなし」を「はい」にする（行がなければ作る）。入れてあった金額は消さずに残す</td></tr>
+        <tr><td><b>もどす</b>を押す</td><td>「今回はなし」を「いいえ」にする。決まった金額の予定のときは、行ごと消す</td></tr>
+        <tr><td>自動で記録するとき</td><td>この表 1 つを見れば、金額も「今回はなし」もわかる</td></tr>
+        <tr><td>月ごとの金額の画面を出すとき</td><td>この表 1 つを読めばよい</td></tr>
+      </table>
+    </div>
+    <div class="notes">
+      <h2>ア：月ごとの金額の表に、今回はなしの印をつける</h2>
+      <ul>
+        <li>「この予定の、この月」のことが、1 つの表の 1 行にまとまる。見る表が少ない。</li>
+        <li>そのかわり、金額を<b>データベースで必須にできなくなる</b>（今回はなしの行は金額が空のことがあるため）。金額があるかは、アプリのチェックだけで守る。</li>
+        <li>決まった金額の予定にも、金額が空の行ができる。「月ごとの金額」の表なのに金額がない行がある、という少しわかりにくい形になる。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-dsi" class="stage" hidden>
+    <div class="howto" style="margin:0">「今回はなし」は、定期的な記録の<b>その月だけ記録しない</b>しるし（5.10）。これをデータベースのどこに入れるかを比べる。表の中身はすべて例。</div>
+    <div class="block" style="background:var(--paper)">
+      <h3><span class="dbname">recurring_amounts</span>（月ごとの金額）は今のまま</h3>
+      <div class="dbwrap"><table class="dbt">
+        <tr><th>recurring_id（どの予定）</th><th>month（何月）</th><th>amount（金額・必須）</th></tr>
+        <tr><td>3（給料）</td><td>2026-10</td><td>250,000</td></tr>
+        <tr><td>5（カードB の引き落とし）</td><td>2026-10</td><td>48,300</td></tr>
+      </table></div>
+      <h3 style="margin-top:6px"><span class="newcol" style="padding:0 4px">recurring_skips</span>（今回はなし）の表を新しく作る</h3>
+      <div class="dbwrap"><table class="dbt">
+        <tr><th>recurring_id（どの予定）</th><th>month（何月）</th></tr>
+        <tr><td>5（カードB の引き落とし）</td><td>2026-10</td></tr>
+        <tr><td>7（通信費・決まった金額）</td><td>2026-11</td></tr>
+      </table></div>
+      <small style="color:var(--muted)">どちらの表も、「どの予定・何月」の組み合わせは 1 つだけ（ユニーク制約）。</small>
+    </div>
+    <div class="block" style="background:var(--paper)">
+      <h3>操作ごとに、データベースの何が変わるか</h3>
+      <table class="rec">
+        <tr><td><b>今回はなし</b>を押す</td><td>今回はなしの表に 1 行足す。月ごとの金額の表はさわらない（入れてあった金額は残る）</td></tr>
+        <tr><td><b>もどす</b>を押す</td><td>今回はなしの表から、その行を消す</td></tr>
+        <tr><td>自動で記録するとき</td><td>2 つの表を見る（金額はあるか、今回はなしになっていないか）</td></tr>
+        <tr><td>月ごとの金額の画面を出すとき</td><td>2 つの表を読む</td></tr>
+      </table>
+    </div>
+    <div class="notes">
+      <h2>イ：今回はなし専用の表を作る</h2>
+      <ul>
+        <li>「今回はなし」は行を足す・消すだけ。印を「はい／いいえ」に書きかえるより、動きがはっきりしている。</li>
+        <li>月ごとの金額の表は今のままで、<b>金額をデータベースで必須にしておける</b>。金額が空の行はできない。</li>
+        <li>そのかわり、表が 1 つ増え、自動で記録するときや画面を出すときに 2 つの表を見る。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- データベースの持ち方 ②「選んだ月だけ」 -->
+  <section id="p-dma" class="stage" hidden>
+    <div class="howto" style="margin:0">定期的な記録は、「毎月」か「選んだ月だけ」（例：賞与は 6 月と 12 月）を選べる（5.10）。選んだ月をデータベースにどう入れるかを比べる。表の中身はすべて例。</div>
+    <div class="block" style="background:var(--paper)">
+      <h3><span class="dbname">recurrings</span>（定期的な記録）に、<span class="newcol" style="padding:0 4px">months</span>（選んだ月）の列を 1 つ足す</h3>
+      <div class="dbwrap"><table class="dbt">
+        <tr><th>id</th><th>name（名前）</th><th>day（日付）</th><th class="newcol">months（選んだ月）</th><th>…</th></tr>
+        <tr><td>3</td><td>給料</td><td>25</td><td class="newcol" style="color:var(--muted)">（空）＝毎月</td><td>…</td></tr>
+        <tr><td>4</td><td>賞与</td><td>10</td><td class="newcol">[6, 12]</td><td>…</td></tr>
+        <tr><td>8</td><td>車の税金</td><td>31</td><td class="newcol">[5]</td><td>…</td></tr>
+      </table></div>
+      <small style="color:var(--muted)">[6, 12] は、数字の並び（JSON という形）。Laravel では、PHP の配列としてそのまま読み書きできる。1〜12 の数字だけが入っているかは、アプリでチェックする。</small>
+    </div>
+    <div class="block" style="background:var(--paper)">
+      <h3>使うところ</h3>
+      <table class="rec">
+        <tr><td>自動で記録するとき</td><td>使う予定をすべて読み、その月が選んだ月に入っているかを PHP で調べる（予定はせいぜい数十件なので、全部読んでも速い）</td></tr>
+        <tr><td>登録・変更の画面</td><td>1〜12 月のチェックを、この列から付けて出す。保存するときは、この列を書きかえるだけ</td></tr>
+      </table>
+    </div>
+    <div class="notes">
+      <h2>ア：1 つの列にまとめて入れる</h2>
+      <ul>
+        <li>列が 1 つ増えるだけ。予定を読めば、選んだ月もいっしょにわかる。</li>
+        <li>「6 月に記録する予定はどれ？」を、データベースに直接聞く（SQL で探す）のは苦手。このアプリでは、そう探す場面がないので困らない。</li>
+        <li>データベースの基本（1 つのマスには 1 つの値）からは少し外れる。</li>
+      </ul>
+    </div>
+  </section>
+  <section id="p-dmi" class="stage" hidden>
+    <div class="howto" style="margin:0">定期的な記録は、「毎月」か「選んだ月だけ」（例：賞与は 6 月と 12 月）を選べる（5.10）。選んだ月をデータベースにどう入れるかを比べる。表の中身はすべて例。</div>
+    <div class="block" style="background:var(--paper)">
+      <h3><span class="newcol" style="padding:0 4px">recurring_months</span>（選んだ月）の表を新しく作る</h3>
+      <div class="dbwrap"><table class="dbt">
+        <tr><th>recurring_id（どの予定）</th><th>month（何月・1〜12）</th></tr>
+        <tr><td>4（賞与）</td><td>6</td></tr>
+        <tr><td>4（賞与）</td><td>12</td></tr>
+        <tr><td>8（車の税金）</td><td>5</td></tr>
+      </table></div>
+      <small style="color:var(--muted)">この表に行がない予定（給料など）は、毎月。</small>
+    </div>
+    <div class="block" style="background:var(--paper)">
+      <h3>使うところ</h3>
+      <table class="rec">
+        <tr><td>自動で記録するとき</td><td>2 つの表をつないで読む。「6 月に記録する予定はどれ？」をデータベースに直接聞ける</td></tr>
+        <tr><td>登録・変更の画面</td><td>保存するたびに、その予定の行を全部消して、チェックした月の行を入れ直す</td></tr>
+      </table>
+    </div>
+    <div class="notes">
+      <h2>イ：月ごとの表を作る</h2>
+      <ul>
+        <li>データベースの基本（1 つのマスには 1 つの値）どおりの形。月でまとめて探すのが得意。</li>
+        <li>そのかわり、表が 1 つ増え、保存のたびに行を入れ直す処理が要る。</li>
+        <li>このアプリでは、月で探す場面がないので、得意なところを使う場面が少ない。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p-why" class="stage" hidden>
+    <div class="ch">
+      <div class="notes">
+        <h2>使い方</h2>
+        <ul>
+          <li>下の 3 件は、選ばなかった案の理由を話していなかったので、<b>Claude が推測して画面設計書 6 章に書いた理由</b>です。（10月10日の 8 件は書き終わり、反映済み）</li>
+          <li>「Claude の推測」を読んで、自分の考えを欄に書いてください。推測のままでよいものは「そのままで OK」と書くか、空のままにしてください。</li>
+          <li>書き終わったら、いちばん下の「答えをまとめてコピー」を押して、チャットに貼ってください。書いたものは、このブラウザに一時的に残ります。</li>
+        </ul>
+      </div>
+      <div id="why-list" class="ch"></div>
+      <div class="block" style="background:var(--paper)">
+        <div class="btns"><button type="button" class="btn primary" id="why-copy" style="font:inherit;cursor:pointer">答えをまとめてコピー</button></div>
+        <small id="why-msg" style="color:var(--muted);text-align:center" aria-live="polite"></small>
+        <textarea id="why-out" rows="8" aria-label="まとめた答え" readonly hidden style="font:inherit;width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--paper);color:var(--ink)"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5.11 予算を決める（決定） -->
+  <!-- 貯金の目標：一覧 -->
+  <section id="p-goal" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">貯金の目標 <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full new">
+          <span class="badge">第3段階</span>
+          <h3>目標<i class="pin">1</i></h3>
+          <div class="bud" style="padding:6px 0;border-bottom:1px solid var(--line)">
+            <div class="row"><span><b>旅行</b></span><span>120,000 / 300,000（40%） ›</span></div>
+            <div class="meter"><i style="width:40%"></i></div>
+            <small style="color:var(--muted);font-size:.78rem">貯金用の口座 A・2027年8月まで（あと 11 か月、1 か月あたり 16,364）<i class="pin">2</i></small>
+          </div>
+          <div class="bud" style="padding:6px 0;border-bottom:1px solid var(--line)">
+            <div class="row"><span><b>車の買いかえ</b></span><span>450,000 / 1,500,000（30%） ›</span></div>
+            <div class="meter"><i style="width:30%"></i></div>
+            <small style="color:var(--muted);font-size:.78rem">貯金用の口座 B・期限なし</small>
+          </div>
+          <div class="bud" style="padding:6px 0;border-bottom:1px solid var(--line)">
+            <div class="row"><span><b>家電</b></span><span>80,000 / 150,000（53%） ›</span></div>
+            <div class="meter over"><i style="width:53%"></i></div>
+            <small style="color:var(--warn);font-size:.78rem">貯金用の口座 C・2026年9月まで（期限を過ぎました）<i class="pin">3</i></small>
+          </div>
+          <div class="savebar"><span class="btn primary">＋ 目標を追加</span></div>
+        </div>
+        <div class="block full" style="opacity:.7">
+          <h3>達成した目標<i class="pin">4</i></h3>
+          <div class="bud"><div class="row"><span>引っ越し ✓ 達成</span><span>200,000 / 200,000 ›</span></div><div class="meter"><i style="width:100%"></i></div></div>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です（今日を 2026年10月10日 とした例）。行の「›」を押すと変更の画面へ</div>
+    </div>
+    <div class="notes">
+      <h2>貯金の目標：一覧（決めたこと）</h2>
+      <ul>
+        <li>進み具合は、選んだ口座の今の残高 ÷ 目標額（前に決めた「口座の残高で進み具合を出す」）。</li>
+        <li>1 つの口座は 1 つの目標だけに使える（決定：ア）。</li>
+        <li>追加・変更は、一覧とは別の画面でする（口座・分類・相手と同じ）。</li>
+      </ul>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（貯金の目標・一覧）</h2>
+      <div><i class="pin">1</i><span>並び順は、期限の近い順。期限なしは、その下に追加した順。ホームにも同じ順で全部出す。</span></div>
+      <div><i class="pin">2</i><span>期限があるときは「あと ○ か月、1 か月あたり ○ 円」を出す（残りの額 ÷ 残りの月数、今月をふくむ、1 円未満は切り上げ）。毎月いくら貯めればよいかの目安になるため。</span></div>
+      <div><i class="pin">3</i><span>期限を過ぎてもまだ達成していないときは、赤い字で「期限を過ぎました」と出す。目標は消さない（期限を延ばすか、削除するかは自分で決める）。</span></div>
+      <div><i class="pin">4</i><span>残高が目標額以上になったら「✓ 達成」として、下にまとめて薄い字で出す。ホームには出さない。残高が減って目標額を下回ったら、上に戻る。</span></div>
+    </div>
+  </section>
+
+  <!-- 貯金の目標：追加・変更 -->
+  <section id="p-goaledit" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">貯金の目標を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <div class="field"><span>名前<i class="pin">5</i></span><div class="box">旅行</div></div>
+          <div class="field"><span>目標額<i class="pin">5</i></span><div class="box amount">300,000</div></div>
+          <div class="field" style="align-items:start"><span style="padding-top:6px">口座<i class="pin">6</i></span>
+            <div style="display:grid;gap:4px">
+              <div class="box">貯金用の口座 A<span>▼</span></div>
+              <small style="color:var(--muted);font-size:.78rem">ほかの目標で使っている口座・クレジットカード・「使わない」口座は選べない</small>
+            </div>
+          </div>
+          <div class="field"><span>期限<i class="pin">7</i></span><div class="box">2027年8月<span>▼</span></div></div>
+          <div class="btns"><span class="btn primary">保存</span><span class="btn" style="color:var(--warn)">削除<i class="pin">8</i></span></div>
+        </div>
+      </div>
+      <div class="example">「旅行」の目標を直すときの例。追加のときは「保存」だけが出る</div>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（貯金の目標・追加・変更）</h2>
+      <div><i class="pin">5</i><span>名前は必須・50 文字まで。目標額は必須・1 円以上の整数。</span></div>
+      <div><i class="pin">6</i><span>口座は必須。ほかの目標で使っている口座、クレジットカード（残高がマイナスで貯金にならない）、「使わない」口座は選べない。</span></div>
+      <div><i class="pin">7</i><span>期限は任意で、月で選ぶ（その月の終わりまで）。今月より前は選べない。</span></div>
+      <div><i class="pin">8</i><span>目標には記録がつかないので、いつでも削除できる（確認の小窓のあと。4 章の 8）。「使わない」はない。削除しても、口座と残高はそのまま。</span></div>
+    </div>
+  </section>
+
+  <!-- 貯金の目標 ア -->
+  <section id="p-gla" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">貯金の目標を追加 <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <div class="field"><span>名前</span><div class="box">車の買いかえ</div></div>
+          <div class="field"><span>目標額</span><div class="box amount">1,500,000</div></div>
+          <div class="field" style="align-items:start"><span style="padding-top:6px">口座</span>
+            <div style="display:grid;gap:4px">
+              <div class="box">貯金用の口座 B<span>▼</span></div>
+              <small style="color:var(--muted);font-size:.78rem">貯金用の口座 A は「旅行」で使っているので選べません</small>
+            </div>
+          </div>
+          <div class="field"><span>期限</span><div class="box ph">なし<span>▼</span></div></div>
+          <div class="btns"><span class="btn primary">保存</span></div>
+        </div>
+        <div class="block full">
+          <h3>ホームの貯金の目標</h3>
+          <div class="bud"><div class="row"><span>旅行（貯金用の口座 A）</span><span>120,000 / 300,000（40%）</span></div><div class="meter"><i style="width:40%"></i></div></div>
+          <div class="bud"><div class="row"><span>車の買いかえ（貯金用の口座 B）</span><span>450,000 / 1,500,000（30%）</span></div><div class="meter"><i style="width:30%"></i></div></div>
+        </div>
+      </div>
+      <div class="example">「旅行」の目標が、もう「貯金用の口座 A」を使っているときの例</div>
+    </div>
+    <div class="notes">
+      <h2>ア：1 つの口座は、1 つの目標だけに使える</h2>
+      <ul>
+        <li>目標を 2 つ持つなら、口座も 2 つ作る（実際の銀行口座が 1 つでも、アプリの中で分けるのはむずかしい）。</li>
+        <li>進み具合はいつも正しい。口座の残高 ＝ その目標のために貯めた額。</li>
+        <li>しくみはいちばんかんたん。</li>
+        <li>実際の銀行口座が 1 つしかない人は、目標を 1 つしか作れない。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 貯金の目標 イ -->
+  <section id="p-gli" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">家計簿 <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full">
+          <h3>ホームの貯金の目標</h3>
+          <div class="bud"><div class="row"><span>旅行（貯金用の口座）</span><span>570,000 / 300,000（達成）</span></div><div class="meter"><i style="width:100%"></i></div></div>
+          <div class="bud"><div class="row"><span>車の買いかえ（貯金用の口座）</span><span>570,000 / 1,500,000（38%）</span></div><div class="meter"><i style="width:38%"></i></div></div>
+          <small style="color:var(--muted);font-size:.78rem">2 つの目標が、同じ口座の残高 570,000 を使っています</small>
+        </div>
+      </div>
+      <div class="example">「旅行」と「車の買いかえ」の両方で、同じ「貯金用の口座」を選んだときの例</div>
+    </div>
+    <div class="notes">
+      <h2>イ：同じ口座を選べる。どの目標にも、口座の残高をそのまま出す</h2>
+      <ul>
+        <li>口座が 1 つでも、目標をいくつも作れる。しくみはかんたん。</li>
+        <li>同じお金を 2 回数えるので、本当は旅行に 12 万円しか貯めていなくても「旅行：達成」と出てしまう。</li>
+        <li>注意の 1 行を出しても、進み具合の数字は正しくない。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 貯金の目標 ウ -->
+  <section id="p-glu" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">家計簿 <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full">
+          <h3>ホームの貯金の目標</h3>
+          <div class="bud"><div class="row"><span>旅行</span><span>120,000 / 300,000（40%）</span></div><div class="meter"><i style="width:40%"></i></div></div>
+          <div class="bud"><div class="row"><span>車の買いかえ</span><span>450,000 / 1,500,000（30%）</span></div><div class="meter"><i style="width:30%"></i></div></div>
+          <small style="color:var(--muted);font-size:.78rem">貯金用の口座 570,000 のうち、旅行 120,000・車 450,000 と振り分けている</small>
+        </div>
+        <div class="block full form">
+          <h3>振り分けを直す画面</h3>
+          <div class="field"><span>旅行</span><div class="box amount">120,000</div></div>
+          <div class="field"><span>車の買いかえ</span><div class="box amount">450,000</div></div>
+          <small style="color:var(--muted);font-size:.78rem">口座の残高 570,000 のうち、振り分けていないのは 0 円</small>
+          <div class="btns"><span class="btn primary">保存</span></div>
+        </div>
+      </div>
+      <div class="example">1 つの「貯金用の口座」で、旅行と車の両方を貯めている例</div>
+    </div>
+    <div class="notes">
+      <h2>ウ：1 つの口座の残高を、目標ごとに振り分ける</h2>
+      <ul>
+        <li>口座が 1 つでも、目標ごとの進み具合が正しく出る。</li>
+        <li>入金のたびに「どの目標の分か」を振り分ける必要がある（入れ忘れると進み具合がずれる）。</li>
+        <li>振り分けを覚えるしくみ（テーブルや計算）が新しく要り、作るのが大変。前に決めた「口座の残高で進み具合を出す（入力を増やさない）」とも合わなくなる。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.12 設定 -->
+  <section id="p-set" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">設定 <small>ログアウト</small></div>
+      <div class="navwrap navb">
+        <nav class="side">
+          <span>ホーム</span>
+          <span>記録の一覧</span>
+          <span>月のまとめ</span>
+          <span class="sep">設定</span>
+          <span>定期的な記録</span>
+          <span>口座</span>
+          <span>分類</span>
+          <span>相手</span>
+          <span>予算</span>
+          <span>貯金の目標</span>
+        </nav>
+        <div class="screen">
+          <div class="block full">
+            <h3>お金の入れ物と分け方<i class="pin">1</i></h3>
+            <table class="rec">
+              <tr><td><b>口座</b><br><small>銀行口座・現金・交通系 IC・カード（5 件）<i class="pin">2</i></small></td><td class="n">›</td></tr>
+              <tr><td><b>分類</b><br><small>食費・日用品など（支出 15・収入 4）</small></td><td class="n">›</td></tr>
+              <tr><td><b>相手</b><br><small>お店・会社など（32 件）</small></td><td class="n">›</td></tr>
+            </table>
+          </div>
+          <div class="block full new">
+            <span class="badge">第2・第3段階<i class="pin">3</i></span>
+            <h3>毎月の予定と目標</h3>
+            <table class="rec">
+              <tr><td><b>定期的な記録</b><br><small>給料・家賃・ローンなど（7 件）</small></td><td class="n">›</td></tr>
+              <tr><td><b>予算</b><br><small>分類ごとの毎月の予算</small></td><td class="n">›</td></tr>
+              <tr><td><b>貯金の目標</b><br><small>旅行など（1 件）</small></td><td class="n">›</td></tr>
+            </table>
+          </div>
+          <div class="block full">
+            <h3>ログイン<i class="pin">4</i></h3>
+            <table class="rec">
+              <tr><td><b>ログアウト</b><br><small>me@example.com でログイン中</small></td><td class="n">›</td></tr>
+            </table>
+          </div>
+          <span class="fab">＋ 記録する</span>
+        </div>
+        <nav class="bottom">
+          <span>ホーム</span>
+          <span>記録の一覧</span>
+          <span class="plus">＋</span>
+          <span>月のまとめ</span>
+          <span class="on">設定</span>
+        </nav>
+      </div>
+      <div class="example">数字はすべて例です。上の「見る幅」でスマホにすると、下のメニューの「設定」から開いたところになります</div>
+    </div>
+    <div class="notes">
+      <h2>設定（決めたこと）</h2>
+      <ul>
+        <li>たまにしか使わない画面へのリンクを並べる画面（3.1 で決めた）。スマホでは下のメニューの「設定」から開く。</li>
+        <li>パソコンでは、左のメニューに全部出ているので、この画面を開かなくても行ける。</li>
+      </ul>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（5.12）</h2>
+      <div><i class="pin">1</i><span>リンクを 2 つのまとまりに分ける：「お金の入れ物と分け方」（口座・分類・相手。第 1 段階から使う）と「毎月の予定と目標」（定期的な記録・予算・貯金の目標）。並び順は、使い始めに設定する順（口座 → 分類 → 相手）。</span></div>
+      <div><i class="pin">2</i><span>各行の 2 行目に、何の画面かの短い説明と件数を出す（何が登録されているか、開かなくてもわかるように）。件数は「使う」ものだけ数える。</span></div>
+      <div><i class="pin">3</i><span>定期的な記録は第 2 段階、予算・貯金の目標は第 3 段階になってから出す（メニューと同じ）。</span></div>
+      <div><i class="pin">4</i><span>スマホでは、画面の上のログアウトに加えて、ここにもログアウトを置き、ログイン中のメールアドレスを出す（設定の中にログアウトがあると思う人が多いため）。</span></div>
+    </div>
+  </section>
+
+  <section id="p-bgfin" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">予算を決める <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full new">
+          <span class="badge">第3段階</span>
+          <div class="subtabs"><span class="on">ふだんの予算（毎月）<i class="pin">1</i></span><span>特別な月</span></div>
+          <table class="rec">
+            <tr><td><b>食費</b><i class="pin">2</i></td><td class="n"><span class="inp">30,000</span></td></tr>
+            <tr><td class="sub">食料品</td><td class="n"><span class="inp">25,000</span></td></tr>
+            <tr><td class="sub">外食</td><td class="n"><span class="inp">10,000</span></td></tr>
+            <tr><td colspan="2"><div style="color:var(--warn);font-size:.8rem;background:var(--warn-soft);padding:4px 8px;border-radius:4px">小分類の予算の合計（35,000）が、食費の予算（30,000）をこえています<i class="pin">4</i></div></td></tr>
+            <tr><td><b>日用品</b></td><td class="n"><span class="inp">8,000</span></td></tr>
+            <tr><td><b>自動車</b></td><td class="n"><span class="inp empty">なし</span><i class="pin">3</i></td></tr>
+            <tr><td class="sub">ガソリン</td><td class="n"><span class="inp">6,000</span></td></tr>
+            <tr><td class="sub">駐車場</td><td class="n"><span class="inp">5,000</span></td></tr>
+            <tr><td colspan="2"><small style="color:var(--muted)">自動車：小分類の予算の合計 11,000（大分類の予算はなし）<i class="pin">5</i></small></td></tr>
+            <tr><td><b>交際費</b></td><td class="n"><span class="inp">5,000</span></td></tr>
+            <tr><td colspan="2" style="color:var(--muted);font-size:.8rem">…（支出の分類がすべて並ぶ）</td></tr>
+          </table>
+          <div class="savebar"><span class="btn primary">まとめて保存<i class="pin">7</i></span></div>
+        </div>
+        <div class="block full new">
+          <span class="badge">「特別な月」を押したとき</span>
+          <div class="month"><span class="btn">◀ 11月</span><b>2026年12月<i class="pin">6</i></b><span class="btn">1月 ▶</span></div>
+          <table class="rec">
+            <tr><td><b>食費</b><br><small>ふだん 30,000</small></td><td class="n"><span class="inp">40,000</span></td></tr>
+            <tr><td><b>交際費</b><br><small>ふだん 5,000</small></td><td class="n"><span class="inp">20,000</span></td></tr>
+            <tr><td><b>日用品</b><br><small>ふだん 8,000</small></td><td class="n"><span class="inp empty">ふだんのまま</span></td></tr>
+            <tr><td colspan="2" style="color:var(--muted);font-size:.8rem">…</td></tr>
+          </table>
+          <div class="savebar"><span class="btn primary">まとめて保存</span></div>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です。月のまとめの「予算を決める」と、設定から開く</div>
+    </div>
+    <div class="notes">
+      <h2>予算を決める（決めたこと）</h2>
+      <ul>
+        <li>支出の分類の表に金額の欄を並べ、「まとめて保存」で決める（決定：ア）。</li>
+        <li>空の欄は「予算なし」。特別な月では「ふだんのまま」。</li>
+        <li>予算の状況（使った額と棒）は、この画面ではなく月のまとめで見る。</li>
+      </ul>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（5.11）</h2>
+      <div><i class="pin">1</i><span>開いたときは「ふだんの予算」。「特別な月」に切りかえると、月を選ぶ表になる。</span></div>
+      <div><i class="pin">2</i><span>並ぶのは支出の分類だけ（収入には予算を決めない）。並び順は分類の管理（5.8）と同じ。「使わない」分類は出さず、その予算は月のまとめ・お知らせでも使わない。</span></div>
+      <div><i class="pin">3</i><span>欄が空なら「予算なし」。入れるときは 1 円以上の整数。今ある予算を空にして保存すると、その予算をやめる。</span></div>
+      <div><i class="pin">4</i><span>小分類の予算の合計が、大分類の予算をこえたときは、赤い字で「小分類の予算の合計（○○）が、食費の予算（○○）をこえています」と出す。まちがいとは限らないので、保存はできる。</span></div>
+      <div><i class="pin">5</i><span>大分類に予算がなく、小分類だけに予算があってもよい（自動車の例）。大分類に予算があるときは、小分類で使った額も大分類の使った額に数える（月のまとめと同じ数え方）。</span></div>
+      <div><i class="pin">6</i><span>特別な月は、開いたときは来月。今月から 12 か月先まで切りかえられる（過ぎた月の予算は直さない。過去の月のまとめが変わってしまうため）。</span></div>
+      <div><i class="pin">7</i><span>保存したら、この画面のまま「保存しました」と出す（ほかの分類も続けて直せるように）。</span></div>
+    </div>
+  </section>
+
+  <!-- 5.11 予算を決める ア -->
+  <section id="p-bga" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">予算を決める <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full new">
+          <span class="badge">第3段階</span>
+          <div class="subtabs"><span class="on">ふだんの予算（毎月）</span><span>特別な月</span></div>
+          <table class="rec">
+            <tr><td><b>食費</b></td><td class="n"><span class="inp">30,000</span></td></tr>
+            <tr><td class="sub">食料品</td><td class="n"><span class="inp empty">なし</span></td></tr>
+            <tr><td class="sub">外食</td><td class="n"><span class="inp">10,000</span></td></tr>
+            <tr><td><b>日用品</b></td><td class="n"><span class="inp">8,000</span></td></tr>
+            <tr><td><b>交通費</b></td><td class="n"><span class="inp">12,000</span></td></tr>
+            <tr><td><b>交際費</b></td><td class="n"><span class="inp">5,000</span></td></tr>
+            <tr><td><b>趣味・娯楽</b></td><td class="n"><span class="inp empty">なし</span></td></tr>
+            <tr><td colspan="2" style="color:var(--muted);font-size:.8rem">…（支出の分類がすべて並ぶ）</td></tr>
+          </table>
+          <div class="savebar"><span class="btn primary">まとめて保存</span></div>
+        </div>
+        <div class="block full new">
+          <span class="badge">「特別な月」を押したとき</span>
+          <div class="month"><span class="btn">◀ 11月</span><b>2026年12月</b><span class="btn">1月 ▶</span></div>
+          <table class="rec">
+            <tr><td><b>食費</b><br><small>ふだん 30,000</small></td><td class="n"><span class="inp">40,000</span></td></tr>
+            <tr><td><b>交際費</b><br><small>ふだん 5,000</small></td><td class="n"><span class="inp">20,000</span></td></tr>
+            <tr><td><b>日用品</b><br><small>ふだん 8,000</small></td><td class="n"><span class="inp empty">ふだんのまま</span></td></tr>
+            <tr><td colspan="2" style="color:var(--muted);font-size:.8rem">…</td></tr>
+          </table>
+          <div class="savebar"><span class="btn primary">まとめて保存</span></div>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です。空の欄は「予算なし」（特別な月では「ふだんのまま」）</div>
+    </div>
+    <div class="notes">
+      <h2>ア：支出の分類の表に、金額の欄を並べて直接入れる</h2>
+      <ul>
+        <li>支出の分類（大分類・小分類）がすべて並び、それぞれに金額の欄がある。入れて「まとめて保存」を 1 回押すだけ。</li>
+        <li>空の欄は「予算なし」。予算をやめるときは、欄を空にして保存する。</li>
+        <li>「特別な月」を押すと、月を選んで、その月だけの金額を入れられる。ふだんの金額が横に小さく出るので、くらべながら入れられる。</li>
+        <li>最初に全部の予算を決めるときに速い。どの分類に予算があって、どれにないかが 1 目でわかる。</li>
+        <li>前に作った「月ごとの金額」（5.10）と同じ動き。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.11 予算を決める イ -->
+  <section id="p-bgi" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">予算を決める <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full new">
+          <span class="badge">第3段階</span>
+          <h3>ふだんの予算（毎月）</h3>
+          <table class="rec">
+            <tr><td>食費</td><td class="n">30,000 ›</td></tr>
+            <tr><td class="sub">外食</td><td class="n">10,000 ›</td></tr>
+            <tr><td>日用品</td><td class="n">8,000 ›</td></tr>
+            <tr><td>交通費</td><td class="n">12,000 ›</td></tr>
+            <tr><td>交際費</td><td class="n">5,000 ›</td></tr>
+          </table>
+          <h3 style="margin-top:6px">特別な月だけの予算</h3>
+          <table class="rec">
+            <tr><td>2026年12月　食費</td><td class="n">40,000 ›</td></tr>
+            <tr><td>2026年12月　交際費</td><td class="n">20,000 ›</td></tr>
+          </table>
+          <div class="savebar"><span class="btn primary">＋ 予算を追加</span></div>
+        </div>
+        <div class="block full form">
+          <h3>「＋ 予算を追加」を押すと開く画面</h3>
+          <div class="field"><span>分類</span><div class="box">食費<span>▼</span></div></div>
+          <div class="field"><span>小分類</span><div class="box ph">なし<span>▼</span></div></div>
+          <div class="field"><span>金額</span><div class="box amount">40,000</div></div>
+          <div class="field"><span>いつ</span><div style="font-size:.88rem">○ ふだん（毎月）　● 特別な月 <span class="box" style="display:inline-flex">2026年12月 ▼</span></div></div>
+          <div class="btns"><span class="btn primary">保存</span></div>
+        </div>
+      </div>
+      <div class="example">数字はすべて例です。行の「›」を押すと変更の画面へ</div>
+    </div>
+    <div class="notes">
+      <h2>イ：決めた予算の一覧と、追加・変更の画面（口座・分類・相手と同じ形）</h2>
+      <ul>
+        <li>予算を決めた分類だけが一覧に並ぶ。「＋ 予算を追加」で、分類・金額・いつ（ふだん／特別な月）を入れる。</li>
+        <li>変更・削除は、行を押して別の画面で 1 つずつ。</li>
+        <li>口座・分類・相手・定期的な記録の管理と同じ手順で使える（5.6 で決めた「どの画面でも同じ手順」）。</li>
+        <li>予算を 5 つ決めるなら、「追加 → 選ぶ → 入れる → 保存」を 5 回くり返す。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p-choices" class="stage">
+    <div class="ch">
+      <div class="notes">
+        <h2>この一覧について</h2>
+        <ul>
+          <li>画面設計で、<b>案を比べて選んだこと</b>を、決めた順に並べた。<b>太い緑の字</b>が選んだもの。</li>
+          <li>「画面」のボタンを押すと、比べた画面のタブが開く（画面を描かずにチャットで決めたものは「—」）。</li>
+          <li>選ばなかった理由は、画面設計書（データベースの持ち方はデータベース設計書）の「ほかに考えた案」に書く（同じことを 2 か所にくわしく書かないため）。</li>
+        </ul>
+      </div>
+
+      <h2>画面全体（画面一覧・メニュー・共通の決まり）</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月9日</td><td>画面の形（ワイヤーフレーム）の書き方</td><td>A 設計書に文字と記号で書く／画像にする</td><td class="pick">A 設計書に文字と記号</td><td class="no">—</td></tr>
+        <tr><td>10月9日</td><td>README に載せる画面の画像</td><td>ア 下書きの画像／イ 作ったあとの本物の画面</td><td class="pick">イ 作ったあとの本物の画面</td><td class="no">—</td></tr>
+        <tr><td>10月9日</td><td>月の集計を見る場所</td><td>ア ホーム・記録の一覧に分けて出す／イ「月のまとめ」の画面を作る</td><td class="pick">イ 月のまとめの画面を作る</td><td class="no">—</td></tr>
+        <tr><td>10月9日</td><td>残高を直す（調整）の入力場所</td><td>ア 記録の登録の中で入れる／イ「残高を合わせる」小さな画面</td><td class="pick">イ 残高を合わせる画面</td><td><button class="goto" data-goto="t-adjust">画面</button></td></tr>
+        <tr><td>10月9日</td><td>予算とグラフの見せ方</td><td>ア 予算・グラフを 1 画面／イ 月のまとめ（表＋グラフ）と予算の画面／新しい案</td><td class="pick">新しい案（月のまとめに全部並べ、予算を決めるのは別の画面）</td><td><button class="goto" data-goto="t-e">新しい案</button> <button class="goto" data-goto="t-i1">イ</button> <button class="goto" data-goto="t-a">ア</button></td></tr>
+        <tr><td>10月9日</td><td>メニューの置き方</td><td>A メニューを 1 つにまとめる／B よく使うものは常に出す</td><td class="pick">B よく使うものは常に出す</td><td><button class="goto" data-goto="t-mb">B</button> <button class="goto" data-goto="t-ma">A</button></td></tr>
+        <tr><td>10月9日</td><td>パソコンとスマホ</td><td>A 両方に合わせる／パソコンだけ・スマホだけ</td><td class="pick">A 両方に合わせる</td><td><button class="goto" data-goto="t-common">4 章</button></td></tr>
+        <tr><td>10月9日</td><td>削除の前の確認</td><td>ア 確認の小窓を出す／確認なしで消す</td><td class="pick">ア 確認の小窓</td><td><button class="goto" data-goto="t-common">4 章</button></td></tr>
+        <tr><td>10月9日</td><td>ホームの四角をドラッグで並べかえる</td><td>今作る／X あとで足す</td><td class="pick">X あとで足す</td><td class="no">—</td></tr>
+      </table></div>
+
+      <h2>5.1 ログイン・5.2 ホーム</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月9日</td><td>ログインしたままにする</td><td>ア 欄を置き、最初からチェック／欄を置かない</td><td class="pick">ア 欄あり・最初からチェック</td><td><button class="goto" data-goto="t-login">5.1</button></td></tr>
+        <tr><td>10月9日</td><td>取っておく額</td><td>ア 全体で 1 つ／イ 口座ごと（全部取っておくも選べる）</td><td class="pick">イ 口座ごと</td><td><button class="goto" data-goto="t-home">ホーム</button></td></tr>
+        <tr><td>10月9日</td><td>第 1 段階で作るもの</td><td>ア そのまま／イ 過去の月・相手ごとの合計を第 1 段階へ移す</td><td class="pick">イ 第 1 段階へ移す</td><td class="no">—</td></tr>
+        <tr><td>10月9日</td><td>1 日あたり・1 週間あたり使える額</td><td>出す／出さない</td><td class="pick">出す（第 2 段階）</td><td><button class="goto" data-goto="t-home">ホーム</button></td></tr>
+        <tr><td>10月9日</td><td>貯金の目標</td><td>ア 貯金用の口座の残高で進み具合を出す／作らない</td><td class="pick">ア 口座の残高で進み具合（第 3 段階）</td><td><button class="goto" data-goto="t-home">ホーム</button></td></tr>
+        <tr><td>10月9日</td><td>記録忘れのお知らせ</td><td>作る／X 作らない</td><td class="pick">X 作らない</td><td class="no">—</td></tr>
+        <tr><td>10月9日</td><td>予算をホームでどう出すか</td><td>ア 全部の残り／イ こえそう・こえたものだけ／ウ 出さない</td><td class="pick">イ こえそう・こえたものだけ</td><td><button class="goto" data-goto="t-bi">イ</button> <button class="goto" data-goto="t-ba">ア</button> <button class="goto" data-goto="t-bu">ウ</button></td></tr>
+      </table></div>
+
+      <h2>5.4 記録の登録</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月9日</td><td>新しい相手の追加のしかた</td><td>A 打つと候補が出て、保存したときに追加／B 一覧の最後に「＋ 新しい相手」</td><td class="pick">A 打つと候補</td><td><button class="goto" data-goto="t-pa">A</button> <button class="goto" data-goto="t-pb">B</button></td></tr>
+      </table></div>
+
+      <h2>5.10 定期的な記録</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月9日</td><td>毎月の金額を入れる場所</td><td>ア 1 画面で全部／イ 2 画面に分ける／ウ ホームで入れる／エ ホームのお知らせを押すと開く</td><td class="pick">エ お知らせを押すと開く（＋定期的な記録の画面に月ごとの金額）</td><td><button class="goto" data-goto="t-4u2">エ</button> <button class="goto" data-goto="t-4a">ア</button> <button class="goto" data-goto="t-4i1">イ</button> <button class="goto" data-goto="t-4u">ウ</button></td></tr>
+        <tr><td>10月9日</td><td>ボーナスのように毎月ではないもの</td><td>毎月だけ／Q「毎月／選んだ月だけ」＋「今回はなし」</td><td class="pick">Q 選んだ月だけ＋今回はなし</td><td><button class="goto" data-goto="t-redit">登録・変更</button></td></tr>
+        <tr><td>10月10日</td><td>記録された月の金額を直す場所</td><td>A 記録の編集で直す／B どちらで直しても両方直る</td><td class="pick">A 記録の編集で直す</td><td><button class="goto" data-goto="t-rmonth">月ごとの金額</button></td></tr>
+        <tr><td>10月10日</td><td>自動の記録を削除したとき</td><td>ア その月を今回はなしにする／イ 削除できないようにする</td><td class="pick">ア 今回はなしにする</td><td class="no">—</td></tr>
+        <tr><td>10月10日</td><td>土日でずらして月をまたぐとき</td><td>ア もとの予定の月に出す／イ 記録する日の月に出す</td><td class="pick">ア もとの予定の月</td><td><button class="goto" data-goto="t-rmonth">月ごとの金額</button></td></tr>
+        <tr><td>10月10日</td><td>決まった金額が先の月から変わるとき</td><td>ア 終わらせて続きを作る／イ「いつから」を選ぶ</td><td class="pick">ア 終わらせて続きを作る</td><td><button class="goto" data-goto="t-chga">ア</button> <button class="goto" data-goto="t-chgi">イ</button></td></tr>
+        <tr><td>10月10日</td><td>過ぎた月があとから記録の対象に入ったとき</td><td>ア 今回はなしにする／イ その変更をできなくする／ウ 保存するときに選ぶ</td><td class="pick">ア 今回はなしにする</td><td><button class="goto" data-goto="t-bka">ア</button> <button class="goto" data-goto="t-bki">イ</button> <button class="goto" data-goto="t-bku">ウ</button></td></tr>
+      </table></div>
+
+      <h2>5.11 予算を決める</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月10日</td><td>予算の入れ方</td><td>ア 分類の表に直接入れる／イ 一覧＋追加・変更の画面</td><td class="pick">ア 分類の表に直接入れる</td><td><button class="goto" data-goto="t-bga">ア</button> <button class="goto" data-goto="t-bgi">イ</button></td></tr>
+      </table></div>
+
+      <h2>5.13 貯金の目標</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月10日</td><td>1 つの口座を 2 つ以上の目標で使うとき</td><td>ア 1 つの口座は 1 つの目標だけ／イ 同じ残高を両方に出す／ウ 口座の中で振り分ける</td><td class="pick">ア 1 つの口座は 1 つの目標だけ</td><td><button class="goto" data-goto="t-gla">ア</button> <button class="goto" data-goto="t-gli">イ</button> <button class="goto" data-goto="t-glu">ウ</button></td></tr>
+      </table></div>
+
+      <h2>6 章 見た目の決まり</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月11日</td><td>並べ方の型</td><td>ア リスト型／イ カード型／ウ カレンダー型</td><td class="pick">イ と ウ を合わせる（下の行）</td><td><button class="goto" data-goto="t-lkc">イ</button> <button class="goto" data-goto="t-lkl">ア</button> <button class="goto" data-goto="t-lkk">ウ</button></td></tr>
+        <tr><td>10月11日</td><td>カレンダーを置く場所</td><td>A 記録の一覧で切りかえて見る／B ホームのカードの 1 つにする</td><td class="pick">B ホームにカレンダーのカード</td><td><button class="goto" data-goto="t-mxb">B</button> <button class="goto" data-goto="t-mxa">A</button></td></tr>
+        <tr><td>10月11日</td><td>CSS の書き方</td><td>ア 自分で全部書く／イ Bootstrap／ウ Pico.css</td><td class="pick">イ Bootstrap 5.3</td><td><button class="goto" data-goto="t-cssb">イ</button> <button class="goto" data-goto="t-cssa">ア</button> <button class="goto" data-goto="t-cssp">ウ</button></td></tr>
+        <tr><td>10月11日</td><td>基本の色</td><td>ア 緑／イ 青／ウ 紺／エ 青緑（はじめのオレンジから変えた）</td><td class="pick">エ 青緑</td><td><button class="goto" data-goto="t-colo">エ</button> <button class="goto" data-goto="t-colg">ア</button> <button class="goto" data-goto="t-colb">イ</button> <button class="goto" data-goto="t-coln">ウ</button></td></tr>
+        <tr><td>10月11日</td><td>収入の緑</td><td>A #2e7d32／B #4a8f1c／C #5b8c00</td><td class="pick">B #4a8f1c</td><td><button class="goto" data-goto="t-roles">色の役目</button></td></tr>
+        <tr><td>10月11日</td><td>字の形（フォント）</td><td>ア 機械に入っている字／イ BIZ UDPゴシック／ウ Noto Sans JP</td><td class="pick">ウ Noto Sans JP</td><td><button class="goto" data-goto="t-fnu">ウ</button> <button class="goto" data-goto="t-fna">ア</button> <button class="goto" data-goto="t-fni">イ</button></td></tr>
+      </table></div>
+
+      <h2>データベースの持ち方（画面設計で決まったことに合わせて）</h2>
+      <div class="ch-wrap"><table>
+        <tr><th>決めた日</th><th>何を決めたか</th><th>比べた案</th><th>選んだもの</th><th>画面</th></tr>
+        <tr><td>10月11日</td><td>「今回はなし」を覚えさせる場所</td><td>ア 月ごとの金額の表に印／イ 今回はなし専用の表</td><td class="pick">イ 専用の表（recurring_skips）</td><td><button class="goto" data-goto="t-dsi">イ</button> <button class="goto" data-goto="t-dsa">ア</button></td></tr>
+        <tr><td>10月11日</td><td>「選んだ月だけ」の覚えさせ方</td><td>ア 1 つの列にまとめる／イ 月ごとの表を作る</td><td class="pick">ア 1 つの列（recurrings.months）</td><td><button class="goto" data-goto="t-dma">ア</button> <button class="goto" data-goto="t-dmi">イ</button></td></tr>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- 5.10 後半：さかのぼり ア -->
+  <section id="p-bka" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">定期的な記録を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <h3>① ジムの会費を「使う」に戻して保存を押す</h3>
+          <div class="field"><span>名前</span><div class="box">ジムの会費</div></div>
+          <div class="field"><span>金額</span><div class="box">7,700（決まっている）</div></div>
+          <div class="field"><span>日付</span><div class="box">1日</div></div>
+          <div class="field"><span>使う</span><div style="color:var(--accent);font-weight:700">☑ 使う（「使わない」から戻した）</div></div>
+        </div>
+        <div class="dialog full">
+          <b style="font-size:.9rem">② 保存の前に出る確認の小窓</b>
+          <span style="font-size:.88rem">2026年4月〜9月の分は記録せず、「今回はなし」にします。10月の分から自動で記録します。</span>
+          <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn">やめる</span><span class="btn primary">保存する</span></div>
+        </div>
+        <div class="block full">
+          <h3>③ 保存したあとの月ごとの金額（2026年6月を開いたところ）</h3>
+          <table class="rec">
+            <tr class="skip"><td><b>ジムの会費</b><br><small>6月1日（月）</small></td><td class="n"><span class="state">今回はなし</span><br><span class="btn">もどす</span></td></tr>
+          </table>
+          <small style="color:var(--muted);font-size:.78rem">6月だけは本当に払っていたときは「もどす」を押す → すぐに 6月1日 の記録ができる</small>
+        </div>
+      </div>
+      <div class="example">3月に「使わない」にしたジムの会費を、10月10日に「使う」に戻した例</div>
+    </div>
+    <div class="notes">
+      <h2>ア：過ぎた月は自動で「今回はなし」にする</h2>
+      <ul>
+        <li>「使う」に戻す・最後の月を延ばす・最初の月を前にする、のどれでも同じ決まり。</li>
+        <li>保存の前に、どの月が「今回はなし」になるかを小窓で知らせる。</li>
+        <li>記録したい月があれば、前半で作った「もどす」で 1 か月ずつ記録できる。</li>
+        <li>前半で作った「今回はなし」をそのまま使うので、新しく作るものが少ない。</li>
+        <li>何もしなければ、過ぎた月は記録されない（安全なほうに倒れる）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.10 後半：さかのぼり イ -->
+  <section id="p-bki" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">定期的な記録を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form" style="opacity:.75">
+          <h3>使わないにした予定を開いたところ</h3>
+          <div class="field"><span>名前</span><div class="box">ジムの会費</div></div>
+          <div class="field"><span>使う</span><div style="color:var(--muted)">☐ 使わない（戻せません）</div></div>
+          <div class="field"><span>最初の月</span><div class="box ph" style="background:var(--bg)">2025年5月（変えられません）</div></div>
+          <small style="color:var(--muted);font-size:.8rem">もう一度使うときは、新しく登録してください</small>
+          <div class="btns"><span class="btn">この予定を元に新しく登録する</span></div>
+        </div>
+        <div class="block full">
+          <h3>新しく登録した予定</h3>
+          <table class="rec">
+            <tr><td><b>ジムの会費</b><br><small>毎月1日・支出・7,700・2026年11月から</small></td><td class="n">›</td></tr>
+          </table>
+          <small style="color:var(--muted);font-size:.78rem">最初の月は「次にその日付が来る月」より前にできない</small>
+        </div>
+      </div>
+      <div class="example">3月に「使わない」にしたジムの会費を、10月10日にまた使いたくなった例</div>
+    </div>
+    <div class="notes">
+      <h2>イ：過ぎた月が対象に入るような変更を、できなくする</h2>
+      <ul>
+        <li>「使わない」から戻せない。終わった予定の最後の月も延ばせない。最初の月は、次にその日付が来る月より前にできない。</li>
+        <li>また使うときは、新しく登録し直す（「この予定を元に新しく登録する」で欄は入る）。</li>
+        <li>仕組みはいちばんかんたん。</li>
+        <li>要件定義書 5.4 の「あとで『使う』に戻せる」、一覧の印③「『使う』に戻したり、最後の月を延ばしたりできる」と合わなくなるので、そちらを直す必要がある。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.10 後半：さかのぼり ウ -->
+  <section id="p-bku" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">定期的な記録を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <h3>① ジムの会費を「使う」に戻して保存を押す</h3>
+          <div class="field"><span>名前</span><div class="box">ジムの会費</div></div>
+          <div class="field"><span>使う</span><div style="color:var(--accent);font-weight:700">☑ 使う（「使わない」から戻した）</div></div>
+        </div>
+        <div class="dialog full">
+          <b style="font-size:.9rem">② 保存の前に出る小窓：記録する月を選ぶ</b>
+          <span style="font-size:.88rem">日付が過ぎた月があります。記録する月にチェックを入れてください。</span>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;font-size:.88rem">
+            <span>☐ 4月</span><span>☐ 5月</span><span>☑ 6月</span><span>☐ 7月</span><span>☐ 8月</span><span>☐ 9月</span>
+          </div>
+          <small style="color:var(--muted);font-size:.78rem">チェックした月はすぐに記録し、ほかの月は「今回はなし」にします</small>
+          <div style="display:flex;gap:8px;justify-content:flex-end"><span class="btn">やめる</span><span class="btn primary">保存する</span></div>
+        </div>
+      </div>
+      <div class="example">3月に「使わない」にしたジムの会費を、10月10日に「使う」に戻した例</div>
+    </div>
+    <div class="notes">
+      <h2>ウ：保存するときに、過ぎた月ごとに記録するかを選ぶ</h2>
+      <ul>
+        <li>保存の前に、過ぎた月のチェックの一覧が出る。チェックした月はすぐに記録、しなかった月は「今回はなし」。</li>
+        <li>1 回の操作で、記録する月をまとめて選べる。</li>
+        <li>ア の小窓にチェックの一覧を足したもの。終わった予定を何年も延ばすと、チェックが何十個も並ぶ。</li>
+        <li>金額が変わる予定のときは、チェックした月の金額もここで入れる必要があり、小窓が大きく複雑になる。</li>
+        <li>ア でも、月ごとの金額の「もどす」で同じことができる（1 か月ずつ）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p-rlist" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">定期的な記録 <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full" style="opacity:.6">
+          <h3>月ごとの金額（前半で設計済み）</h3>
+          <small style="color:var(--muted)">◀ 9月　2026年10月　11月 ▶ …</small>
+        </div>
+        <div class="block full new">
+          <span class="badge">第2段階</span>
+          <h3>登録してある定期的な記録<i class="pin">1</i></h3>
+          <table class="rec">
+            <tr><td><b>カードA の引き落とし</b><br><small>毎月15日（次の平日）・移動 銀行口座 → カードA・金額が変わる（概算 52,000）<i class="pin">2</i></small></td><td class="n">›</td></tr>
+            <tr><td><b>通信費</b><br><small>毎月20日（次の平日）・支出・5,800</small></td><td class="n">›</td></tr>
+            <tr><td><b>給料</b><br><small>毎月25日（前の平日）・収入・金額が変わる（概算 250,000）</small></td><td class="n">›</td></tr>
+            <tr><td><b>賞与</b><br><small>6月・12月の25日（前の平日）・収入・金額が変わる（概算 400,000）</small></td><td class="n">›</td></tr>
+            <tr><td><b>家賃</b><br><small>毎月27日（次の平日）・支出・70,000・2026年12月まで</small></td><td class="n">›</td></tr>
+            <tr><td><b>家賃</b><br><small>毎月27日（次の平日）・支出・72,000・2027年1月から</small></td><td class="n">›</td></tr>
+            <tr><td><b>車のローン</b><br><small>毎月27日（次の平日）・支出・30,000・2029年3月まで</small></td><td class="n">›</td></tr>
+          </table>
+          <div class="savebar"><span class="btn primary">＋ 定期的な記録を登録する</span></div>
+        </div>
+        <div class="block full" style="opacity:.6">
+          <h3>終わったもの・使わないもの<i class="pin">3</i></h3>
+          <table class="rec">
+            <tr><td>家のローン（前の銀行）<br><small>毎月27日・支出・80,000・2025年3月まで（終わった）</small></td><td class="n">›</td></tr>
+            <tr><td>ジムの会費<br><small>毎月1日・支出・7,700（使わない）</small></td><td class="n">›</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="example">数字と名前はすべて例です。行の「›」を押すと変更の画面へ</div>
+    </div>
+    <div class="notes">
+      <h2>一覧（決めたこと）</h2>
+      <ul>
+        <li>画面の上が「月ごとの金額」（前半）、下がこの一覧。</li>
+        <li>登録・変更は、一覧とは別の画面でする（口座・分類・相手と同じ）。</li>
+        <li>金額が先の月から変わったときは、今の予定を終わらせて続きを作る（決定：ア）。一覧には同じ名前が 2 行並ぶ（家賃の例）。</li>
+      </ul>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（5.10 後半・一覧）</h2>
+      <div><i class="pin">1</i><span>並び順は、毎月の日付の早い順。同じ日付なら、最初の月が早い順（家賃 70,000 → 72,000 の順になる）。</span></div>
+      <div><i class="pin">2</i><span>2 行目には、日付（ずらし方）・種類・金額を出す。移動は「どこから → どこへ」。金額が変わるものは「金額が変わる（概算 ○○）」。最初の月が先のものは「○月から」、最後の月があるものは「○月まで」。</span></div>
+      <div><i class="pin">3</i><span>最後の月を過ぎたもの（終わった）と「使わない」にしたものは、いちばん下にまとめて薄い字で出す。押すと変更の画面へ行き、「使う」に戻したり、最後の月を延ばしたりできる。</span></div>
+    </div>
+  </section>
+
+  <!-- 5.10 後半：登録・変更 -->
+  <section id="p-redit" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">定期的な記録を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center"><div class="seg"><span>収入</span><span class="on">支出</span><span>移動</span></div><i class="pin">4</i></div>
+          <div class="field"><span>名前<i class="pin">5</i></span><div class="box">家賃</div></div>
+          <div class="field" style="align-items:start"><span style="padding-top:2px">金額</span>
+            <div style="display:grid;gap:4px;font-size:.88rem">
+              <span>● 決まっている <span class="box" style="display:inline-flex;min-width:6em;justify-content:flex-end">70,000</span></span>
+              <span>○ 毎月変わる（概算 <span class="box ph" style="display:inline-flex;min-width:5em">　</span>）<i class="pin">6</i></span>
+            </div>
+          </div>
+          <div class="field"><span>日付</span><div class="box">27日<span>▼</span></div></div>
+          <div class="field"><span>土日・祝日</span><div class="box">次の平日にずらす<span>▼</span><i class="pin">7</i></div></div>
+          <div class="field" style="align-items:start"><span style="padding-top:2px">どの月</span>
+            <div style="display:grid;gap:4px;font-size:.88rem">
+              <span>● 毎月　○ 選んだ月だけ<i class="pin">8</i></span>
+              <span style="color:var(--muted);font-size:.8rem">（選んだ月だけのとき：□1月 □2月 … □12月 のチェックが出る）</span>
+            </div>
+          </div>
+          <div class="field"><span>相手<i class="pin">9</i></span><div class="box">不動産会社</div></div>
+          <div class="field"><span>分類</span><div class="box">住まい<span>▼</span></div></div>
+          <div class="field"><span>小分類</span><div class="box ph">なし<span>▼</span></div></div>
+          <div class="field"><span>口座</span><div class="box">銀行口座<span>▼</span></div></div>
+          <div class="field"><span>最初の月<i class="pin">10</i></span><div class="box">2026年4月<span>▼</span></div></div>
+          <div class="field"><span>最後の月<i class="pin">10</i></span><div class="box ph">なし<span>▼</span></div></div>
+          <div class="field"><span>使う</span><div>☑ 使う</div></div>
+          <div class="btns">
+            <span class="btn primary">保存<i class="pin">11</i></span>
+            <span class="btn">金額を変えて続きを作る<i class="pin">12</i></span>
+            <span class="btn" style="color:var(--warn)">削除</span>
+          </div>
+        </div>
+      </div>
+      <div class="example">家賃の予定を直すときの例。新しく登録するときは「保存」だけが出る</div>
+    </div>
+    <div class="notes">
+      <h2>登録・変更（決めたこと）</h2>
+      <ul>
+        <li>項目は要件定義書 No.11・12 のとおり（名前・種類・毎月の日付・ずらし方・金額・口座・分類・相手・最初の月・最後の月）＋「毎月／選んだ月だけ」。</li>
+        <li>「金額を変えて続きを作る」は、決定したアのボタン。</li>
+        <li>削除は、記録がないときだけ。記録があるときは「使わない」にするかを聞く（4 章の 9）。</li>
+      </ul>
+    </div>
+    <div class="checks">
+      <h2>確認してほしいところ（5.10 後半・登録・変更）</h2>
+      <div><i class="pin">4</i><span>種類（収入・支出・移動）は、記録の登録（5.4）と同じく上の切りかえ。新しく登録するときは支出から始まる。移動のときは、相手・分類・小分類の欄が消え、口座が「どこから」「どこへ」の 2 つになる。</span></div>
+      <div><i class="pin">5</i><span>名前は 50 文字まで。<b>同じ名前があってもよい</b>（アで家賃の続きを作ると、同じ名前が 2 つになるため）。</span></div>
+      <div><i class="pin">6</i><span>「毎月変わる」を選んだら、概算が必須になる（1 円以上）。「決まっている」なら金額が必須。</span></div>
+      <div><i class="pin">7</i><span>ずらし方の最初の値は、収入なら「前の平日」、支出・移動なら「次の平日」（要件定義書の例：給料は前の平日、引き落としは次の平日）。変えられる。</span></div>
+      <div><i class="pin">8</i><span>「選んだ月だけ」にしたら、1月〜12月のチェックが出て、1 つ以上選ぶのが必須。</span></div>
+      <div><i class="pin">9</i><span>欄の順は、記録の登録と同じく 相手 → 分類 → 小分類 → 口座。新しく登録するときに相手を選ぶと、その相手の前回の分類・口座を入れる（5.4 と同じ）。相手は打つと候補が出る。</span></div>
+      <div><i class="pin">10</i><span>最初の月は、新しく登録するときは「次にその日付が来る月」が入る。最後の月は空でもよい。最初の月より前の月は選べない。</span></div>
+      <div><i class="pin">11</i><span>変更して保存すると、<b>まだ記録されていない月だけ</b>が新しい内容になる。記録された月は変わらない（直すときは記録のほうを直す）。保存したら一覧に戻り、「保存しました」と出す。</span></div>
+      <div><i class="pin">12</i><span>「金額を変えて続きを作る」は、金額が決まっている予定で、最後の月が入っているときだけ押せる。押すと、名前・種類・日付・口座・分類・相手などが同じで、最初の月が「最後の月の次の月」の登録の画面が開く。最後の月が空のときは「先に最後の月を入れて保存してください」と出す。</span></div>
+      <div><i class="pin">13</i><span>「毎月変わる」から「決まっている」に変えたときは、まだ記録されていない月に入れておいた金額は使わずに消し、決まった金額で記録する。「今回はなし」にした月は、そのまま残す（この画面には出ていない決まり）。</span></div>
+    </div>
+    <div class="notes">
+      <h2>10月10日に開発者の目で見直して決めたこと（選んでもらったこと）</h2>
+      <ul>
+        <li><b>過ぎた月があとから記録の対象に入ったとき：ア その月は「今回はなし」にする</b>。「使う」に戻す・最後の月を延ばす・最初の月を前にする、のどれでも同じ。保存の前に、どの月が「今回はなし」になるかを小窓で知らせる。記録したい月は、月ごとの金額の「もどす」で記録する。</li>
+        <li>止めていたあいだはふつう払っていないので、「今回はなし」がそのまま正しい。「もどす」が要るのは、まちがえて「使わない」にしていたときだけ。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p-chga" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">定期的な記録を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <h3>① 今の家賃の予定を直す</h3>
+          <div class="field"><span>名前</span><div class="box">家賃</div></div>
+          <div class="field"><span>金額</span><div class="box amount">70,000</div></div>
+          <div class="field"><span>最初の月</span><div class="box">2026年4月<span>▼</span></div></div>
+          <div class="field"><span>最後の月</span><div class="box" style="border:2px solid var(--accent)">2026年12月<span>▼</span></div></div>
+          <small style="color:var(--muted);font-size:.78rem">（日付・口座・分類・相手などの欄は省略）</small>
+          <div class="btns"><span class="btn primary">保存</span><span class="btn">金額を変えて続きを作る</span></div>
+        </div>
+        <div class="block full form">
+          <h3>② 「金額を変えて続きを作る」を押すと開く登録の画面</h3>
+          <div class="field"><span>名前</span><div class="box">家賃</div></div>
+          <div class="field"><span>金額</span><div class="box amount" style="border:2px solid var(--accent)">72,000</div></div>
+          <div class="field"><span>最初の月</span><div class="box">2027年1月<span>▼</span></div></div>
+          <div class="field"><span>最後の月</span><div class="box ph">なし<span>▼</span></div></div>
+          <small style="color:var(--muted);font-size:.78rem">名前・日付・口座・分類・相手は ① と同じものが入っている。最初の月は ① の最後の月の次の月</small>
+          <div class="btns"><span class="btn primary">登録</span></div>
+        </div>
+        <div class="block full">
+          <h3>③ 登録したあとの一覧</h3>
+          <table class="rec">
+            <tr><td><b>家賃</b><br><small>毎月27日・支出・70,000・2026年12月まで</small></td><td class="n">›</td></tr>
+            <tr><td><b>家賃</b><br><small>毎月27日・支出・72,000・2027年1月から</small></td><td class="n">›</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="example">10月に「1月から家賃が 72,000 円になる」とわかったときの例。① → ② → ③ の順に進む</div>
+    </div>
+    <div class="notes">
+      <h2>ア：今の予定を終わらせて、新しい金額で続きを作る</h2>
+      <ul>
+        <li>今の予定に「最後の月：2026年12月」を入れ、「金額を変えて続きを作る」を押す。ほかの欄が入った登録の画面が開くので、金額を 72,000 にして登録する。</li>
+        <li>11月・12月は 70,000、1月からは 72,000 で自動で記録される。</li>
+        <li>一覧には家賃が 2 行並ぶ（終わった古いほうは、1月を過ぎたら「終わったもの」として下にまとめる）。</li>
+        <li>今あるテーブル（recurrings）の列だけでできる。仕組みがかんたんで、まちがいが起きにくい。</li>
+        <li>すぐに変わるとき（来月からなど）は、金額を直して保存するだけでよい。まだ記録されていない月が、すべて新しい金額になる。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 5.10 後半：金額が先の月から変わるとき イ -->
+  <section id="p-chgi" class="stage" hidden>
+    <div class="phone">
+      <div class="bar">定期的な記録を直す <small>ログアウト</small></div>
+      <div class="screen">
+        <div class="block full form">
+          <h3>家賃の予定を直す</h3>
+          <div class="field"><span>名前</span><div class="box">家賃</div></div>
+          <div class="field" style="align-items:start"><span style="padding-top:4px">金額</span>
+            <div style="display:grid;gap:6px">
+              <table class="rec">
+                <tr><td>2026年4月から</td><td class="n">70,000</td></tr>
+                <tr style="background:var(--accent-soft)"><td>2027年1月から</td><td class="n">72,000 <span class="btn">削除</span></td></tr>
+              </table>
+              <span class="link" style="text-align:left">＋ 金額が変わる月を足す</span>
+            </div>
+          </div>
+          <div class="field"><span>最初の月</span><div class="box">2026年4月<span>▼</span></div></div>
+          <div class="field"><span>最後の月</span><div class="box ph">なし<span>▼</span></div></div>
+          <small style="color:var(--muted);font-size:.78rem">（日付・口座・分類・相手などの欄は省略）</small>
+          <div class="btns"><span class="btn primary">保存</span></div>
+        </div>
+        <div class="block full">
+          <h3>保存したあとの一覧</h3>
+          <table class="rec">
+            <tr><td><b>家賃</b><br><small>毎月27日・支出・70,000（2027年1月から 72,000）</small></td><td class="n">›</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="example">10月に「1月から家賃が 72,000 円になる」とわかったときの例</div>
+    </div>
+    <div class="notes">
+      <h2>イ：「何月から」を選んで、金額を変える</h2>
+      <ul>
+        <li>変更の画面で「＋ 金額が変わる月を足す」を押し、「2027年1月から 72,000」を入れて保存するだけ。</li>
+        <li>一覧の家賃は 1 行のまま。今の金額と、これから変わる金額が 1 行でわかる。</li>
+        <li>金額の移り変わり（何月から いくら）を覚えるための<b>新しいテーブル</b>がいる。自動で記録するとき・月ごとの金額や「これからの予定」に出すときに、毎回「その月はどの金額か」を探す仕組みもいる。作るものが増え、まちがいも起きやすくなる。</li>
+        <li>家賃や通信費が何度も変わる人には便利。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p-rmonth" class="stage" hidden>
     <div class="phone">
       <div class="bar">定期的な記録 <small>ログアウト</small></div>
       <div class="screen">
@@ -1826,6 +3197,245 @@ function adjRender() {
 }
 adjInput.addEventListener("input", adjRender);
 adjRender();
+
+// 理由を書く（見た目の 3 件）：入力欄を作り、まとめてコピーできるようにする
+// （10月10日の 8 件は書き終わり、画面設計書に反映済み）
+const whys = [
+  { t: "1. CSS の書き方で、ア「自分で全部書く」を選ばなかった", c: "ア 自分で全部書く", g: "部品が最初からそろっておらず、確認の小窓や「保存しました」が数秒で消える動きまで、全部自分で作ることになるため。", w: "画面設計書 6.2", go: "t-cssa" },
+  { t: "2. CSS の書き方で、ウ「Pico.css」を選ばなかった", c: "ウ Pico.css", g: "部品が少なく、色つきのカード・2 列の並べ方・「保存しました」の表示などは自分で書くことになるため。", w: "画面設計書 6.2", go: "t-cssp" },
+  { t: "3. 字の形で、ア「機械に入っている字」を選ばなかった", c: "ア 機械に入っている字", g: "機械によって字の形が変わるため。", w: "画面設計書 6.4", go: "t-fna" },
+];
+function whyLoad(i) { try { return localStorage.getItem("kakeibo-why2-" + i) || ""; } catch (e) { return ""; } }
+function whySave(i, v) { try { localStorage.setItem("kakeibo-why2-" + i, v); } catch (e) {} }
+const whyList = document.getElementById("why-list");
+whys.forEach((w, i) => {
+  const box = document.createElement("div");
+  box.className = "block";
+  box.style.background = "var(--paper)";
+  const h = document.createElement("h3"); h.textContent = w.t; h.style.color = "var(--ink)"; h.style.fontSize = ".95rem";
+  const p1 = document.createElement("small"); p1.textContent = "ほかに考えた案：" + w.c + "（" + w.w + "）"; p1.style.color = "var(--muted)";
+  const p2 = document.createElement("div"); p2.style.fontSize = ".88rem"; p2.style.background = "var(--pin-soft)"; p2.style.padding = "6px 8px"; p2.style.borderRadius = "6px";
+  p2.textContent = "Claude の推測：" + w.g;
+  const ta = document.createElement("textarea");
+  ta.rows = 3; ta.placeholder = "自分の言葉で書く（推測のままでよければ「そのままで OK」）";
+  ta.setAttribute("aria-label", w.t + " の理由");
+  ta.style.cssText = "font:inherit;width:100%;box-sizing:border-box;border:2px solid var(--accent);border-radius:6px;padding:6px 8px;background:var(--paper);color:var(--ink)";
+  ta.value = whyLoad(i);
+  ta.addEventListener("input", () => whySave(i, ta.value));
+  box.append(h, p1, p2, ta);
+  if (w.go) {
+    const g = document.createElement("button"); g.type = "button"; g.className = "goto"; g.textContent = "画面を見る"; g.dataset.goto = w.go; g.style.justifySelf = "start";
+    box.append(g);
+  }
+  whyList.append(box);
+});
+document.getElementById("why-copy").addEventListener("click", () => {
+  const areas = whyList.querySelectorAll("textarea");
+  const text = whys.map((w, i) => w.t + "\n→ " + (areas[i].value.trim() || "そのままで OK")).join("\n\n");
+  const out = document.getElementById("why-out");
+  const msg = document.getElementById("why-msg");
+  out.value = text; out.hidden = false;
+  const done = () => { msg.textContent = "コピーしました。チャットに貼ってください。"; };
+  const fail = () => { out.select(); msg.textContent = "自動でコピーできなかったので、下の文を選んでコピーしてください。"; };
+  try { navigator.clipboard.writeText(text).then(done, fail); } catch (e) { fail(); }
+});
+
+// ③-3 字の形：同じ中身を、フォントだけ変えて 3 つ作る
+document.querySelectorAll(".fontsample").forEach(sec => {
+  const f = sec.dataset.font;
+  const ch = !!sec.dataset.chosen;
+  const p = n => ch ? `<i class="pin">${n}</i>` : "";
+  const tab = ch ? "font-variant-numeric:tabular-nums;" : "";
+  sec.innerHTML = `
+    <div class="phone" style="font-family:${f.replace(/"/g, "&quot;")};${ch ? "font-size:16px;" : ""}">
+      <div class="bar" style="background:#0b7a75;color:#fff;border-color:#0b7a75">家計簿 <small style="color:#dff2f0">ログアウト</small></div>
+      <div class="screen" style="background:#f3f4f2;color:#23271f">
+        <div class="lk-cards full">
+          <div class="lk-card wide" style="background:#0b7a75;color:#fff"><span class="lab" style="color:#dff2f0">使える額</span><span class="val" style="font-size:1.9rem">37,900 円</span><span class="lab" style="color:#dff2f0">1 日あたり 1,647 ・ 1 週間あたり 11,529</span></div>
+          <div class="lk-card wide" style="gap:0;${tab}">
+            <span class="lab">最近の記録${p(2)}${p(3)}</span>
+            <div class="recrow"><span>会社</span><span class="amt" style="color:#4a8f1c;font-weight:700">+250,000</span><small>給料 · 銀行口座</small></div>
+            <div class="recrow"><span>コンビニ</span><span class="amt">680</span><small>食費 · 現金 · おにぎり</small></div>
+            <div class="recrow"><span>ドラッグストア</span><span class="amt">1,980</span><small>日用品 · カードA</small></div>
+            <div class="recrow"><span>カードA の残高</span><span class="amt" style="color:#c0392b">-48,300</span></div>
+          </div>
+          <div class="lk-card wide" style="${tab}"><span class="lab">数字の見分けやすさ</span><span style="font-size:1.25rem;letter-spacing:.04em">0 6 8 9 ・ 1 7 ・ 3 5</span><span style="font-size:1.1rem">1,068,790 円 ／ 116,671 円</span></div>
+          <div class="lk-card wide"><span class="lab">小さな字の読みやすさ${p(1)}</span><span style="font-size:${ch ? ".875rem" : ".78rem"};color:#6b7166">10月27日（火）家賃・車のローン・カードB の引き落とし（次の平日にずらす）</span></div>
+          ${ch ? `<div class="lk-card wide"><span class="lab">入力欄の字${p(1)}</span><span style="display:block;border:1px solid #c9cdc4;border-radius:6px;padding:6px 8px;font-size:16px;background:#fff">1,980</span></div>` : ""}
+        </div>
+      </div>
+      <div class="example">数字はすべて例です</div>
+    </div>
+    <div class="notes">
+      <h2>${sec.dataset.name}${ch ? "（決定）" : ""}</h2>
+      <ul><li>${sec.dataset.feel}</li>${ch ? "<li>選んだ理由（本人）：くせがなく見やすいと感じたため。</li>" : ""}</ul>
+    </div>
+    ${ch ? `<div class="checks">
+      <div><i class="pin">1</i><span><b>ふつうの字の大きさは 16px</b>（Bootstrap の決まりのまま）。小さな字（日付の下の説明など）も 14px より小さくしない。iPhone では入力欄の字が 16px より小さいと、さわったとき画面が勝手に大きくなって使いにくいため。カレンダーのマスの中の金額だけは、マスに入れるため小さくてよい。</span></div>
+      <div><i class="pin">2</i><span><b>数字の幅をそろえる</b>（どの数字も同じ幅にする設定）。上下に並んだ金額のけたがそろい、くらべやすくなるため。</span></div>
+      <div><i class="pin">3</i><span><b>金額は右にそろえる</b>。一の位が縦にそろうため。</span></div>
+      <div><i class="pin">4</i><span><b>字の太さは 2 つだけ</b>（ふつう・太い）を読みこむ。読みこむファイルを小さくして、はじめて開くときの待ち時間を短くするため。読みこみ中は機械に入っている字で先に表示し、読みこめたら切りかえる（字が出ないまま待たされないため）。</span></div>
+    </div>` : ""}`;
+});
+
+// ③-2 青緑と収入の緑の見くらべ（緑の候補 3 つ）
+(() => {
+  const teal = "#0b7a75";
+  const greens = [
+    ["A：はじめの案（#2e7d32）", "#2e7d32"],
+    ["✓ B：明るい黄緑より（#4a8f1c）決定", "#4a8f1c"],
+    ["C：さらに黄緑（#5b8c00）", "#5b8c00"],
+  ];
+  document.getElementById("gcmp").innerHTML = greens.map(([name, g]) => `
+    <div style="display:grid;gap:6px;border:1px solid #dfe3dc;border-radius:10px;padding:10px">
+      <b style="font-size:.9rem">${name}</b>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;font-size:.8rem;color:#fff;font-weight:700">
+        <div style="background:${teal};border-radius:8px;padding:14px 4px">基本の色（青緑）</div>
+        <div style="background:${g};border-radius:8px;padding:14px 4px">収入の緑</div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;align-items:center;font-size:.9rem">
+        <span>会社 <small style="color:#6b7166">給料 · 銀行口座</small></span><b style="color:${g}">+250,000</b>
+        <span>スーパー <small style="color:#6b7166">食費 · カードA</small></span><span>3,240</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="background:${teal};color:#fff;font-weight:700;border-radius:8px;padding:5px 14px;font-size:.85rem">保存</span>
+        <span style="border:2px solid ${teal};border-radius:6px;padding:2px 8px;font-size:.75rem;text-align:center"><span style="color:#6b7166">23</span><br><b style="color:${g}">+25万</b></span>
+        <span style="font-size:.78rem;color:#6b7166">← 今日の枠（青緑）の中に収入（緑）があるとき</span>
+      </div>
+    </div>`).join("");
+})();
+
+// ③-1 基本の色：同じホームを、色だけ変えて 4 つ作る
+document.querySelectorAll(".colsample").forEach(sec => {
+  const m = sec.dataset.main, s = sec.dataset.soft;
+  sec.innerHTML = `
+    <div class="phone">
+      <div class="bar" style="background:${m};color:#fff;border-color:${m}">家計簿 <small style="color:${s}">ログアウト</small></div>
+      <div class="screen" style="background:var(--bg)">
+        <div class="lk-cards full">
+          <div class="lk-card wide" style="background:${m};color:#fff"><span class="lab" style="color:${s}">使える額</span><span class="val" style="font-size:1.8rem">37,900 円</span><span class="lab" style="color:${s}">1 日あたり 1,647 ・ 1 週間あたり 11,529</span></div>
+          <div class="lk-card"><span class="lab">今の残高の合計</span><span class="val small">352,900</span><span class="lab" style="color:${m}">口座ごと ›</span></div>
+          <div class="lk-card"><span class="lab">今月の収支</span><span class="val small neg">-48,600</span><span class="lab">収入 0 ・ 支出 48,600</span></div>
+          <div class="lk-card wide"><span class="lab">記録する</span>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);border:1px solid ${m};border-radius:8px;overflow:hidden;text-align:center;font-size:.85rem"><span style="background:${m};color:#fff;font-weight:700;padding:5px 0">支出</span><span style="padding:5px 0;color:${m}">収入</span><span style="padding:5px 0;color:${m}">移動</span></div>
+            <div style="display:flex;gap:8px;margin-top:6px"><span class="btn" style="background:${m};border-color:${m};color:#fff;font-weight:700">保存</span><span class="btn" style="color:${m};border-color:${m}">保存して続けて入力</span></div>
+          </div>
+          <div class="lk-card wide" style="background:${s}"><span style="color:${m};font-weight:700;text-align:center">✓ 保存しました</span></div>
+        </div>
+      </div>
+      <nav style="display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);text-align:center;font-size:.75rem">
+        <span style="padding:10px 2px;color:${m};font-weight:700;background:${s}">ホーム</span><span style="padding:10px 2px">記録の一覧</span>
+        <span style="font-size:1.3rem;font-weight:700;color:#fff;background:${m};border-radius:50%;width:2.2em;height:2.2em;line-height:2.2em;margin:4px auto">＋</span>
+        <span style="padding:10px 2px">月のまとめ</span><span style="padding:10px 2px">設定</span>
+      </nav>
+      <div class="example">数字はすべて例です。基本の色を使うところ：上の帯・使える額・選んでいる切りかえ・保存ボタン・＋・選んでいるメニュー・「保存しました」</div>
+    </div>
+    <div class="notes">
+      <h2>${sec.dataset.name}（${m}）</h2>
+      <ul><li>${sec.dataset.feel}</li><li>マイナスの赤（-48,600）とならべて、見分けやすいかも見てください。</li></ul>
+    </div>`;
+});
+
+// ② CSS の書き方：同じ部品を 3 つの書き方で、枠の中に本当に表示する
+(() => {
+  const head = '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+  const boot = `<!doctype html><html lang="ja"><head>${head}
+<style>@@BOOT@@</style>
+<style>:root{--bs-success-rgb:47,107,79;--bs-primary:#2f6b4f;--bs-primary-rgb:47,107,79}.btn-primary{--bs-btn-bg:#2f6b4f;--bs-btn-border-color:#2f6b4f;--bs-btn-hover-bg:#245540;--bs-btn-hover-border-color:#245540}body{font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif}</style></head>
+<body class="bg-light p-3">
+<div class="toast show align-items-center text-bg-success border-0 mb-3 w-100"><div class="toast-body">✓ 保存しました</div></div>
+<div class="row g-2">
+  <div class="col-12"><div class="card text-bg-success shadow-sm"><div class="card-body"><small>使える額</small><div class="fs-2 fw-bold">37,900 円</div><small>1 日あたり 1,647 ・ 1 週間あたり 11,529</small></div></div></div>
+  <div class="col-6"><div class="card shadow-sm"><div class="card-body p-2"><small class="text-secondary">今の残高の合計</small><div class="fs-5 fw-bold">352,900</div></div></div></div>
+  <div class="col-6"><div class="card shadow-sm"><div class="card-body p-2"><small class="text-secondary">今月の収支</small><div class="fs-5 fw-bold text-danger">-48,600</div></div></div></div>
+</div>
+<div class="card shadow-sm mt-3"><div class="card-body">
+  <label class="form-label">金額</label><input class="form-control is-invalid" value="0"><div class="invalid-feedback">金額は 1 円以上で入れてください</div>
+  <label class="form-label mt-2">相手</label><input class="form-control" value="コンビニ">
+  <div class="d-flex gap-2 mt-3"><button class="btn btn-primary">保存</button><button class="btn btn-outline-danger">削除</button></div>
+</div></div>
+<div class="modal-content border shadow mt-3"><div class="modal-body">この記録を削除しますか？</div><div class="modal-footer"><button class="btn btn-secondary btn-sm">やめる</button><button class="btn btn-danger btn-sm">削除する</button></div></div>
+</body></html>`;
+  const own = `<!doctype html><html lang="ja"><head>${head}<style>
+body{margin:0;padding:12px;background:#f3f4f2;color:#23271f;font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif}
+.toast{background:#e2eee7;color:#2f6b4f;font-weight:700;border-radius:10px;padding:10px;margin-bottom:12px;text-align:center}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.card{background:#fff;border-radius:14px;padding:12px;box-shadow:0 2px 8px rgb(0 0 0/.1)}
+.wide{grid-column:1/-1}.hero{background:#2f6b4f;color:#fff}.lab{font-size:.75rem;opacity:.75}.big{font-size:1.8rem;font-weight:700}.mid{font-size:1.1rem;font-weight:700}.neg{color:#b3412e}
+label{display:block;font-size:.85rem;margin-top:8px}input{font:inherit;width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #c9cdc4;border-radius:6px}
+input.bad{border-color:#b3412e}.err{color:#b3412e;font-size:.8rem}
+.btn{font:inherit;border:1px solid #c9cdc4;background:#fff;border-radius:8px;padding:6px 14px;margin-top:12px}.pri{background:#2f6b4f;border-color:#2f6b4f;color:#fff;font-weight:700}.dan{color:#b3412e;border-color:#b3412e}
+.dialog{background:#fff;border:2px solid #23271f;border-radius:10px;padding:12px;margin-top:12px}.right{text-align:right}
+</style></head><body>
+<div class="toast">✓ 保存しました</div>
+<div class="cards">
+  <div class="card wide hero"><div class="lab">使える額</div><div class="big">37,900 円</div><div class="lab">1 日あたり 1,647 ・ 1 週間あたり 11,529</div></div>
+  <div class="card"><div class="lab">今の残高の合計</div><div class="mid">352,900</div></div>
+  <div class="card"><div class="lab">今月の収支</div><div class="mid neg">-48,600</div></div>
+</div>
+<div class="card" style="margin-top:12px">
+  <label>金額</label><input class="bad" value="0"><div class="err">金額は 1 円以上で入れてください</div>
+  <label>相手</label><input value="コンビニ">
+  <button class="btn pri">保存</button> <button class="btn dan">削除</button>
+</div>
+<div class="dialog">この記録を削除しますか？<div class="right"><button class="btn">やめる</button> <button class="btn pri" style="background:#b3412e;border-color:#b3412e">削除する</button></div></div>
+</body></html>`;
+  const pico = `<!doctype html><html lang="ja"><head>${head}
+<style>@@PICO@@</style>
+<style>:root{--pico-primary-background:#2f6b4f;--pico-primary-border:#2f6b4f;--pico-font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif}
+.hero{background:#2f6b4f;color:#fff}.hero small{color:#e2eee7}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid2 article{margin:0}.neg{color:#b3412e}</style></head>
+<body><main class="container" style="padding-top:12px">
+<p style="background:#e2eee7;color:#2f6b4f;padding:8px;border-radius:8px;text-align:center"><strong>✓ 保存しました</strong>（この形は自分で書く）</p>
+<article class="hero"><small>使える額</small><h2 style="color:#fff;margin:0">37,900 円</h2><small>1 日あたり 1,647 ・ 1 週間あたり 11,529</small></article>
+<div class="grid2"><article><small>今の残高の合計</small><p><strong>352,900</strong></p></article><article><small>今月の収支</small><p class="neg"><strong>-48,600</strong></p></article></div>
+<article><label>金額<input value="0" aria-invalid="true"><small>金額は 1 円以上で入れてください</small></label>
+<label>相手<input value="コンビニ"></label>
+<div style="display:flex;gap:8px"><button>保存</button><button class="secondary outline">削除</button></div></article>
+<article><p>この記録を削除しますか？</p><footer style="display:flex;gap:8px;justify-content:flex-end"><button class="secondary">やめる</button><button>削除する</button></footer></article>
+</main></body></html>`;
+  document.getElementById("f-own").srcdoc = own;
+  // Bootstrap と Pico.css の CSS を取りに行き、枠の中に直接入れる（<link> での読みこみは止められるため）
+  const note = '<p style="margin:8px;padding:8px;border:1px solid #b3412e;color:#b3412e;font-family:sans-serif">CSS を読みこめませんでした。下は飾りのない状態です。</p>';
+  const load = (url, page, mark, id) => fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(css => { document.getElementById(id).srcdoc = page.replace(mark, () => css); })
+    .catch(() => { document.getElementById(id).srcdoc = page.replace(mark, "").replace("<body", note + "<body"); });
+  load("https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css", boot, "@@BOOT@@", "f-boot");
+  load("https://cdn.jsdelivr.net/npm/@picocss/pico@2.0.6/css/pico.min.css", pico, "@@PICO@@", "f-pico");
+})();
+
+// 見た目 ウ：2026年10月のカレンダー（1日は木曜）
+for (const id of ["lk-cal", "lk-cal-a", "lk-cal-b"]) (() => {
+  const cal = document.getElementById(id);
+  const spend = { 1: 1200, 2: 860, 3: 4300, 5: 2100, 6: 210, 7: 1980, 8: 3240, 9: 890 };
+  const income = {};
+  const plan = { 15: 52000, 20: 5800, 23: 250000, 26: 9200, 27: 121600 };
+  const planIn = { 23: true };
+  // 1 万円以上は「1.2万」のように短く出す（スマホ用）。パソコンではそのまま出す
+  const short = v => v < 10000 ? v.toLocaleString("ja-JP") : (Math.round(v / 1000) / 10).toString() + "万";
+  const amt = (v, sign) => `<i class="amt-full">${sign}${v.toLocaleString("ja-JP")}</i><i class="amt-short">${sign}${short(v)}</i>`;
+  let html = ["日", "月", "火", "水", "木", "金", "土"].map(d => `<div class="dow">${d}</div>`).join("");
+  for (let i = 0; i < 4; i++) html += "<div></div>";
+  for (let d = 1; d <= 31; d++) {
+    let cls = "d", inner = `<b>${d}</b>`;
+    if (spend[d]) inner += `<span>${amt(spend[d], "")}</span>`;
+    if (income[d]) inner += `<span class="in">${amt(income[d], "+")}</span>`;
+    if (plan[d]) { cls += " plan"; inner += `<span>${amt(plan[d], planIn[d] ? "+" : "")}</span>`; }
+    if (d === 9) cls += " today";
+    if (d === 8) cls += " sel";
+    html += `<div class="${cls}">${inner}</div>`;
+  }
+  cal.innerHTML = html;
+})();
+
+// 選んだことの一覧の「画面」ボタン：折りたたみを開いて、そのタブを開く
+document.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click", () => {
+  const tab = document.getElementById(b.dataset.goto);
+  const past = tab.closest("details");
+  if (past) past.open = true;
+  tab.click();
+  tab.scrollIntoView({ block: "center", behavior: "smooth" });
+}));
 
 // タブ切りかえ
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
