@@ -1,0 +1,1027 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>家計簿 全体の構成の下書き</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap">
+<style>
+/* 下書き：いま比べている案をタブで切りかえ、上に通り道の図、下に表と説明。色は家計簿の基本の色（青緑）と注意の赤だけ */
+:root {
+  --bg: #f3f5f4;
+  --paper: #ffffff;
+  --ink: #23271f;
+  --muted: #6b7166;
+  --line: #c9cfcb;
+  --accent: #0b7a75;
+  --accent-soft: #dff0ee;
+  --warn: #c0392b;
+  --warn-soft: #f8e3e0;
+  --good: #4a8f1c;
+  --font: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #171a19; --paper: #212524; --ink: #e6ebe8; --muted: #9ba49f; --line: #3d4441;
+  --accent: #5cc7c0; --accent-soft: #1f3836; --warn: #ee8a76; --warn-soft: #3d2824; --good: #9ccf6a;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #171a19; --paper: #212524; --ink: #e6ebe8; --muted: #9ba49f; --line: #3d4441;
+  --accent: #5cc7c0; --accent-soft: #1f3836; --warn: #ee8a76; --warn-soft: #3d2824; --good: #9ccf6a;
+  color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.7; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 18px; }
+h1 { font-size: 1.4rem; margin: 0; text-wrap: balance; }
+.lead { color: var(--muted); margin: 0; max-width: 65ch; }
+.group { font-weight: 700; font-size: .95rem; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tabs button { font: inherit; font-size: .9rem; padding: 7px 14px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 999px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--paper); font-weight: 700; }
+.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { display: grid; gap: 14px; min-width: 0; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card h2 { font-size: 1.05rem; margin: 0 0 6px; text-wrap: balance; }
+.card h3 { font-size: .9rem; margin: 0 0 6px; color: var(--muted); letter-spacing: .04em; }
+.card ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.url { font-family: var(--mono); font-size: .92rem; background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 4px; word-break: break-all; }
+/* 通り道の図 */
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.node { border: 1.5px solid var(--ink); border-radius: 8px; padding: 6px 10px; background: var(--paper); font-size: .85rem; text-align: center; min-width: 0; }
+.node small { display: block; color: var(--muted); font-size: .72rem; }
+.node.aws { border-color: var(--accent); }
+.node.ext { border-style: dashed; }
+.arrow { font-size: .75rem; color: var(--muted); text-align: center; line-height: 1.2; }
+.arrow b { display: block; font-size: 1rem; color: var(--ink); }
+.arrow.lock b { color: var(--good); }
+.arrow.open b { color: var(--warn); }
+.legend { font-size: .78rem; color: var(--muted); }
+/* 比べる表 */
+.tw { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: .88rem; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { font-size: .8rem; color: var(--muted); border-bottom: 2px solid var(--line); white-space: nowrap; }
+td:first-child { font-weight: 700; white-space: nowrap; }
+.ok { color: var(--good); font-weight: 700; }
+.ng { color: var(--warn); font-weight: 700; }
+.rec { display: inline-block; font-size: .72rem; font-weight: 700; color: var(--paper); background: var(--accent); border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: middle; }
+.note { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px; font-size: .9rem; }
+:root { --pin: #2a5db0; --pin-ink: #ffffff; --pin-soft: #e3ebf8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pin: #8fb4f0; --pin-ink: #14181f; --pin-soft: #232c3a; } }
+:root[data-theme="dark"] { --pin: #8fb4f0; --pin-ink: #14181f; --pin-soft: #232c3a; }
+.pin { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; border-radius: 50%; background: var(--pin); color: var(--pin-ink); font-size: .7rem; font-weight: 700; font-style: normal; margin-left: 4px; vertical-align: middle; line-height: 1; }
+.checks { background: var(--pin-soft); border: 1px solid var(--pin); border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.checks h2 { font-size: .95rem; margin: 0 0 2px; }
+.checks div { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; font-size: .9rem; }
+.checks .pin { margin: 2px 0 0; }
+.zone { border: 1.5px dashed var(--accent); border-radius: 10px; padding: 10px; display: grid; gap: 10px; min-width: 0; }
+.zone .zone { border-style: solid; border-width: 1px; border-color: var(--line); }
+.zone.pub { background: var(--bg); }
+.zone-title { font-size: .78rem; color: var(--muted); font-weight: 700; letter-spacing: .04em; }
+code { font-family: var(--mono); font-size: .85em; }
+.words { display: grid; gap: 8px; }
+.words div { display: grid; grid-template-columns: 9em minmax(0, 1fr); gap: 8px; font-size: .9rem; }
+.words b { color: var(--accent); }
+@media (max-width: 520px) { .words div { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+</style>
+
+<div class="wrap">
+  <h1>家計簿 全体の構成の下書き</h1>
+  <p class="lead">全体の構成（イシュー #13）で選んでもらうものを並べる下書きです。画面の下書きとは別にしました。数字・アドレスはすべて例です。</p>
+
+  <p class="note" style="margin:0"><span class="pin" style="margin-left:0">1</span> のような青い番号の印は、<b>Claude が決めたので確認してもらったところ</b>です（すべて確認済み）。図の中の印と、下の説明の同じ番号を合わせて見てください。</p>
+  <div class="group">全体の構成で選んだことの一覧（すべて決定）と、第三者レビュー</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t0-sum" aria-selected="true" data-p="p0-sum">選んだことの一覧</button>
+    <button role="tab" id="t8-cmp" aria-selected="false" data-p="p8-cmp">✓ 公開する範囲（決定：ア ログインで守る）</button>
+    <button role="tab" id="t8-fix" aria-selected="false" data-p="p8-fix">レビューで直したところ</button>
+  </div>
+
+  <section id="p8-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>公開しているあいだ（数時間）、だれが家計簿のアドレスにたどり着けるか</h2>
+      <p class="legend" style="margin:0 0 8px">設計書 2 章の「選んだ理由」に「CloudFront で自分の IP 以外を止められる」と書いたのに、止めるかどうかを決めていませんでした。</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア 止めない（ログインで守る）<span class="rec">おすすめ</span></th><th>イ 家の IP だけ（CloudFront Functions）</th><th>ウ 家の IP だけ（AWS WAF）</th></tr></thead>
+          <tbody>
+            <tr><td>アドレスを知った他人</td><td>ログイン画面までは見える。ログインしないと中は見えない（N-01）。何度も試すと止まる（N-05）</td><td class="ok">何も見えない（403）</td><td class="ok">何も見えない（403）</td></tr>
+            <tr><td>スマホで確かめる（N-13）</td><td class="ok">家の Wi-Fi でも、携帯の回線でもよい</td><td class="ng">家の Wi-Fi のときだけ。携帯の回線は IP が変わるので止められる</td><td class="ng">イと同じ</td></tr>
+            <tr><td>家の IP の渡し方</td><td>—</td><td>Terraform の値のファイル（tfvars。Git に入れない）。IPv6 を使う家なら、IPv6 の範囲も入れる</td><td>イと同じ</td></tr>
+            <tr><td>お金</td><td class="ok">0 円</td><td class="ok">ほぼ 0 円</td><td>1 か月 6 ドルほどの日割り（数時間なら数円）</td></tr>
+            <tr><td>作るもの</td><td class="ok">なし</td><td>小さなプログラム 1 つ（JavaScript 10 行ほど）</td><td>WAF のルール一式（us-east-1 に作る）</td></tr>
+            <tr><td>destroy のあと</td><td>—</td><td>一緒に消える（タグはつかないので 6.3 の一覧で確かめる）</td><td>一緒に消える</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>前回の taskmanagement はログインがなかったので「家の IP だけ」にしました。今回はログイン（N-01）と回数の制限（N-05）があり、入れるのはテスト用のデータだけです（要件定義書 9 章）。アドレスは作るたびに変わる読みにくいもので、数時間で消えます。スマホの確かめ（N-13）を携帯の回線でもできるのも利点です。ただし「ログインの画面すら他人に見せたくない」なら、イが向いています。</div>
+    <div class="card">
+      <h3>アを選んだときに足すこと（Claude の案）</h3>
+      <ul>
+        <li>README にアドレスを書くコミットは、destroy したあとに push する（動いているあいだに公開のリポジトリにアドレスを出さないため）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p8-fix" class="panel" role="tabpanel" hidden>
+    <div class="howto note" style="margin:0">会話を知らないサブエージェントに、全体構成設計書・要件定義書・README の差分を読ませてレビューしました（9 件）。選ぶ必要がないものは Claude が直しました（コミット 5721fc4）。<b>①〜③ は、このまま作ると動かなかったもの</b>です。</div>
+    <div class="checks">
+      <h2>Claude が直したところ</h2>
+      <div><i class="pin">1</i><span>2 章：CloudFront の最初の設定は GET・HEAD だけで、Cookie も EC2 に渡さない。このままだとログインも記録の保存もできない。→ 送り方は全部受けつける、Cookie・クエリ・ヘッダーを全部 EC2 に渡す（AllViewer）、と書いた。</span></div>
+      <div><i class="pin">2</i><span>2 章：「この係を信じてよい」と設定するだけでは、Laravel は https で来たことに気づけない（CloudFront → EC2 は http のため）。→ 本番では Laravel が作る URL をいつも https にする、ログインの Cookie は https だけ（Secure）、APP_URL は CloudFront のアドレス、と書いた。あわせて、ログインの回数の制限（N-05）のために、本当の IP を X-Forwarded-For から取る、と書いた。</span></div>
+      <div><i class="pin">3</i><span>5 章：systemd タイマーは最初の設定で最大 1 分ずれ、0:06 に起きると 0:05 の処理は動かない。→ 時刻の正確さを 1 秒にする。タイマーはアプリの利用者で動かす（管理者だとファイルが書けなくなる）。「1 回失敗しても次の分に動く」はまちがいだったので、「失敗した日の分は翌日にまとめて記録される」に直した。</span></div>
+      <div><i class="pin">4</i><span>4 章・6.1・6.2：下書きの番号（②・③）のまま書いていた章の参照を、設計書の章（3 章・4 章）に直した。10.4 にもうない文を指していたところも直した。</span></div>
+      <div><i class="pin">5</i><span>1 章・6.3：AWS が自動で作るもの（RDS の金庫、CloudFront が VPC に作るセキュリティグループ）や CloudFront Functions にはタグがつかない。→ destroy のあとはタグに加えて種類ごとの一覧でも 0 件を確かめる。VPC の削除で destroy が止まったら、待ってもう一度。要件定義書 10.4 も「コマンドとコンソールで」にそろえた。</span></div>
+      <div><i class="pin">6</i><span>3 章：EC2 のセキュリティグループの入り口は、AWS が用意している「CloudFront の住所の一覧」（マネージドプレフィックスリスト）で書く。</span></div>
+      <div><i class="pin">7</i><span>6.2：最初の 1 回だけ、ログインするユーザーをコマンドで作り、テスト用のデータをシーダーで入れる。マイグレーションに --force、APP_KEY は「まだないときだけ作る」。RDS の住所と金庫の名前（秘密ではない）は user_data で EC2 の設定ファイルに書く。</span></div>
+      <div><i class="pin">8</i><span>1 章：EC2・RDS の大きさ、アドレスの範囲、PHP 8.5 の入れ方は「Terraform を書くときに決める」とはっきり書いた。</span></div>
+      <h2 style="margin-top:8px">2 回目のレビューで直したところ</h2>
+      <div><i class="pin">9</i><span>6.2：本番の EC2 には開発用の部品を入れないので、テスト用データのシーダーは Faker（開発用の部品）を使わず、決まった並びのデータを組み立てる。本番では db:seed --force。</span></div>
+      <div><i class="pin">10</i><span>2 章・3 章：信頼するプロキシの範囲は「すべて」にする（EC2 には CloudFront からしか届かないので安全さは変わらない）。1 回目のデプロイで、住所の一覧（プレフィックスリスト）で届くことを確かめ、届かなければ CloudFront のセキュリティグループを許す形に変える。</span></div>
+      <div><i class="pin">11</i><span>2 章：README のコミットは destroy の前に手元でしておき、push だけを destroy のあとにする（証拠を残してから destroy する順番はそのまま）。</span></div>
+      <div><i class="pin">12</i><span>この下書き：IP でしぼる前提の古い文を直した。</span></div>
+    </div>
+  </section>
+
+  <section id="p0-sum" class="panel" role="tabpanel">
+    <div class="card">
+      <h2>全体の構成（イシュー #13）で選んだこと</h2>
+      <p class="legend" style="margin:0 0 8px">選ばなかった理由は <b>全体構成設計書</b> の「ほかに考えた案」に書いています。比べた画面は、下の折りたたみの中にあります。</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>何を</th><th>選んだもの</th><th>選ばなかった案</th><th>設計書</th></tr></thead>
+          <tbody>
+            <tr><td>① HTTPS の用意</td><td>CloudFront の既定のアドレス</td><td>IP の住所＋Let's Encrypt、ドメインを買う、自己署名、ALB</td><td>2 章</td></tr>
+            <tr><td>公開する範囲（レビューで見つかった）</td><td>IP ではしぼらず、ログインと回数の制限で守る</td><td>家の IP だけ（CloudFront Functions・AWS WAF）</td><td>2 章</td></tr>
+            <tr><td>② EC2・RDS の置き方</td><td>外から入れない場所＋VPC オリジン＋NAT（destroy 1 回で一緒に消える）</td><td>外から入れる場所、NAT なし</td><td>3 章</td></tr>
+            <tr><td>③ 秘密の情報</td><td>DB のパスワードは RDS に任せる。APP_KEY は EC2 で作る</td><td>Terraform＋Secrets Manager、Terraform＋Parameter Store、手で .env</td><td>4 章</td></tr>
+            <tr><td>④ 定期的な記録</td><td>systemd タイマーが毎分スケジューラーを起こす。Laravel だけ日本時間</td><td>ずっと起きている、EventBridge Scheduler</td><td>5 章</td></tr>
+            <tr><td>⑤-1 台帳の置き場所</td><td>自分の PC（長く動かすなら S3）</td><td>HCP Terraform</td><td>6.1</td></tr>
+            <tr><td>⑤-2 コードの届け方</td><td>EC2 が GitHub から取る（長く動かすなら GitHub Actions）</td><td>PC で固めて送る</td><td>6.2</td></tr>
+            <tr><td>⑤-3 料金の見張り</td><td>予算アラートをアプリの外にずっと置く（1 か月 5 ドル）</td><td>アプリの Terraform に入れる、置かない</td><td>6.3</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">⑤-3 料金の見張りを見る（決定：ア 予算アラートをずっと置く。印 ①〜⑤ 確認済み）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t7-cmp" aria-selected="false" data-p="p7-cmp">✓ 料金の見張り 3 つの案</button>
+    <button role="tab" id="t7-pin" aria-selected="false" data-p="p7-pin">destroy のあとに残すもの（印 ①〜⑤）</button>
+  </div>
+  </div>
+  </details>
+
+  <section id="p7-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>見張りの役目は「destroy したつもりなのに、何かが残ってお金がかかりつづけている」ことに気づくこと</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア 予算アラートを 1 つ、ずっと置く<span class="rec">おすすめ</span></th><th>イ アプリの Terraform に入れる</th><th>ウ 置かない</th></tr></thead>
+          <tbody>
+            <tr><td>しくみ</td><td>AWS Budgets に「1 か月 5 ドル」の予算を作り、こえそう・こえたらメールが来る</td><td>アと同じものを、アプリの Terraform の設計図に書く</td><td>支出上限（20 ドル）でプロジェクトが止まるのにまかせる</td></tr>
+            <tr><td>destroy のあと</td><td class="ok">残る（アプリとは別に、わざと残す）</td><td class="ng">一緒に消える。いちばん見張ってほしい「destroy のあと」に見張りがいない</td><td>—</td></tr>
+            <tr><td>消し忘れに気づくまで</td><td class="ok">NAT が残っても、数日でメールが来る</td><td class="ng">気づけない</td><td class="ng">20 ドル分使って止まるまで気づけない（NAT だけなら約 2 週間）</td></tr>
+            <tr><td>お金</td><td class="ok">0 円（予算アラートは 2 つまで無料）</td><td class="ok">0 円</td><td class="ok">0 円</td></tr>
+            <tr><td>作るもの</td><td>コマンドかコンソールで 1 回だけ作る。作り方を README に書く</td><td>Terraform に数行</td><td>なし</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>見張りが役に立つのは destroy のあとなので、アプリと一緒に消えてはいけません。予算アラートは無料なので、アプリの外にずっと置いておきます。支出上限（20 ドル）は「止める」最後の守りで、アは「止まる前に知らせる」守りです。両方あると安心です。</div>
+    <div class="card">
+      <h3>アを選んだときの中身（Claude の案）</h3>
+      <ul>
+        <li>予算：1 か月 5 ドル。デプロイ 1 回は EC2・RDS・NAT を合わせて 1 ドル前後の見込みなので、ふつうに使えばこえない。</li>
+        <li>メールが来るとき：使った額が 1 か月 5 ドルの 50%（2.5 ドル）をこえたとき、100% をこえたとき、月末までに 100% をこえそうなとき。</li>
+        <li>クレジットを引く前の金額で見張る（クレジットで払われると 0 ドルに見えて、メールが来ないため）。</li>
+        <li>送り先は、AWS にログインしているメールアドレス。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p7-pin" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>destroy のあと、AWS にはアプリのものを何も残さない</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>もの</th><th>destroy のあと</th></tr></thead>
+          <tbody>
+            <tr><td>CloudFront・EC2・RDS・NAT・VPC・金庫（RDS のパスワード）</td><td class="ok">消える</td></tr>
+            <tr><td>RDS の最後のバックアップ（スナップショット）<i class="pin">1</i></td><td class="ok">取らない</td></tr>
+            <tr><td>予算アラート（料金の見張り）</td><td>残す（アを選んだとき）</td></tr>
+            <tr><td>自分の PC の台帳（tfstate）<i class="pin">3</i></td><td>残す（中身は空になる）</td></tr>
+            <tr><td>README の証拠（日付・段階・アドレス・スクリーンショット）</td><td>残す（GitHub）</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="checks">
+      <h2>Claude が決めた点</h2>
+      <div><i class="pin">1</i><span>RDS を消すとき、最後のバックアップ（スナップショット）は取らない。中身はテスト用のデータだけで、取るとそのぶんお金がかかりつづけ、消し忘れのもとになるため。</span></div>
+      <div><i class="pin">2</i><span>destroy のあと、コマンドで「このアプリのタグがついたもの」を ap-southeast-2 と us-east-1（CloudFront）の両方で探し、0 件なことを確かめる。NAT・EC2・RDS・CloudFront は、それぞれの一覧でも 0 件なことを見る（要件定義書 10.4、N-14）。</span></div>
+      <div><i class="pin">3</i><span>台帳は destroy のあとも PC に残す（消さない）。中身は空で、次に apply するときにそのまま使う。</span></div>
+      <div><i class="pin">4</i><span>CloudFront は消すのに 10〜20 分ほどかかる（世界中の窓口から消すため）。destroy が終わるまで待ってから確かめる。</span></div>
+      <div><i class="pin">5</i><span>アプリが自動で作るログの置き場所（CloudWatch Logs）は使わない（ログは EC2 の中のファイルだけ）。Terraform の外で勝手にできて、destroy で消えずに残るのを防ぐため。</span></div>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">⑤-2 コードの届け方を見る（決定：ア EC2 が GitHub から取る。長く動かすならウ。印 ①〜④ 確認済み）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t6-cmp" aria-selected="false" data-p="p6-cmp">3 つの案をくらべる</button>
+    <button role="tab" id="t6-flow" aria-selected="false" data-p="p6-flow">アのデプロイの流れ（印 ①〜④）</button>
+  </div>
+  </div>
+  </details>
+
+  <section id="p6-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ちがうのは「だれが・どこで」コードと部品をそろえて EC2 に置くかです</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア EC2 が GitHub から取る<span class="rec">おすすめ</span></th><th>イ PC で固めて送る</th><th>ウ GitHub Actions が自動で</th></tr></thead>
+          <tbody>
+            <tr><td>流れ</td><td>Session Manager で EC2 に入り、リポジトリのデプロイ用の手順（スクリプト）を 1 つ動かす。EC2 が GitHub から master を取り、部品を入れる</td><td>自分の PC でコードと部品を 1 つのファイルに固め、S3 に置き、EC2 が取る</td><td>master にマージすると、GitHub Actions が AWS に命令して、EC2 にデプロイさせる</td></tr>
+            <tr><td>部品をそろえる場所</td><td class="ok">EC2（動かす場所と同じ Linux）</td><td class="ng">自分の PC（Windows）。Linux とのちがいで動かないことがある</td><td class="ok">EC2 か GitHub（Linux）</td></tr>
+            <tr><td>GitHub の鍵</td><td class="ok">いらない（リポジトリが公開のため）</td><td class="ok">いらない</td><td class="ng">GitHub に AWS を操作する役割を渡す設定が要る</td></tr>
+            <tr><td>作るもの</td><td class="ok">デプロイ用のスクリプト 1 つ</td><td>スクリプト＋固める手順＋S3 のバケット</td><td class="ng">スクリプト＋GitHub Actions の設定＋AWS の役割</td></tr>
+            <tr><td>このアプリの使い方に合うか</td><td class="ok">デプロイは 2 回だけ。手で 1 回動かせば済む</td><td>合うが手間が多い</td><td class="ng">環境は数時間しかなく、ふだんは destroy してあるので、マージのたびに自動でデプロイする意味が少ない</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>デプロイは 2 回だけで、環境は数時間しかないので、手で 1 回動かせば済みます。部品を動かす場所と同じ Linux でそろえるので、「PC では動くのに AWS では動かない」が起きにくいです。② で NAT（出口）を置いたので、EC2 から GitHub に取りに行けます。手順はスクリプトにして Git に入れるので、2 回目も同じ手順でできます（N-15）。</div>
+    <div class="card">
+      <h3>あとで決めること</h3>
+      <ul>
+        <li>Bootstrap を npm と Vite で読みこむことにした場合は、画面用のファイルを作る（ビルドする）ために Node.js が要る。EC2 に入れるか、別の場所で作るかは、開発環境を作るとき（Bootstrap の読みこみ方を決めるとき）に決める。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p6-flow" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>アを選んだときのデプロイの流れ</h2>
+      <div class="flow">
+        <div class="node">自分の PC<small>terraform apply</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">AWS<small>CloudFront・EC2・RDS・NAT ができる</small></div>
+        <div class="arrow"><b>→</b>Session Manager</div>
+        <div class="node aws">EC2<small>デプロイ用のスクリプト</small><i class="pin">1</i></div>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <div class="node ext">GitHub<small>master</small><i class="pin">2</i></div>
+        <div class="arrow"><b>→</b>NAT を通って取る</div>
+        <div class="node aws">EC2<small>部品・.env・データベースの表</small><i class="pin">3</i></div>
+        <div class="arrow lock"><b>→</b>確かめる<i class="pin">4</i></div>
+        <div class="node">ブラウザ<small>CloudFront のアドレス</small></div>
+      </div>
+    </div>
+    <div class="checks">
+      <h2>Claude が決めた点</h2>
+      <div><i class="pin">1</i><span>EC2 の準備（PHP・nginx・MySQL につなぐ部品を入れる、systemd タイマーを置く）は、EC2 が最初に起きたときに自動でする（user_data）。デプロイ用のスクリプトは、アプリのコードを置いて動かすところだけ。</span></div>
+      <div><i class="pin">2</i><span>デプロイするのは master（PR でマージして、CI が通ったもの。N-19）。作業中のブランチはデプロイしない。</span></div>
+      <div><i class="pin">3</i><span>スクリプトがすること：GitHub から master を取る → Composer で部品を入れる（本番に要らない開発用の部品は入れない）→ 金庫から DB_PASSWORD を取って .env を作り、APP_KEY を作る → データベースの表を作る（マイグレーション）→ 設定を速く読めるようにまとめる → PHP を動かし直す。</span></div>
+      <div><i class="pin">4</i><span>デプロイのあと、受け入れ基準（10 章）を CloudFront のアドレスで確かめ、テスト用のデータだけを入れる（本物の記録は入れない。要件定義書 9 章）。</span></div>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">⑤-1 台帳の置き場所を見る（決定：ア 自分の PC だけ。長く動かすならイ S3）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t5-cmp" aria-selected="false" data-p="p5-cmp">3 つの案をくらべる</button>
+    <button role="tab" id="t5-risk" aria-selected="false" data-p="p5-risk">台帳をなくすと何が起きるか</button>
+  </div>
+  </div>
+  </details>
+
+  <section id="p5-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>台帳は「Terraform が AWS に何を作ったか」の控え。destroy はこの控えを見て、作ったものを消します</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア 自分の PC だけ<span class="rec">おすすめ</span></th><th>イ AWS の S3 に置く</th><th>ウ HashiCorp のサービス（HCP Terraform）</th></tr></thead>
+          <tbody>
+            <tr><td>置く場所</td><td>kakeibo フォルダの中（Git には入れない）</td><td>台帳専用の S3 のバケット</td><td>AWS の外の会社のサービス</td></tr>
+            <tr><td>前回との近さ</td><td class="ok">前回の taskmanagement と同じ</td><td>新しい</td><td>新しい</td></tr>
+            <tr><td>PC がこわれたとき</td><td class="ng">台帳もなくなる（右のタブ）</td><td class="ok">台帳は残る</td><td class="ok">台帳は残る</td></tr>
+            <tr><td>destroy のあと AWS に残るもの</td><td class="ok">なし</td><td class="ng">台帳のバケット（台帳を入れる場所は、台帳で管理する Terraform の中に入れられないので、別に作って残す）</td><td class="ok">AWS にはなし（外のサービスにアカウントが残る）</td></tr>
+            <tr><td>お金</td><td class="ok">0 円</td><td class="ok">ほぼ 0 円（月 1 円未満）</td><td class="ok">0 円（無料の枠）</td></tr>
+            <tr><td>作るもの</td><td class="ok">なし</td><td>バケットを作る手順と、台帳の置き場所の設定</td><td>外のサービスの登録と、AWS の鍵の受けわたし</td></tr>
+            <tr><td>パスワードが台帳に書かれるか</td><td colspan="3" class="ok">書かれない（③ で RDS に任せたため）。どの案でも、台帳は Git に入れない</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>1 人で作り、動かすのは数時間だけで、destroy のあとは台帳の中身も空になります。台帳を守るためだけに AWS に残るもの（イのバケット）を作るより、「PC がこわれたときの片づけ方」を手順に書いておくほうが、このアプリの使い方に合います。チームで作る、長く動かす、になったらイにします。</div>
+  </section>
+
+  <section id="p5-risk" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>動かしているあいだに台帳をなくすと、destroy できなくなる</h2>
+      <ul>
+        <li>destroy は台帳を見て消すので、台帳がないと「何も作っていない」と思って何も消さない。</li>
+        <li>NAT ゲートウェイ・EC2・RDS が動いたまま残り、お金がかかりつづける（NAT だけで 1 か月 約 7,000 円）。</li>
+        <li>アで台帳をなくすのは、<b>動かしている数時間のあいだに PC がこわれた</b>ときだけ。destroy したあとは、台帳がなくなっても困らない（AWS に何も残っていないため）。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>アを選ぶなら、手順に書いておくこと（Claude の案）</h3>
+      <ul>
+        <li>デプロイした日のうちに destroy する。</li>
+        <li>台帳をなくしたときは、AWS のコンソールで「このアプリのタグ」がついたものを探して、手で消す（タグは ② ですべてにつける決まり）。消す順番も書いておく。</li>
+        <li>料金の見張り（予算アラート）を置いて、消し忘れ・消せなかったものにメールで気づく（⑤-3 で決める）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">④ 定期的な記録を見る（決定：ア 目覚ましが毎分起こす。印 ①〜⑥ 確認済み、⑤ は質問を受けて直した）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t4-cmp" aria-selected="false" data-p="p4-cmp">3 つの案をくらべる</button>
+    <button role="tab" id="t4-a" aria-selected="false" data-p="p4-a">✓ ア：サーバーの目覚ましが毎分起こす</button>
+    <button role="tab" id="t4-i" aria-selected="false" data-p="p4-i">イ：秘書がずっと起きている</button>
+    <button role="tab" id="t4-u" aria-selected="false" data-p="p4-u">ウ：AWS が毎日起こしに来る</button>
+    <button role="tab" id="t4-pin" aria-selected="false" data-p="p4-pin">時刻の決まり（印 ①〜⑥）</button>
+  </div>
+  </div>
+  </details>
+
+  <section id="p4-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>どれも「毎日 0:05（日本時間）に、今日までのまだ記録していない定期的な記録を記録する」は Laravel の予定表に書きます。ちがうのは、だれが秘書を起こすかです</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア 目覚ましが毎分<span class="rec">おすすめ</span></th><th>イ 秘書がずっと起きている</th><th>ウ AWS が毎日起こす</th></tr></thead>
+          <tbody>
+            <tr><td>起こす係</td><td>EC2 の中の目覚まし（systemd タイマー）</td><td>起こさない。Laravel が自分で毎分見る</td><td>AWS の EventBridge Scheduler が、Session Manager の道で EC2 に命令する</td></tr>
+            <tr><td>「何時に何をするか」を書く場所</td><td class="ok">Laravel の予定表だけ</td><td class="ok">Laravel の予定表だけ</td><td class="ng">AWS 側にも時刻を書く（2 か所）</td></tr>
+            <tr><td>Laravel の公式の説明</td><td class="ok">本番はこの形（公式の手順どおり）</td><td>主に自分の PC で試すとき用</td><td>説明なし</td></tr>
+            <tr><td>止まったとき</td><td>目覚ましは毎分新しく起こすので、1 回失敗しても次の分に動く</td><td class="ng">秘書が止まると全部止まる（自動で起き直す設定が要る）</td><td>AWS 側・Session Manager・EC2 のどこで止まったか探すのがむずかしい</td></tr>
+            <tr><td>作るもの</td><td class="ok">EC2 の中の設定ファイル 2 つ</td><td>EC2 の中の設定ファイル 1 つ</td><td class="ng">AWS の部品 2〜3 個＋役割（IAM ロール）</td></tr>
+            <tr><td>お金</td><td class="ok">0 円</td><td class="ok">0 円</td><td class="ok">ほぼ 0 円</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>Laravel の公式の手順どおりで、時刻を書く場所が Laravel の予定表 1 か所だけになります（N-20 の自動テストもしやすい）。1 回失敗しても次の分にまた起こされるので、止まりにくい形です。</div>
+    <div class="card">
+      <h3>どの案でも同じこと</h3>
+      <ul>
+        <li>EC2 が止まっていた日の分は、次に動いたときにまとめて記録する（画面設計で決めた「今日までのまだ記録していない分を全部」。新しく作るものはない）。</li>
+        <li>同じ月の分を 2 回記録しない（N-10）。データベースのユニーク制約で止める。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p4-a" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ア：EC2 の中の目覚ましが、毎分 秘書を起こす<span class="rec">おすすめ</span></h2>
+      <div class="flow">
+        <div class="node aws">目覚まし<small>systemd タイマー・毎分</small></div>
+        <div class="arrow"><b>→</b>起こす</div>
+        <div class="node aws">Laravel の秘書<small>予定表を見る</small></div>
+        <div class="arrow"><b>→</b>0:05（日本時間）なら</div>
+        <div class="node aws">定期的な記録を記録<small>RDS へ</small></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>Laravel の公式の手順どおり。調べればすぐ答えが見つかる。</li>
+        <li>目覚ましに書くのは「毎分起こす」だけ。何時に何をするかは全部 Laravel のコードにあり、Git で管理でき、テストできる。</li>
+        <li>毎分新しく起こすので、1 回失敗しても次の分には動く。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>EC2 の OS（Amazon Linux 2023）には、昔ながらの cron が最初から入っていない。同じ役目の systemd タイマーを使う（印 ①）。</li>
+        <li>毎分 Laravel が起きるので、ほんの少し CPU を使う（家計簿の大きさなら気にならない）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p4-i" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>イ：秘書がずっと起きていて、自分で毎分予定表を見る</h2>
+      <div class="flow">
+        <div class="node aws">Laravel の秘書<small>ずっと動いている</small></div>
+        <div class="arrow"><b>→</b>0:05（日本時間）なら</div>
+        <div class="node aws">定期的な記録を記録</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>目覚ましがいらない。設定が 1 つ少ない。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>Laravel の説明では、主に自分の PC で試すとき用の形。</li>
+        <li>秘書が止まると、何も動かなくなる。止まったら自動で起き直す設定が要り、止まったことに気づきにくい。</li>
+        <li>アプリを新しくしたときに、秘書を起こし直すのを忘れると、古いコードのまま動きつづける。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p4-u" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ウ：AWS の EventBridge Scheduler が、毎日 0:05 に EC2 へ命令する</h2>
+      <div class="flow">
+        <div class="node aws">EventBridge Scheduler<small>日本時間 0:05</small></div>
+        <div class="arrow"><b>→</b>Session Manager の道</div>
+        <div class="node aws">EC2<small>Laravel のコマンド</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">定期的な記録を記録</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>AWS の画面で、動いた記録が見られる。日本時間をそのまま指定できる。</li>
+        <li>Terraform で作れる。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>「0:05」を AWS 側に書くので、Laravel の予定表と 2 か所に時刻があることになり、ずれのもとになる。</li>
+        <li>部品が増える（スケジューラー、命令を出す役割、Session Manager の設定）。止まったとき、どこが原因か探しにくい。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p4-pin" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>時刻の決まり：サーバーの時計は UTC のまま、Laravel が日本時間で考える</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>もの</th><th>時計</th><th>例：日本で 10月12日 0:05 のとき</th></tr></thead>
+          <tbody>
+            <tr><td>EC2 の OS<i class="pin">2</i></td><td>UTC のまま</td><td>10月11日 15:05</td></tr>
+            <tr><td>Laravel<i class="pin">3</i></td><td>日本時間</td><td>10月12日 0:05 → 今日は 10月12日</td></tr>
+            <tr><td>RDS（MySQL）<i class="pin">4</i></td><td>Laravel が日本時間で書きこむ</td><td>2026-10-12 00:05:00</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="checks">
+      <h2>Claude が決めた点</h2>
+      <div><i class="pin">1</i><span>目覚ましは systemd タイマー（Amazon Linux 2023 に最初から入っている、cron と同じ役目のもの）。cron を入れ足すこともできるが、入っているものを使う。</span></div>
+      <div><i class="pin">2</i><span>EC2 の OS の時計は UTC のまま変えない。AWS のふつうの形で、AWS のログや CloudWatch とも時刻がそろう。日本時間にするのは Laravel の中だけ。</span></div>
+      <div><i class="pin">3</i><span>Laravel のタイムゾーンを日本時間（Asia/Tokyo）にする。「今日は何日か」「月末か」「土日祝か」はすべて日本時間で決まる。予定表の 0:05 も日本時間になる。Laravel のログの時刻も日本時間になる。</span></div>
+      <div><i class="pin">4</i><span>RDS の時計の設定は変えず、Laravel から MySQL につなぐときに「日本時間（+09:00）で話す」と伝える。データベースが自分で入れる時刻（今の時刻など）も日本時間になる。</span></div>
+      <div><i class="pin">5</i><span>（質問を受けて直した）二重の記録を止める本当の守りはユニーク制約（N-10）。0:05 の処理と画面からの「すぐ記録」が同時に動いたときや、手で同じコマンドを動かしたときに働く。止まったときはエラーにせず「記録済み」として扱う。「重ねて動かさない」は念のため書くだけ。</span></div>
+      <div><i class="pin">6</i><span>自動の記録が失敗したら、Laravel のログに残す。お知らせのメールなどは作らない（記録されていなければ、ホームのお知らせや残高で気づける。確かめて destroy する使い方のため）。</span></div>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">③ 秘密の情報を見る（決定：ア RDS に任せる）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t3-cmp" aria-selected="false" data-p="p3-cmp">4 つの案をくらべる</button>
+    <button role="tab" id="t3-a" aria-selected="false" data-p="p3-a">✓ ア：RDS に任せる</button>
+    <button role="tab" id="t3-i" aria-selected="false" data-p="p3-i">イ：Terraform で作って Secrets Manager</button>
+    <button role="tab" id="t3-u" aria-selected="false" data-p="p3-u">ウ：Terraform で作って Parameter Store</button>
+    <button role="tab" id="t3-e" aria-selected="false" data-p="p3-e">エ：手で .env を送る</button>
+    <button role="tab" id="t3-w" aria-selected="false" data-p="p3-w">③ の言葉</button>
+  </div>
+  </div>
+  </details>
+
+  <section id="p3-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ちがうのは「だれがパスワードを作るか」と「パスワードがどこに残るか」です</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア RDS に任せる<span class="rec">おすすめ</span></th><th>イ Terraform＋Secrets Manager</th><th>ウ Terraform＋Parameter Store</th><th>エ 手で .env を送る</th></tr></thead>
+          <tbody>
+            <tr><td>パスワードを作る</td><td>RDS が自動で</td><td>Terraform が自動で</td><td>Terraform が自動で</td><td>自分で考える</td></tr>
+            <tr><td>入れておく金庫</td><td>Secrets Manager</td><td>Secrets Manager</td><td>Parameter Store</td><td class="ng">金庫なし</td></tr>
+            <tr><td>自分の PC に残るか</td><td class="ok">残らない</td><td class="ng">Terraform の台帳（tfstate）にそのまま書かれる</td><td class="ng">台帳にそのまま書かれる</td><td class="ng">.env のファイルとして残る</td></tr>
+            <tr><td>EC2 の取り出し方</td><td colspan="3">EC2 に「この金庫だけ開けてよい」という役割（IAM ロール）を持たせ、デプロイのときに取り出して .env を作る</td><td>Session Manager で自分がファイルを送る</td></tr>
+            <tr><td>お金</td><td class="ok">1 か月 約 60 円を日割り。数時間ならほぼ 0 円</td><td class="ok">アと同じ</td><td class="ok">0 円</td><td class="ok">0 円</td></tr>
+            <tr><td>作り直したとき</td><td class="ok">全部自動</td><td class="ok">全部自動</td><td class="ok">全部自動</td><td class="ng">毎回手で作って送る</td></tr>
+            <tr><td>前回との近さ</td><td>金庫は同じ。作るのが RDS に変わる</td><td class="ok">前回の taskmanagement と同じ</td><td>金庫が変わる</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>パスワードを人も Terraform も知らないので、自分の PC にも台帳にも残りません。受け入れ基準 10.4 で「台帳（tfstate）にはパスワードがそのまま書かれるので Git に入れない」と心配していたことが、そもそも起きなくなります。Terraform に 1 行（RDS に任せる設定）書くだけで、イより作るものが少ないです。</div>
+    <div class="card">
+      <h3>どの案でも同じこと</h3>
+      <ul>
+        <li><b>APP_KEY</b>（ログインの状態を守るはんこ）は、デプロイのときに EC2 の上で Laravel のコマンドで作り、EC2 の外には出さない。destroy で消えて、次は新しく作る。家計簿のデータは APP_KEY で暗号化していないので、変わっても困らない（変わるとログインし直しになるだけ）。</li>
+        <li>EC2 の上にできた .env は、EC2 の持ち主とアプリだけが読めるようにする。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p3-a" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ア：RDS にパスワードを作らせて、Secrets Manager に入れてもらう<span class="rec">おすすめ</span></h2>
+      <div class="flow">
+        <div class="node aws">RDS<small>パスワードを作る</small></div>
+        <div class="arrow lock"><b>→</b>自動で入れる</div>
+        <div class="node aws">Secrets Manager<small>金庫</small></div>
+        <div class="arrow lock"><b>→</b>役割で取り出す</div>
+        <div class="node aws">EC2<small>.env を作る</small></div>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <div class="node">自分の PC<small>Terraform</small></div>
+        <div class="arrow"><b>→</b>「RDS に任せる」と書くだけ</div>
+        <div class="node aws">RDS</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>パスワードを知っている人がいない。台帳（tfstate）にも PC にも残らない。</li>
+        <li>Terraform は RDS の設定に「パスワードは RDS に任せる」と 1 行書くだけ。金庫も RDS が作る。</li>
+        <li>destroy すると、RDS と一緒に金庫も消える。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>RDS は、金庫のパスワードを決まった日数ごとに自動で変える（最初は 7 日ごと）。変わると、EC2 の .env が古くなって RDS に入れなくなる。数時間で destroy するので困らないが、長く動かすなら「.env を取り直す」しくみが要る。</li>
+        <li>前回の taskmanagement とは、パスワードを作るところだけちがう。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p3-i" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>イ：Terraform でパスワードを作って、Secrets Manager に入れる</h2>
+      <div class="flow">
+        <div class="node">自分の PC<small>Terraform がパスワードを作る</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">RDS</div>
+        <div class="arrow"><b>＋</b></div>
+        <div class="node aws">Secrets Manager</div>
+        <div class="arrow lock"><b>→</b>役割で取り出す</div>
+        <div class="node aws">EC2</div>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <div class="node ext">台帳（tfstate）<small>自分の PC</small></div>
+        <div class="arrow open"><b>←</b>パスワードがそのまま書かれる</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>前回の taskmanagement と同じやり方で、迷わない。</li>
+        <li>パスワードを自動で変えないので、長く動かしても .env が古くならない。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>Terraform が作ったものは全部台帳に書かれるので、パスワードが自分の PC の台帳にそのまま残る。台帳を Git に入れない、PC から消さない、に気をつけつづける。</li>
+        <li>パスワードを作る・金庫を作る・金庫に入れる、を自分で書く。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p3-u" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ウ：Terraform でパスワードを作って、Parameter Store に入れる</h2>
+      <div class="flow">
+        <div class="node">自分の PC<small>Terraform がパスワードを作る</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">Parameter Store<small>暗号化して入れる</small></div>
+        <div class="arrow lock"><b>→</b>役割で取り出す</div>
+        <div class="node aws">EC2</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>0 円（ふつうの使い方なら無料）。</li>
+        <li>秘密でない設定（DB_HOST など）も同じ場所にまとめて置ける。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>イと同じく、パスワードが台帳にそのまま書かれる。</li>
+        <li>お金の差は、数時間だけ使うなら 1 円にもならない。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p3-e" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>エ：自分で .env を作って、Session Manager で EC2 に送る</h2>
+      <div class="flow">
+        <div class="node">自分の PC<small>.env を手で書く</small></div>
+        <div class="arrow"><b>→</b>手で送る</div>
+        <div class="node aws">EC2</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>金庫を使わないので、覚えることがいちばん少ない。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>パスワードを自分で考えるので、弱いものになりやすい。PC に .env のファイルとして残る。</li>
+        <li>作り直すたびに手で作って送る。Terraform だけで作り直せない（N-15 と合わない）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p3-w" class="panel" role="tabpanel" hidden>
+    <div class="card words">
+      <h2>③ に出てくる言葉</h2>
+      <div><b>.env</b><span>Laravel の設定をまとめて書くファイル。秘密も入るので Git に入れない。</span></div>
+      <div><b>Secrets Manager</b><span>AWS の、秘密を入れる金庫。パスワードを自動で変える機能がある。1 つにつき月 0.4 ドル（日割り）。</span></div>
+      <div><b>Parameter Store</b><span>AWS の、設定を入れておく場所。暗号化して秘密も入れられる。ふつうの使い方なら無料。</span></div>
+      <div><b>IAM ロール</b><span>EC2 に持たせる「この金庫だけ開けてよい」という役割。EC2 の中に鍵のファイルを置かずに済む。</span></div>
+      <div><b>台帳（tfstate）</b><span>Terraform が「何を作ったか」を書いておくファイル。作ったものの設定がそのまま書かれる。</span></div>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">② の決まりを見る（印 ①〜⑤ 確認済み・直しなし）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t2-pin" aria-selected="false" data-p="p2-pin">② の決まり（印 ①〜⑤）</button>
+  </div>
+  </div>
+  </details>
+
+  <section id="p2-pin" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>イ：EC2 も RDS も外から入れない場所。入口は CloudFront、出口は NAT</h2>
+      <div class="zone">
+        <div class="zone-title">VPC（ap-southeast-2）</div>
+        <div class="zone pub">
+          <div class="zone-title">外から入れる場所（パブリック）</div>
+          <div class="flow">
+            <div class="node aws">NAT ゲートウェイ<i class="pin">4</i></div>
+            <div class="arrow"><b>→</b></div>
+            <div class="node aws">インターネットゲートウェイ</div>
+            <div class="arrow"><b>→</b></div>
+            <div class="node ext">インターネット<small>部品・OS の更新</small></div>
+          </div>
+        </div>
+        <div class="zone priv">
+          <div class="zone-title">外から入れない場所（プライベート）</div>
+          <div class="flow">
+            <div class="node">CloudFront<small>VPC オリジン</small></div>
+            <div class="arrow lock"><b>→</b>80 番だけ<i class="pin">1</i></div>
+            <div class="node aws">EC2<small>1 台・場所 1 つ</small><i class="pin">4</i></div>
+            <div class="arrow"><b>→</b>3306 番だけ<i class="pin">3</i></div>
+            <div class="node aws">RDS<small>場所 2 つ</small></div>
+          </div>
+          <div class="flow" style="margin-top:8px">
+            <div class="node">作業する自分</div>
+            <div class="arrow lock"><b>→</b>Session Manager<i class="pin">2</i></div>
+            <div class="node aws">EC2</div>
+            <div class="arrow"><b>→</b>外へ出るときは NAT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="checks">
+      <h2>Claude が決めた点</h2>
+      <div><i class="pin">1</i><span>EC2 に入れるのは、CloudFront の VPC オリジンから 80 番だけ。CloudFront → EC2 は AWS の中なので HTTP（暗号化なし）のまま。EC2 に証明書は置かない。</span></div>
+      <div><i class="pin">2</i><span>作業で EC2 に入るのは Session Manager だけ。SSH の 22 番は開けない（前回の taskmanagement と同じ）。</span></div>
+      <div><i class="pin">3</i><span>RDS に入れるのは EC2 から 3306 番（MySQL の番号）だけ。自分の PC から RDS に直接はつながない。中を見たいときは EC2 を通る。</span></div>
+      <div><i class="pin">4</i><span>EC2 は 1 台、NAT は 1 つで、どちらも同じ 1 つの場所（ap-southeast-2a）に置く。その場所が止まったらアプリも止まるが、確かめて destroy するだけなので、2 か所に分けて料金を倍にはしない。RDS だけは AWS の決まりで場所を 2 つ用意する（動くのは 1 台）。</span></div>
+      <div><i class="pin">5</i><span>NAT も同じ Terraform の設計図に入れ、<code>terraform destroy</code> 1 回で一緒に消す。destroy のあと、NAT ゲートウェイ・EC2・RDS・CloudFront が 0 件なことをコマンドで確かめる手順を ⑤（デプロイの手順）で書く。</span></div>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">これまでに決めたことを見る（① HTTPS：ア、② EC2 の置き方：イ）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="group">② EC2 をどこに置くか（決定：イ）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t2-cmp" aria-selected="false" data-p="p2-cmp">3 つの案をくらべる</button>
+    <button role="tab" id="t2-a" aria-selected="false" data-p="p2-a">ア：外から入れる場所</button>
+    <button role="tab" id="t2-i" aria-selected="false" data-p="p2-i">✓ イ：入れない場所＋NAT</button>
+    <button role="tab" id="t2-u" aria-selected="false" data-p="p2-u">ウ：入れない場所＋NAT なし</button>
+    <button role="tab" id="t2-w" aria-selected="false" data-p="p2-w">② の言葉</button>
+  </div>
+  </div>
+  </details>
+
+  <section id="p2-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ちがうのは「入ってくる道（CloudFront → EC2）」と「出ていく道（EC2 → 部品を取りに行く）」の作り方です</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア 外から入れる場所</th><th>イ 入れない場所＋NAT<span class="rec">おすすめ</span></th><th>ウ 入れない場所＋NAT なし</th></tr></thead>
+          <tbody>
+            <tr><td>入ってくる道</td><td class="ng">インターネットを通る。CloudFront → EC2 は暗号化なし（HTTP）</td><td class="ok">AWS の中だけ（VPC オリジン）</td><td class="ok">AWS の中だけ（VPC オリジン）</td></tr>
+            <tr><td>パスワードが暗号化なしで通るところ</td><td class="ng">CloudFront → EC2 のあいだ（インターネット）</td><td class="ok">AWS の中だけ</td><td class="ok">AWS の中だけ</td></tr>
+            <tr><td>出ていく道</td><td>そのまま出られる</td><td>NAT ゲートウェイを通る</td><td>なし。部品は先にそろえて S3 に置き、専用の通り道で取る</td></tr>
+            <tr><td>道のためのお金<br><small>（EC2・RDS の分はどれも同じ）</small></td><td class="ok">1 時間 約 1 円（EC2 の外向きの住所）</td><td>1 時間 約 10 円（NAT）。8 時間で約 80 円</td><td>1 時間 約 6 円（作業で入るための通り道 3 つ）</td></tr>
+            <tr><td>作るむずかしさ</td><td class="ok">かんたん（前回とほぼ同じ）</td><td>ふつう（新しいのは NAT と VPC オリジンの 2 つ）</td><td class="ng">むずかしい（部品の運び方を全部自分で作る）</td></tr>
+            <tr><td>作業で EC2 に入る方法</td><td colspan="3">どれも Session Manager（前回と同じ。SSH の 22 番は開けない）</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはイです。</b>アは作るのはかんたんですが、ログインのパスワードが CloudFront と EC2 のあいだで暗号化なしでインターネットを通ります（N-03 で守りたかったものが、途中で守れなくなる）。イの NAT は 1 時間ごとにお金がかかりますが、確かめて destroy するまでの数時間なら 100 円ほどです。ウは安全でお金も少なめですが、部品の運び方を全部自分で作るので、初めての Laravel のデプロイには重すぎます。</div>
+    <div class="card">
+      <h3>どの案でも同じこと</h3>
+      <ul>
+        <li>RDS は外から入れない場所に 2 つ（データベースは場所を 2 つ用意する決まり。前回と同じ）。入れるのは EC2 からだけ。</li>
+        <li>NAT や通り道が、このプロジェクトで使えるかは、作る前にコマンドで確かめる。</li>
+        <li>自分の IP だけに公開するかは、あとで決めた（第三者レビューのあと、IP ではしぼらずログインで守る、に決定）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p2-a" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ア：EC2 を外から入れる場所に置き、CloudFront からだけ入れる</h2>
+      <div class="flow">
+        <div class="node">ブラウザ</div>
+        <div class="arrow lock"><b>→</b>HTTPS</div>
+        <div class="node aws">CloudFront</div>
+        <div class="arrow open"><b>→</b>HTTP（暗号化なし）<br>インターネット</div>
+        <div class="node aws">EC2<small>外から入れる場所</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">RDS<small>入れない場所</small></div>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <div class="node aws">EC2</div>
+        <div class="arrow"><b>→</b>そのまま</div>
+        <div class="node ext">インターネット<small>PHP・Laravel の部品</small></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>前回の taskmanagement とほぼ同じ形で、作るのがかんたん。</li>
+        <li>EC2 の鍵（セキュリティグループ）に「CloudFront の住所の一覧」を入れれば、CloudFront からしか入れない。</li>
+        <li>道のためのお金がほとんどかからない。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>CloudFront → EC2 を HTTPS にするには EC2 に証明書が要るが、自分のドメインがないので取れない（① で外した理由と同じ）。そのため、このあいだは暗号化なしでインターネットを通る。</li>
+        <li>ほかの人の CloudFront からも EC2 に入れてしまう（住所の一覧は CloudFront 全体のもの）。合言葉を CloudFront から送るなど、もう一工夫が要る。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p2-i" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>イ：EC2 を外から入れない場所に置き、出ていく道は NAT ゲートウェイ<span class="rec">おすすめ</span></h2>
+      <div class="flow">
+        <div class="node">ブラウザ</div>
+        <div class="arrow lock"><b>→</b>HTTPS</div>
+        <div class="node aws">CloudFront</div>
+        <div class="arrow lock"><b>→</b>AWS の中だけ<br>（VPC オリジン）</div>
+        <div class="node aws">EC2<small>入れない場所</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">RDS<small>入れない場所</small></div>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <div class="node aws">EC2</div>
+        <div class="arrow"><b>→</b>出るだけ</div>
+        <div class="node aws">NAT ゲートウェイ<small>外から入れる場所</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node ext">インターネット<small>PHP・Laravel の部品</small></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>EC2 には、外から入る道が 1 本もない。入れるのは CloudFront（と、作業のときの Session Manager）だけ。</li>
+        <li>パスワードが暗号化なしで通るのは AWS の中だけ。</li>
+        <li>出ていく道はふつうにあるので、部品の入れ方は前回と同じ（dnf・Composer をそのまま使える）。</li>
+        <li>仕事でよく使う形。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>NAT は置いているあいだ 1 時間 約 9 円＋通った量 1 GB で約 9 円。destroy し忘れると、1 か月で約 7,000 円になる。EC2・RDS と一緒に必ず消す。</li>
+        <li>VPC オリジンを使うには、VPC にインターネットの出入口（インターネットゲートウェイ）が付いている必要がある（NAT もこれを使うので、どのみち付ける）。</li>
+        <li>新しく覚えるものが 2 つ（NAT、VPC オリジン）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p2-u" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ウ：EC2 を外から入れない場所に置き、出ていく道を作らない</h2>
+      <div class="flow">
+        <div class="node">ブラウザ</div>
+        <div class="arrow lock"><b>→</b>HTTPS</div>
+        <div class="node aws">CloudFront</div>
+        <div class="arrow lock"><b>→</b>AWS の中だけ</div>
+        <div class="node aws">EC2<small>入れない場所</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">RDS</div>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <div class="node">自分の PC<small>部品を全部そろえる</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">S3<small>ファイル置き場</small></div>
+        <div class="arrow"><b>→</b>専用の通り道</div>
+        <div class="node aws">EC2</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>EC2 は外とまったくつながらない。いちばん閉じた形。</li>
+        <li>S3 への専用の通り道は無料。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>Composer の部品は EC2 で取れないので、自分の PC で全部そろえて固めて、S3 経由で運ぶしくみを作る。PC（Windows）と EC2（Linux）のちがいで動かないことがある。</li>
+        <li>Session Manager で入るために、専用の通り道（インターフェース型エンドポイント）が 3 つ要る。1 つ 1 時間 約 2 円。</li>
+        <li>うまく動かないとき、どこで止まっているかを探すのがむずかしい。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p2-w" class="panel" role="tabpanel" hidden>
+    <div class="card words">
+      <h2>② に出てくる言葉</h2>
+      <div><b>サブネット</b><span>VPC の中の区画。外から入れる場所（パブリック）と入れない場所（プライベート）がある。</span></div>
+      <div><b>VPC オリジン</b><span>CloudFront が、外から入れない場所の EC2 に、AWS の中の道で届けるしくみ。追加のお金はかからない。</span></div>
+      <div><b>NAT ゲートウェイ</b><span>中から外へは出られるが、外から中へは入れない出口。置いているあいだお金がかかる。</span></div>
+      <div><b>セキュリティグループ</b><span>EC2 や RDS の鍵。どこから・何番に入ってよいかを書く。</span></div>
+      <div><b>エンドポイント</b><span>AWS のサービス（S3 や Session Manager）へ、インターネットを通らずに行く専用の通り道。</span></div>
+      <div><b>Session Manager</b><span>SSH の 22 番を開けずに、AWS の中の道で EC2 に入って作業するしくみ（前回も使った）。</span></div>
+    </div>
+  </section>
+
+  <details class="card" style="padding:10px 16px">
+  <summary style="cursor:pointer;color:var(--accent);font-weight:700">① HTTPS の用意を見る（決定：ア CloudFront の既定のアドレス）</summary>
+  <div style="display:grid;gap:14px;margin-top:12px">
+  <div class="group">① HTTPS の用意（決定：ア）</div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-cmp" aria-selected="false" data-p="p-cmp">3 つの案をくらべる</button>
+    <button role="tab" id="t-a" aria-selected="false" data-p="p-a">✓ ア：CloudFront の既定のアドレス</button>
+    <button role="tab" id="t-i" aria-selected="false" data-p="p-i">イ：IP アドレスの住所＋無料の証明書</button>
+    <button role="tab" id="t-u" aria-selected="false" data-p="p-u">ウ：ドメインを買う</button>
+    <button role="tab" id="t-w" aria-selected="false" data-p="p-w">① の言葉</button>
+  </div>
+  </div>
+  </details>
+
+  <!-- くらべる表 -->
+  <section id="p-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>どれも、ブラウザとの通信は HTTPS になります。ちがうのは「誰が印鑑（証明書）を出すか」と「手間・費用」です</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア CloudFront<span class="rec">おすすめ</span></th><th>イ IP の住所＋Let's Encrypt</th><th>ウ ドメインを買う</th></tr></thead>
+          <tbody>
+            <tr><td>アドレスの例</td><td><span class="url">d1a2b3c4.cloudfront.net</span></td><td><span class="url">15-134-127-58.sslip.io</span></td><td><span class="url">kakeibo-pirishiki.click</span></td></tr>
+            <tr><td>証明書を出すところ</td><td>AWS（最初から付いている）</td><td>Let's Encrypt（無料の外の団体）</td><td>AWS（ACM で無料）</td></tr>
+            <tr><td>証明書の更新</td><td class="ok">いらない</td><td>90 日ごと（自動にできる）</td><td class="ok">いらない（自動）</td></tr>
+            <tr><td>お金</td><td class="ok">ほぼ 0 円（無料の枠の中）</td><td class="ok">0 円</td><td class="ng">ドメイン代が年に数百〜2,000 円ほど。destroy しても払う</td></tr>
+            <tr><td>AWS の外に頼るもの</td><td class="ok">なし</td><td class="ng">2 つ（sslip.io・Let's Encrypt）</td><td class="ok">なし</td></tr>
+            <tr><td>自分だけに公開できるか</td><td>できる（CloudFront で IP を見て止める。ただし今回は、しぼらずログインで守ると決めた）</td><td class="ng">むずかしい。証明書を取るとき、Let's Encrypt が世界中から 80 番に確かめに来る</td><td>できる（アと同じ）</td></tr>
+            <tr><td>作り直したとき</td><td>アドレスが変わる（README には回ごとに書くので困らない）</td><td>EC2 の IP が変わり、アドレスも証明書も取り直し</td><td class="ok">同じアドレス</td></tr>
+            <tr><td>EC2 をどこに置けるか</td><td class="ok">外から入れない場所にも置ける（② で決める）</td><td>外から入れる場所に置く</td><td class="ok">アと同じ</td></tr>
+            <tr><td>Terraform で作れるか</td><td class="ok">全部作れる</td><td>証明書は EC2 の中で取る（Terraform の外）</td><td>買うのは手で。あとは作れる</td></tr>
+            <tr><td>学べること</td><td>CDN・プロキシの考え方。AWS でよく使う形</td><td>証明書のしくみを手で動かす</td><td>DNS・ドメインのしくみ。本番に近い</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>AWS の外に頼らず、証明書の更新もいりません。お金もほぼかからず、Terraform で作って消すだけで済みます。「動くことを確かめて destroy する」（N-14）使い方にいちばん合います。アドレスが読みにくいのが弱いところですが、README に毎回書くので困りません。</div>
+    <div class="card">
+      <h3>考えたが、外した案</h3>
+      <ul>
+        <li><b>自分で作った証明書（自己署名）</b>：0 円で外にも頼らないが、ブラウザに「この接続ではプライバシーが保護されません」と毎回出る。警告を押して進むくせがつくのはよくない。スマホの Safari では特に面倒。</li>
+        <li><b>ロードバランサー（ALB）＋証明書</b>：ALB の証明書には自分のドメインが要るので、ウと同じ。ALB は動かしているあいだ 1 時間ごとにお金がかかる（月 2,500 円ほど）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ア -->
+  <section id="p-a" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ア：CloudFront の既定のアドレスを使う<span class="rec">おすすめ</span></h2>
+      <h3>通り道</h3>
+      <div class="flow">
+        <div class="node">スマホ・PC<small>ブラウザ</small></div>
+        <div class="arrow lock"><b>→</b>HTTPS</div>
+        <div class="node aws">CloudFront<small>AWS の入口。証明書つき</small></div>
+        <div class="arrow"><b>→</b>AWS の中</div>
+        <div class="node aws">EC2<small>nginx + Laravel</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">RDS<small>MySQL</small></div>
+      </div>
+      <p class="legend">CloudFront → EC2 のつなぎ方（外を通るか、AWS の中だけで通すか）は ② EC2・RDS の置き方で決めます。</p>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>アドレス <span class="url">https://d1a2b3c4.cloudfront.net</span> に、最初から AWS の証明書がついている。取る手間も更新もない。</li>
+        <li>AWS の無料の枠（毎月 1 TB・1,000 万回まで）に入るので、ほぼ 0 円。</li>
+        <li>Terraform で作って、destroy で消せる。外の会社の登録はいらない。</li>
+        <li>CloudFront Functions（入口で動く小さなプログラム）で、自分の IP 以外を止めることもできる（今回は使わず、ログインで守ると決めた）。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>CloudFront は世界共通のサービスなので、us-east-1 の扱いになる。このプロジェクトでも使ってよい決まりになっている（EC2・RDS は ap-southeast-2 のまま）。</li>
+        <li>CloudFront が「代わりに受け取って EC2 に渡す係（プロキシ）」になる。Laravel に「この係を信じてよい」と設定しないと、HTTPS で来たことに気づけず、ログイン後の移り先が http になる。</li>
+        <li>CloudFront は本来「同じ中身を覚えて早く返す（キャッシュ）」ためのもの。家計簿は人ごと・毎回ちがう画面なので、<b>覚えない設定</b>にする。覚えると、古い残高が出るおそれがある。</li>
+        <li>作るたびにアドレスが変わる。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- イ -->
+  <section id="p-i" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>イ：IP アドレスを住所にするサービス＋無料の証明書</h2>
+      <h3>通り道</h3>
+      <div class="flow">
+        <div class="node">スマホ・PC<small>ブラウザ</small></div>
+        <div class="arrow lock"><b>→</b>HTTPS</div>
+        <div class="node aws">EC2<small>nginx に証明書を入れる</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">RDS<small>MySQL</small></div>
+      </div>
+      <div class="flow" style="margin-top:10px">
+        <div class="node ext">sslip.io<small>住所 → IP を答える</small></div>
+        <div class="node ext">Let's Encrypt<small>証明書を出す</small></div>
+        <div class="arrow open"><b>→</b>80 番に確かめに来る</div>
+        <div class="node aws">EC2</div>
+      </div>
+      <p class="legend">点線は AWS の外のサービスです。</p>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li>0 円。CloudFront もいらず、部品が少ない。</li>
+        <li>証明書を取る・更新するしくみを、自分の手で動かして学べる。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>証明書を取るとき・更新するとき、Let's Encrypt が<b>世界中のいろいろな場所から</b> EC2 の 80 番に確かめに来る。自分の IP だけに開けておく形と合わない。</li>
+        <li>外のサービス 2 つが止まったり決まりが変わったりすると、使えなくなる。</li>
+        <li>EC2 を作り直すと IP が変わり、アドレスも変わって証明書の取り直しになる（固定の IP を借りると、使っていないあいだもお金がかかる）。</li>
+        <li>証明書は EC2 の中のコマンドで取るので、Terraform だけでは作り直せない（N-15 と合いにくい）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ウ -->
+  <section id="p-u" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>ウ：自分のドメインを買う</h2>
+      <h3>通り道</h3>
+      <div class="flow">
+        <div class="node">スマホ・PC<small>ブラウザ</small></div>
+        <div class="arrow lock"><b>→</b>HTTPS</div>
+        <div class="node aws">Route 53<small>住所 → CloudFront</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">CloudFront<small>ACM の証明書</small></div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">EC2</div>
+        <div class="arrow"><b>→</b></div>
+        <div class="node aws">RDS</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>よいところ</h3>
+      <ul>
+        <li><span class="url">https://kakeibo-pirishiki.click</span> のような、読みやすく変わらないアドレス。</li>
+        <li>仕事で作るときと同じ形。DNS・ドメインのしくみも学べる。</li>
+      </ul>
+      <h3 style="margin-top:12px">気をつけるところ</h3>
+      <ul>
+        <li>ドメイン代が毎年かかる（安いもので年に数百円、.com なら 2,000 円ほど）。destroy しても払いつづける。Route 53 の住所の台帳も月 75 円ほど。</li>
+        <li>課題の目的は「デプロイしたことの証明」で、動かしつづけない。きれいなアドレスが役に立つ時間が短い。</li>
+        <li>この AWS のプロジェクトでドメインを買えるか（使えるサービスに入っているか）を、先に確かめる必要がある。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 言葉 -->
+  <section id="p-w" class="panel" role="tabpanel" hidden>
+    <div class="card words">
+      <h2>この下書きに出てくる言葉</h2>
+      <div><b>ドメイン</b><span>ネット上の住所の名前（kakeibo.example.com など）。買って毎年お金を払う。</span></div>
+      <div><b>証明書</b><span>「この住所は本物です」という印鑑。ふつうはドメインごとに出してもらう。</span></div>
+      <div><b>CloudFront</b><span>AWS の入口の係。ブラウザから受け取って、うしろのサーバーに渡す。世界中に窓口がある。</span></div>
+      <div><b>プロキシ</b><span>代わりに受け取って渡す係。CloudFront は家計簿にとってのプロキシになる。</span></div>
+      <div><b>キャッシュ</b><span>一度返した中身を覚えておき、次は早く返すこと。家計簿では切っておく。</span></div>
+      <div><b>Let's Encrypt</b><span>無料で証明書を出してくれる団体。90 日ごとに取り直す。</span></div>
+      <div><b>sslip.io</b><span>IP アドレスをそのまま住所の名前にしてくれる無料のサービス。</span></div>
+      <div><b>ACM</b><span>AWS の証明書の係。自分のドメインの証明書を無料で出す。</span></div>
+    </div>
+  </section>
+</div>
+
+<script>
+document.querySelectorAll('.tabs button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.tabs button').forEach(function (x) {
+      x.setAttribute('aria-selected', x === b ? 'true' : 'false');
+      var p = document.getElementById(x.dataset.p);
+      if (p) p.hidden = x !== b;
+    });
+  });
+});
+</script>
+</body></html>
