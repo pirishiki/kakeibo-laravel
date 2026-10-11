@@ -85,10 +85,59 @@ code { font-family: var(--mono); font-size: .85em; }
   <p class="lead">全体の構成（イシュー #13）で選んでもらうものを並べる下書きです。画面の下書きとは別にしました。数字・アドレスはすべて例です。</p>
 
   <p class="note" style="margin:0"><span class="pin" style="margin-left:0">1</span> のような青い番号の印は、<b>Claude が決めたので確認してもらったところ</b>です（すべて確認済み）。図の中の印と、下の説明の同じ番号を合わせて見てください。</p>
-  <div class="group">全体の構成で選んだことの一覧（すべて決定・印はすべて確認済み）</div>
+  <div class="group">全体の構成で選んだことの一覧（すべて決定）と、第三者レビュー</div>
   <div class="tabs" role="tablist">
     <button role="tab" id="t0-sum" aria-selected="true" data-p="p0-sum">選んだことの一覧</button>
+    <button role="tab" id="t8-cmp" aria-selected="false" data-p="p8-cmp">✓ 公開する範囲（決定：ア ログインで守る）</button>
+    <button role="tab" id="t8-fix" aria-selected="false" data-p="p8-fix">レビューで直したところ</button>
   </div>
+
+  <section id="p8-cmp" class="panel" role="tabpanel" hidden>
+    <div class="card">
+      <h2>公開しているあいだ（数時間）、だれが家計簿のアドレスにたどり着けるか</h2>
+      <p class="legend" style="margin:0 0 8px">設計書 2 章の「選んだ理由」に「CloudFront で自分の IP 以外を止められる」と書いたのに、止めるかどうかを決めていませんでした。</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th></th><th>ア 止めない（ログインで守る）<span class="rec">おすすめ</span></th><th>イ 家の IP だけ（CloudFront Functions）</th><th>ウ 家の IP だけ（AWS WAF）</th></tr></thead>
+          <tbody>
+            <tr><td>アドレスを知った他人</td><td>ログイン画面までは見える。ログインしないと中は見えない（N-01）。何度も試すと止まる（N-05）</td><td class="ok">何も見えない（403）</td><td class="ok">何も見えない（403）</td></tr>
+            <tr><td>スマホで確かめる（N-13）</td><td class="ok">家の Wi-Fi でも、携帯の回線でもよい</td><td class="ng">家の Wi-Fi のときだけ。携帯の回線は IP が変わるので止められる</td><td class="ng">イと同じ</td></tr>
+            <tr><td>家の IP の渡し方</td><td>—</td><td>Terraform の値のファイル（tfvars。Git に入れない）。IPv6 を使う家なら、IPv6 の範囲も入れる</td><td>イと同じ</td></tr>
+            <tr><td>お金</td><td class="ok">0 円</td><td class="ok">ほぼ 0 円</td><td>1 か月 6 ドルほどの日割り（数時間なら数円）</td></tr>
+            <tr><td>作るもの</td><td class="ok">なし</td><td>小さなプログラム 1 つ（JavaScript 10 行ほど）</td><td>WAF のルール一式（us-east-1 に作る）</td></tr>
+            <tr><td>destroy のあと</td><td>—</td><td>一緒に消える（タグはつかないので 6.3 の一覧で確かめる）</td><td>一緒に消える</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="note"><b>おすすめはアです。</b>前回の taskmanagement はログインがなかったので「家の IP だけ」にしました。今回はログイン（N-01）と回数の制限（N-05）があり、入れるのはテスト用のデータだけです（要件定義書 9 章）。アドレスは作るたびに変わる読みにくいもので、数時間で消えます。スマホの確かめ（N-13）を携帯の回線でもできるのも利点です。ただし「ログインの画面すら他人に見せたくない」なら、イが向いています。</div>
+    <div class="card">
+      <h3>アを選んだときに足すこと（Claude の案）</h3>
+      <ul>
+        <li>README にアドレスを書くコミットは、destroy したあとに push する（動いているあいだに公開のリポジトリにアドレスを出さないため）。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="p8-fix" class="panel" role="tabpanel" hidden>
+    <div class="howto note" style="margin:0">会話を知らないサブエージェントに、全体構成設計書・要件定義書・README の差分を読ませてレビューしました（9 件）。選ぶ必要がないものは Claude が直しました（コミット 5721fc4）。<b>①〜③ は、このまま作ると動かなかったもの</b>です。</div>
+    <div class="checks">
+      <h2>Claude が直したところ</h2>
+      <div><i class="pin">1</i><span>2 章：CloudFront の最初の設定は GET・HEAD だけで、Cookie も EC2 に渡さない。このままだとログインも記録の保存もできない。→ 送り方は全部受けつける、Cookie・クエリ・ヘッダーを全部 EC2 に渡す（AllViewer）、と書いた。</span></div>
+      <div><i class="pin">2</i><span>2 章：「この係を信じてよい」と設定するだけでは、Laravel は https で来たことに気づけない（CloudFront → EC2 は http のため）。→ 本番では Laravel が作る URL をいつも https にする、ログインの Cookie は https だけ（Secure）、APP_URL は CloudFront のアドレス、と書いた。あわせて、ログインの回数の制限（N-05）のために、本当の IP を X-Forwarded-For から取る、と書いた。</span></div>
+      <div><i class="pin">3</i><span>5 章：systemd タイマーは最初の設定で最大 1 分ずれ、0:06 に起きると 0:05 の処理は動かない。→ 時刻の正確さを 1 秒にする。タイマーはアプリの利用者で動かす（管理者だとファイルが書けなくなる）。「1 回失敗しても次の分に動く」はまちがいだったので、「失敗した日の分は翌日にまとめて記録される」に直した。</span></div>
+      <div><i class="pin">4</i><span>4 章・6.1・6.2：下書きの番号（②・③）のまま書いていた章の参照を、設計書の章（3 章・4 章）に直した。10.4 にもうない文を指していたところも直した。</span></div>
+      <div><i class="pin">5</i><span>1 章・6.3：AWS が自動で作るもの（RDS の金庫、CloudFront が VPC に作るセキュリティグループ）や CloudFront Functions にはタグがつかない。→ destroy のあとはタグに加えて種類ごとの一覧でも 0 件を確かめる。VPC の削除で destroy が止まったら、待ってもう一度。要件定義書 10.4 も「コマンドとコンソールで」にそろえた。</span></div>
+      <div><i class="pin">6</i><span>3 章：EC2 のセキュリティグループの入り口は、AWS が用意している「CloudFront の住所の一覧」（マネージドプレフィックスリスト）で書く。</span></div>
+      <div><i class="pin">7</i><span>6.2：最初の 1 回だけ、ログインするユーザーをコマンドで作り、テスト用のデータをシーダーで入れる。マイグレーションに --force、APP_KEY は「まだないときだけ作る」。RDS の住所と金庫の名前（秘密ではない）は user_data で EC2 の設定ファイルに書く。</span></div>
+      <div><i class="pin">8</i><span>1 章：EC2・RDS の大きさ、アドレスの範囲、PHP 8.5 の入れ方は「Terraform を書くときに決める」とはっきり書いた。</span></div>
+      <h2 style="margin-top:8px">2 回目のレビューで直したところ</h2>
+      <div><i class="pin">9</i><span>6.2：本番の EC2 には開発用の部品を入れないので、テスト用データのシーダーは Faker（開発用の部品）を使わず、決まった並びのデータを組み立てる。本番では db:seed --force。</span></div>
+      <div><i class="pin">10</i><span>2 章・3 章：信頼するプロキシの範囲は「すべて」にする（EC2 には CloudFront からしか届かないので安全さは変わらない）。1 回目のデプロイで、住所の一覧（プレフィックスリスト）で届くことを確かめ、届かなければ CloudFront のセキュリティグループを許す形に変える。</span></div>
+      <div><i class="pin">11</i><span>2 章：README のコミットは destroy の前に手元でしておき、push だけを destroy のあとにする（証拠を残してから destroy する順番はそのまま）。</span></div>
+      <div><i class="pin">12</i><span>この下書き：IP でしぼる前提の古い文を直した。</span></div>
+    </div>
+  </section>
 
   <section id="p0-sum" class="panel" role="tabpanel">
     <div class="card">
@@ -99,6 +148,7 @@ code { font-family: var(--mono); font-size: .85em; }
           <thead><tr><th>何を</th><th>選んだもの</th><th>選ばなかった案</th><th>設計書</th></tr></thead>
           <tbody>
             <tr><td>① HTTPS の用意</td><td>CloudFront の既定のアドレス</td><td>IP の住所＋Let's Encrypt、ドメインを買う、自己署名、ALB</td><td>2 章</td></tr>
+            <tr><td>公開する範囲（レビューで見つかった）</td><td>IP ではしぼらず、ログインと回数の制限で守る</td><td>家の IP だけ（CloudFront Functions・AWS WAF）</td><td>2 章</td></tr>
             <tr><td>② EC2・RDS の置き方</td><td>外から入れない場所＋VPC オリジン＋NAT（destroy 1 回で一緒に消える）</td><td>外から入れる場所、NAT なし</td><td>3 章</td></tr>
             <tr><td>③ 秘密の情報</td><td>DB のパスワードは RDS に任せる。APP_KEY は EC2 で作る</td><td>Terraform＋Secrets Manager、Terraform＋Parameter Store、手で .env</td><td>4 章</td></tr>
             <tr><td>④ 定期的な記録</td><td>systemd タイマーが毎分スケジューラーを起こす。Laravel だけ日本時間</td><td>ずっと起きている、EventBridge Scheduler</td><td>5 章</td></tr>
@@ -677,7 +727,7 @@ code { font-family: var(--mono); font-size: .85em; }
       <ul>
         <li>RDS は外から入れない場所に 2 つ（データベースは場所を 2 つ用意する決まり。前回と同じ）。入れるのは EC2 からだけ。</li>
         <li>NAT や通り道が、このプロジェクトで使えるかは、作る前にコマンドで確かめる。</li>
-        <li>自分の IP だけに公開するかは、このあと別に決める（CloudFront の入口で止める）。</li>
+        <li>自分の IP だけに公開するかは、あとで決めた（第三者レビューのあと、IP ではしぼらずログインで守る、に決定）。</li>
       </ul>
     </div>
   </section>
@@ -826,7 +876,7 @@ code { font-family: var(--mono); font-size: .85em; }
             <tr><td>証明書の更新</td><td class="ok">いらない</td><td>90 日ごと（自動にできる）</td><td class="ok">いらない（自動）</td></tr>
             <tr><td>お金</td><td class="ok">ほぼ 0 円（無料の枠の中）</td><td class="ok">0 円</td><td class="ng">ドメイン代が年に数百〜2,000 円ほど。destroy しても払う</td></tr>
             <tr><td>AWS の外に頼るもの</td><td class="ok">なし</td><td class="ng">2 つ（sslip.io・Let's Encrypt）</td><td class="ok">なし</td></tr>
-            <tr><td>自分だけに公開できるか</td><td>できる（CloudFront で IP を見て止める）</td><td class="ng">むずかしい。証明書を取るとき、Let's Encrypt が世界中から 80 番に確かめに来る</td><td>できる（アと同じ）</td></tr>
+            <tr><td>自分だけに公開できるか</td><td>できる（CloudFront で IP を見て止める。ただし今回は、しぼらずログインで守ると決めた）</td><td class="ng">むずかしい。証明書を取るとき、Let's Encrypt が世界中から 80 番に確かめに来る</td><td>できる（アと同じ）</td></tr>
             <tr><td>作り直したとき</td><td>アドレスが変わる（README には回ごとに書くので困らない）</td><td>EC2 の IP が変わり、アドレスも証明書も取り直し</td><td class="ok">同じアドレス</td></tr>
             <tr><td>EC2 をどこに置けるか</td><td class="ok">外から入れない場所にも置ける（② で決める）</td><td>外から入れる場所に置く</td><td class="ok">アと同じ</td></tr>
             <tr><td>Terraform で作れるか</td><td class="ok">全部作れる</td><td>証明書は EC2 の中で取る（Terraform の外）</td><td>買うのは手で。あとは作れる</td></tr>
@@ -867,7 +917,7 @@ code { font-family: var(--mono); font-size: .85em; }
         <li>アドレス <span class="url">https://d1a2b3c4.cloudfront.net</span> に、最初から AWS の証明書がついている。取る手間も更新もない。</li>
         <li>AWS の無料の枠（毎月 1 TB・1,000 万回まで）に入るので、ほぼ 0 円。</li>
         <li>Terraform で作って、destroy で消せる。外の会社の登録はいらない。</li>
-        <li>CloudFront Functions（入口で動く小さなプログラム）で、自分の IP 以外を止められる。テスト用データの公開範囲をしぼれる。</li>
+        <li>CloudFront Functions（入口で動く小さなプログラム）で、自分の IP 以外を止めることもできる（今回は使わず、ログインで守ると決めた）。</li>
       </ul>
       <h3 style="margin-top:12px">気をつけるところ</h3>
       <ul>
