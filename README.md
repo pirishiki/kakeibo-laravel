@@ -170,7 +170,20 @@ php artisan migrate
 - `docker compose up -d --wait` で、MySQL 8.4 の箱が動く（`compose.yaml`）。`--wait` は、MySQL が受けつけられる状態になるまで待つ（初めてのときは数十秒かかる。待たずに migrate を打つと、つなげずに失敗する）。初めて動かすときは、ふだん使う `kakeibo` と、テスト用の `kakeibo_testing` の 2 つのデータベースができる。
 - 止めるときは `docker compose stop`。データは Docker のボリュームに残る。
 
-### 5. 動かす
+### 5. ログインするユーザーを作る（最初の 1 回だけ）
+
+ユーザー登録とパスワードリセットの画面はない（N-04）。ユーザーの作成とパスワードの変更は、コマンドで行う。
+
+```powershell
+php artisan user:create
+php artisan user:password 自分のメールアドレス
+```
+
+- `user:create` は、名前・メールアドレス・パスワードを順に聞く。パスワードは 12 文字以上で、打った字は画面に出ない。打ちまちがいを防ぐため、2 回聞く。
+- `user:password` は、パスワードを変える。ほかの機械でのログイン（「ログインしたままにする」もふくむ）も終わる。
+- パスワードは、コマンドの後ろに書いて渡すことはできない。書いて渡すと、コマンドの履歴に残るため。
+
+### 6. 動かす
 
 ```powershell
 npm.cmd run build
@@ -179,7 +192,7 @@ php artisan serve
 
 ブラウザで http://127.0.0.1:8000 を開く。画面の CSS・JS を直しながら見るときは、`npm.cmd run build` のかわりに、別のターミナルで `npm.cmd run dev` を動かしておく（保存すると画面にすぐ反映される）。
 
-### 6. 自動チェックを手元で動かす
+### 7. 自動チェックを手元で動かす
 
 PR を作る前に、CI（`.github/workflows/ci.yml`）と同じチェックを手元で通しておく。MySQL を動かしておくこと（テストは `kakeibo_testing` を使う）。
 
@@ -189,7 +202,7 @@ PR を作る前に、CI（`.github/workflows/ci.yml`）と同じチェックを�
 | `lint` | `vendor/bin/pint --test`（直すときは `vendor/bin/pint`） |
 | `build` | `npm.cmd run build` |
 
-### 7. データベースのバックアップと、元に戻す（N-16）
+### 8. データベースのバックアップと、元に戻す（N-16）
 
 データベースを作り直す前（`migrate:fresh` など）には、必ずバックアップを取る。
 
@@ -210,6 +223,6 @@ powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\ka
 - PowerShell の `>` でファイルに書くと文字の形が変わり、日本語が化ける。スクリプトは MySQL の箱の中でファイルを作り、PC に写している。
 - 戻したあとの確かめ方：`$env:DB_DATABASE = 'kakeibo_restore'; php artisan db:show --counts` で、表ごとの行の数が元と同じかを見る（ターミナルを閉じると元に戻る）。記録の機能ができたら、記録の件数と残高でも確かめる（要件定義書 10 章）。
 
-### 8. 部品の更新
+### 9. 部品の更新
 
 部品の新しい版が出ると、Dependabot が更新の PR を毎週月曜 9 時に作る（`.github/dependabot.yml`、N-17）。イシューは作らない。CI の 3 つが通ったのを見てマージする。あぶない穴が見つかったときの PR は、曜日に関係なくすぐ来る。
