@@ -10,6 +10,7 @@ $body-color: #23271f; // ふつうの字
 // 背景のうすい灰色は、下で画面（body）にだけぬる。$body-bg は白のままにする
 // （$body-bg を変えると、それを使っているカード・入力欄・小窓まで灰色になり、「カードは白」にならないため）
 $page-bg: #f3f4f2;
+$primary-soft: #dff2f0; // うすい青緑
 
 // 字（画面設計書 6.4）。Noto Sans JP は画面の <head> で Google Fonts から読む
 $font-family-sans-serif: 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -18,4 +19,17 @@ $font-family-sans-serif: 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', s
 
 body {
     background-color: $page-bg;
+    // 数字の幅をそろえ、上下に並んだ金額のけたをそろえる（画面設計書 6.4）
+    font-variant-numeric: tabular-nums;
+}
+
+// ログアウト：カーソルを合わせたとき・押したときは、青緑でぬりつぶさず、うすい青緑にする
+// （ぬりつぶしは「保存」「＋ 記録する」など大事なボタンのためにとっておく）
+.btn-logout {
+    --bs-btn-hover-bg: #{$primary-soft};
+    --bs-btn-hover-border-color: #{$primary};
+    --bs-btn-hover-color: #{$primary};
+    --bs-btn-active-bg: #{$primary-soft};
+    --bs-btn-active-border-color: #{$primary};
+    --bs-btn-active-color: #{$primary};
 }

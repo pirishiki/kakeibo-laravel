@@ -34,7 +34,9 @@ return [
 
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
 
-    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+    // ブラウザを閉じたらログインを終わらせる。「ログインしたままにする」にチェックしたときだけ、
+    // 別の印（remember のクッキー）でログインが続く（画面設計書 5.1、要件定義書 10.1）
+    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', true),
 
     /*
     |--------------------------------------------------------------------------
