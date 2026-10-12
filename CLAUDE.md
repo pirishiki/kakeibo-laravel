@@ -40,7 +40,13 @@
 
 5. **PR を作る**
    - `gh pr create` で PR を作る。本文には `Closes #<イシュー番号>` を書く。こう書くと、マージしたときにイシューが自動で閉じる。
-   - 自動チェック（CI）は、Laravel のプロジェクトを作ったあとに入れる。入れたら、ここにチェックの名前と、手元で同じチェックを動かす方法を書き足す。
+   - 自動チェック（CI、`.github/workflows/ci.yml`）は 3 つ。3 つともルールセット `protect-master` の必須チェックで、通らない PR はマージできない（N-19）。PR を作る前に、手元で同じチェックを動かして通しておく。
+     | チェックの名前 | 中身 | 手元で動かすコマンド |
+     |---|---|---|
+     | `test` | テスト（PHPUnit）と、まちがい探し（Larastan） | `php artisan test` と `vendor/bin/phpstan analyse` |
+     | `lint` | 書き方（Pint） | `vendor/bin/pint --test`（直すときは `vendor/bin/pint`） |
+     | `build` | 画面用のファイルのビルド（Vite） | `npm.cmd run build` |
+   - テストは MySQL のテスト用のデータベース `kakeibo_testing` を使う（`phpunit.xml`）。手元では `docker compose up -d` で MySQL を動かしておく。
    - **マージはユーザーが GitHub の画面で行う。** Claude Code からは `gh pr merge` が禁止されていて（`~/.claude/settings.json` の permissions.deny）、マージできない。
    - マージのあとの流れ：ユーザーが「マージした」と伝える → Claude が `git switch master` → `git pull` で最新化する。
 

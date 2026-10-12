@@ -18,6 +18,8 @@ services:
     volumes:
       # データは箱の外（ボリューム）に置く。箱を作り直してもデータは消えない
       - mysql-data:/var/lib/mysql
+      # 箱を初めて作るときに、テスト用のデータベースも作る（:ro は「読むだけ」）
+      - ./docker/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/create-testing-database.sh:ro
     healthcheck:
       # MySQL が受けつけられる状態になったかを、数秒ごとに確かめる
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]

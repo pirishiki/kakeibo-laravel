@@ -1,0 +1,87 @@
+# 自動チェック（CI）：PR を作ったときと、master に入ったときに、GitHub のサーバーの上で動く
+# 3 つのチェック（test・lint・build）を、別々の「ジョブ」として同時に動かす。どこで落ちたかが名前でわかる
+# 3 つともルールセット protect-master の必須チェックで、通らない PR はマージできない（N-19）
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+# このチェックは、リポジトリの中身を読むだけ（書きかえない）
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    # テスト用の MySQL 8.4 の箱（本番の RDS・手元と同じ版）。このジョブのあいだだけ動く
+    # パスワードは、このジョブの中だけで使う使い捨てのもの（本物のデータは入らない）
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: kakeibo_testing
+          MYSQL_USER: kakeibo
+          MYSQL_PASSWORD: ci-password
+          MYSQL_ROOT_PASSWORD: ci-root-password
+        ports:
+          - 3306:3306
+        # MySQL が受けつけられるようになるまで、テストを始めない
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USERNAME: kakeibo
+      DB_PASSWORD: ci-password
+    steps:
+      # リポジトリの中身を取ってくる
+      - uses: actions/checkout@v7
+      # PHP 8.5 を用意する（手元と同じ。php.ini でオンにした機能も同じにする）
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: curl, fileinfo, intl, mbstring, openssl, pdo_mysql, zip
+          coverage: none
+      # composer.lock どおりに部品を入れる
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      # .env を用意し、アプリの鍵を作る（データベースの設定は、上の env と phpunit.xml の値を使う）
+      - run: cp .env.example .env && php artisan key:generate
+      # テスト（PHPUnit）。データベースは phpunit.xml のとおり kakeibo_testing
+      - run: php artisan test
+      # まちがい探し（Larastan）。設定は phpstan.neon
+      - run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: curl, fileinfo, intl, mbstring, openssl, zip
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      # 書き方のチェック（Pint）。直さずに、ずれがあれば失敗する（--test）
+      - run: vendor/bin/pint --test
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Node.js を用意する（手元と同じ 24 系）。npm のダウンロードを次回のために取っておく
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # package-lock.json どおりに部品を入れる（lock ファイルを書きかえない）
+      - run: npm ci
+      # 画面用のファイル（CSS・JS）を作る。本番の EC2 でも同じことをする
+      - run: npm run build
