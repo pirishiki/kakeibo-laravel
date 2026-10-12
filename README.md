@@ -79,6 +79,7 @@
 | [全体構成設計書](全体構成設計書.md) | AWS の中で何を・どこに・どうつなぐか。秘密の情報の渡し方、デプロイと destroy の手順の考え方。長く動かすことにしたら何を変えるか |
 | [全体の構成の下書き](全体の構成の下書き.html) | AWS の構成をどの案と比べて選んだか。通り道の図と比べる表（ダウンロードしてブラウザで開く） |
 | [画面の下書き](画面の下書き.html) | 画面がどんな見た目か。どの案と比べて選んだか（ダウンロードしてブラウザで開く） |
+| [開発環境の下書き](開発環境の下書き.html) | 開発環境（PHP・MySQL の置き方、ログイン、Livewire、Bootstrap、CI、Dependabot、バックアップ）をどの案と比べて選んだか（ダウンロードしてブラウザで開く） |
 
 はじめて読むときは、要件定義書から読む。目的と、作るもの・作らないものがわかると、ほかの文書の判断の理由が追いやすい。
 
@@ -156,11 +157,11 @@ php artisan key:generate
 ### 4. MySQL を動かして、表を作る
 
 ```powershell
-docker compose up -d
+docker compose up -d --wait
 php artisan migrate
 ```
 
-- `docker compose up -d` で、MySQL 8.4 の箱が動く（`compose.yaml`）。初めて動かすときは、ふだん使う `kakeibo` と、テスト用の `kakeibo_testing` の 2 つのデータベースができる。
+- `docker compose up -d --wait` で、MySQL 8.4 の箱が動く（`compose.yaml`）。`--wait` は、MySQL が受けつけられる状態になるまで待つ（初めてのときは数十秒かかる。待たずに migrate を打つと、つなげずに失敗する）。初めて動かすときは、ふだん使う `kakeibo` と、テスト用の `kakeibo_testing` の 2 つのデータベースができる。
 - 止めるときは `docker compose stop`。データは Docker のボリュームに残る。
 
 ### 5. 動かす
@@ -190,7 +191,7 @@ PR を作る前に、CI（`.github/workflows/ci.yml`）と同じチェックを�
 # 取る：backups\kakeibo-年月日-時分秒.sql ができる
 powershell -ExecutionPolicy Bypass -File scripts\db-backup.ps1
 
-# 戻す：上書きしてよいか聞かれるので y を打つ
+# 戻す：今の中身を全部消して入れかえてよいか聞かれるので y を打つ
 powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\kakeibo-20261012-151927.sql
 
 # 別の名前のデータベースに戻す（中身を確かめるとき）
@@ -198,6 +199,7 @@ powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\ka
 ```
 
 - `-ExecutionPolicy Bypass` は「この 1 回だけスクリプトを動かしてよい」という意味で、PC の設定は変えない。
+- 戻すときは、戻す先のデータベースをいったん空にしてから戻すので、バックアップを取った瞬間とまったく同じ中身になる（空にしないと、あとで足した表が残り、マイグレーションの帳簿とちぐはぐになるため）。空にする前の中身は `backups\<名前>-<日時>-before-restore.sql` に自動で保存されるので、まちがえて戻しても、そのファイルから戻せる。
 - `backups\` は Git に入れない。中身は自分のお金の記録のため。
 - PowerShell の `>` でファイルに書くと文字の形が変わり、日本語が化ける。スクリプトは MySQL の箱の中でファイルを作り、PC に写している。
 - 戻したあとの確かめ方：`$env:DB_DATABASE = 'kakeibo_restore'; php artisan db:show --counts` で、表ごとの行の数が元と同じかを見る（ターミナルを閉じると元に戻る）。記録の機能ができたら、記録の件数と残高でも確かめる（要件定義書 10 章）。
