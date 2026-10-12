@@ -91,6 +91,8 @@ return [
     |
     */
 
+    // このアプリでは Fortify の URL を止めているので（FortifyServiceProvider の ignoreRoutes）、
+    // prefix・domain・middleware・views は効かない。URL は routes/web.php を見る
     'prefix' => '',
 
     'domain' => null,
@@ -119,9 +121,12 @@ return [
     |
     */
 
-    // login を null にすると、Fortify はログインの処理の中で「まちがえた回数」だけを数える
-    // （メールアドレス＋IP ごとに 1 分 5 回。6 回目から auth.throttle の文を欄の下に出す。N-05、画面設計書 5.1）。
-    // 名前を入れると URL の入口での制限になり、成功も数え、6 回目は英語の 429 のページになってしまう
+    // login は必ず null のままにする。null のとき、Fortify はログインの処理の中で「まちがえた回数」を数える
+    // （メールアドレス＋IP ごとに、最初にまちがえてから 60 秒で 5 回まで。6 回目から auth.throttle の文を欄の下に出す。
+    // N-05、画面設計書 5.1）。
+    // 名前を入れると、Fortify はこの数え方をやめ、URL の入口で数える形に任せる。ところが URL は Fortify に
+    // 作らせず routes/web.php に自分で書いているので（ignoreRoutes）、回数の制限がまったくなくなってしまう。
+    // tests/Feature/Auth/LoginTest.php の回数の制限のテストが、それを見張っている
     'limiters' => [
         'login' => null,
     ],
