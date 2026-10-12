@@ -63,7 +63,7 @@ code{font-family:var(--font-mono);font-size:.85em;background:var(--bg);padding:1
 <section id="restore-clean">
   <span class="tag">⑧ 決定</span>
   <h2>元に戻すとき、戻す先にもとからある表をどうするか（レビューの指摘 中2）</h2>
-  <div class="note" style="background:var(--accent-soft)"><b>決定：ア　いつも、戻す先を空にしてから戻す。</b> 空にする前に、今の中身を <code>backups&lt;名前&gt;-&lt;日時&gt;-before-restore.sql</code> に自動で保存する（印 23）。2026-10-12 に試した：余分な表を足してから戻すと、余分な表は消え、戻す前のファイルには余分な表が入っていた。</div>
+  <div class="note" style="background:var(--accent-soft)"><b>決定：ア　いつも、戻す先を空にしてから戻す。</b> 空にする前に、今の中身を <code>backups\&lt;名前&gt;-&lt;日時&gt;-before-restore.sql</code> に自動で保存する（印 23）。2026-10-12 に試した：余分な表を足してから戻すと、余分な表は消え、戻す前のファイルには余分な表が入っていた。</div>
   <p>いまの <code>db-restore.ps1</code> は、バックアップの中にある表だけを上書きします。<b>バックアップにない表は、そのまま残ります。</b></p>
   <div class="note">
     <b>困る例：</b>10/12 にバックアップを取る → 10/20 に「口座」の表を足す（マイグレーション） → 10/25 に 10/12 のバックアップから戻す。<br>

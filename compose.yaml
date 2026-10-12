@@ -1,5 +1,5 @@
 # 開発用の MySQL を Docker で動かす設定（PHP は Windows に直接入れて使う）
-# 起動：docker compose up -d　／　止める：docker compose stop
+# 起動：docker compose up -d --wait（MySQL が受けつけられる状態になるまで待つ）　／　止める：docker compose stop
 # データベースの名前・ユーザー・パスワードは、Laravel と同じ .env から読む（パスワードを Git に入れないため。N-06）
 services:
   mysql:

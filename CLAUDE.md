@@ -47,7 +47,7 @@
      | `test` | テスト（PHPUnit）と、まちがい探し（Larastan） | `php artisan test` と `vendor/bin/phpstan analyse` |
      | `lint` | 書き方（Pint） | `vendor/bin/pint --test`（直すときは `vendor/bin/pint`） |
      | `build` | 画面用のファイルのビルド（Vite） | `npm.cmd run build` |
-   - テストは MySQL のテスト用のデータベース `kakeibo_testing` を使う（`phpunit.xml`）。手元では `docker compose up -d` で MySQL を動かしておく。
+   - テストは MySQL のテスト用のデータベース `kakeibo_testing` を使う（`phpunit.xml`）。手元では `docker compose up -d --wait` で MySQL を動かしておく（`--wait` は、MySQL が受けつけられる状態になるまで待つ）。
    - **マージはユーザーが GitHub の画面で行う。** Claude Code からは `gh pr merge` が禁止されていて（`~/.claude/settings.json` の permissions.deny）、マージできない。
    - マージのあとの流れ：ユーザーが「マージした」と伝える → Claude が `git switch master` → `git pull` で最新化する。
 

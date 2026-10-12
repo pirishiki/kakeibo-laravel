@@ -32,8 +32,12 @@ function Assert-Success([string]$step) {
     }
 }
 
-if (-not (Test-Path $File)) {
+# 消す前に、ファイルがあって空でないことを確かめる（まちがったファイルで、消したあとに失敗しないように）
+if (-not (Test-Path $File -PathType Leaf)) {
     throw "ファイルが見つかりません：$File"
+}
+if ((Get-Item $File).Length -eq 0) {
+    throw "ファイルが空です：$File"
 }
 # データベースの名前は、英数字と _ だけにする（コマンドの中にそのまま入れるため）
 if ($Database -notmatch '^[A-Za-z0-9_]+$') {
@@ -61,26 +65,45 @@ if (-not $Force) {
 }
 
 # 消す前に、今の中身を保存しておく（まちがえて戻しても、すぐ元にもどせるように）
+$beforeFile = $null
 if ($exists) {
     & (Join-Path $PSScriptRoot 'db-backup.ps1') -Database $Database -Suffix 'before-restore'
+    # いま保存したファイル（いちばん新しい before-restore）の名前を覚えておく。失敗したときに案内するため
+    $beforeFile = Get-ChildItem (Join-Path $root 'backups') -Filter "$Database-*-before-restore.sql" |
+        Sort-Object LastWriteTime | Select-Object -Last 1 |
+        ForEach-Object { "backups\$($_.Name)" }
 }
 
 $tmpInBox = '/tmp/restore.sql'
+$dropped = $false
 
-# ファイルを箱の中に写してから、箱の中で読ませる（PowerShell 5.1 の「<」や「|」で流すと、文字の形が変わるため）
-docker compose cp $File "mysql:$tmpInBox"
-Assert-Success 'ファイルを箱に写す'
+try {
+    # ファイルを箱の中に写してから、箱の中で読ませる（PowerShell 5.1 の「<」や「|」で流すと、文字の形が変わるため）
+    docker compose cp $File "mysql:$tmpInBox"
+    Assert-Success 'ファイルを箱に写す'
 
-# 戻す先を空にして作り直し、アプリのユーザー（MYSQL_USER）も使えるようにする
-# （.env の DB_DATABASE をその名前にすると、アプリで中身を見られる）
-# MYSQL_USER（.env の DB_USERNAME）は、英数字と _ だけの名前にしておくこと。ほかの文字だと GRANT が失敗して、ここで止まる
-docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot -e 'DROP DATABASE IF EXISTS $Database; CREATE DATABASE $Database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON $Database.* TO '`$MYSQL_USER';'"
-Assert-Success 'データベースを空にして作り直す'
+    # 戻す先を空にして作り直し、アプリのユーザー（MYSQL_USER）も使えるようにする
+    # （.env の DB_DATABASE をその名前にすると、アプリで中身を見られる）
+    # MYSQL_USER（.env の DB_USERNAME）は、英数字と _ だけの名前にしておくこと。ほかの文字だと GRANT が失敗して、ここで止まる
+    $dropped = $true
+    docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot -e 'DROP DATABASE IF EXISTS $Database; CREATE DATABASE $Database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON $Database.* TO '`$MYSQL_USER';'"
+    Assert-Success 'データベースを空にして作り直す'
 
-docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot --default-character-set=utf8mb4 $Database < $tmpInBox"
-Assert-Success '中身を戻す'
-
-docker compose exec -T mysql rm -f $tmpInBox
-Assert-Success '箱の中のファイルを消す'
+    docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot --default-character-set=utf8mb4 $Database < $tmpInBox"
+    Assert-Success '中身を戻す'
+} catch {
+    # 消したあとで失敗したときは、戻す先が空か途中までになっている。消す前の中身のありかを知らせる
+    if ($dropped -and $beforeFile) {
+        Write-Host ''
+        Write-Host "データベース $Database は、空か途中までの中身になっています。"
+        Write-Host "消す前の中身は $beforeFile にあります。次のコマンドで元にもどせます："
+        Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File $beforeFile -Database $Database"
+        Write-Host ''
+    }
+    throw
+} finally {
+    # 成功しても失敗しても、箱の中の一時ファイルは消す（消すのに失敗しても止めない）
+    docker compose exec -T mysql rm -f $tmpInBox
+}
 
 Write-Host "戻しました：$File → データベース $Database"
