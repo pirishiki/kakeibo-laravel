@@ -5,7 +5,9 @@
 #   別の名前のデータベースに戻すとき：
 #   powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\kakeibo-20261012-153000.sql -Database kakeibo_restore
 #
-# 戻す先のデータベースに同じ名前の表があると、ファイルの中身で上書きする（ファイルにない表は残る）。
+# 戻す先のデータベースは、いったん空にしてから戻す。戻したあとは、バックアップを取った瞬間とまったく同じになる。
+# （空にしないと、バックアップにない表が残り、マイグレーションの帳簿と表がちぐはぐになるため）
+# 空にする前に、戻す先の今の中身を backups\<名前>-<日時>-before-restore.sql に自動で保存する。
 
 param(
     # 戻すファイル（backups\ の中の .sql）
@@ -15,7 +17,7 @@ param(
     # 戻す先のデータベースの名前。なければ作る
     [string]$Database = 'kakeibo',
 
-    # 上書きの確認を聞かない
+    # 確認を聞かない
     [switch]$Force
 )
 
@@ -38,12 +40,29 @@ if ($Database -notmatch '^[A-Za-z0-9_]+$') {
     throw "データベースの名前に使えるのは、英数字と _ だけです：$Database"
 }
 
+# 戻す先のデータベースが、もうあるかを調べる（USE は、ないと失敗で終わる）
+# 先に MySQL が動いているかを確かめる。止まっているのを「データベースがない」とまちがえないため
+docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot -e 'SELECT 1' > /dev/null"
+Assert-Success 'MySQL につなぐ（docker compose up -d --wait で動かしておく）'
+docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot -e 'USE $Database' > /dev/null 2>&1"
+$exists = ($LASTEXITCODE -eq 0)
+
 if (-not $Force) {
-    $answer = Read-Host "データベース $Database を、$File の中身で上書きします。よろしいですか？（y で進む）"
+    if ($exists) {
+        $message = "データベース $Database の今の中身を全部消して、$File の中身に入れかえます（消す前の中身は backups\ に自動で保存します）。よろしいですか？（y で進む）"
+    } else {
+        $message = "データベース $Database を新しく作り、$File の中身を入れます。よろしいですか？（y で進む）"
+    }
+    $answer = Read-Host $message
     if ($answer -ne 'y') {
         Write-Host 'やめました。'
         exit 1
     }
+}
+
+# 消す前に、今の中身を保存しておく（まちがえて戻しても、すぐ元にもどせるように）
+if ($exists) {
+    & (Join-Path $PSScriptRoot 'db-backup.ps1') -Database $Database -Suffix 'before-restore'
 }
 
 $tmpInBox = '/tmp/restore.sql'
@@ -52,10 +71,11 @@ $tmpInBox = '/tmp/restore.sql'
 docker compose cp $File "mysql:$tmpInBox"
 Assert-Success 'ファイルを箱に写す'
 
-# 戻す先のデータベースがなければ作り、アプリのユーザー（MYSQL_USER）も使えるようにする
+# 戻す先を空にして作り直し、アプリのユーザー（MYSQL_USER）も使えるようにする
 # （.env の DB_DATABASE をその名前にすると、アプリで中身を見られる）
-docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot -e 'CREATE DATABASE IF NOT EXISTS $Database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON $Database.* TO '`$MYSQL_USER';'"
-Assert-Success 'データベースを用意する'
+# MYSQL_USER（.env の DB_USERNAME）は、英数字と _ だけの名前にしておくこと。ほかの文字だと GRANT が失敗して、ここで止まる
+docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot -e 'DROP DATABASE IF EXISTS $Database; CREATE DATABASE $Database CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON $Database.* TO '`$MYSQL_USER';'"
+Assert-Success 'データベースを空にして作り直す'
 
 docker compose exec -T mysql sh -c "MYSQL_PWD=`$MYSQL_ROOT_PASSWORD mysql -uroot --default-character-set=utf8mb4 $Database < $tmpInBox"
 Assert-Success '中身を戻す'

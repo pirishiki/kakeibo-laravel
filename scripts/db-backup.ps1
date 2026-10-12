@@ -9,10 +9,21 @@
 
 param(
     # 保存するデータベースの名前
-    [string]$Database = 'kakeibo'
+    [string]$Database = 'kakeibo',
+
+    # ファイル名の終わりにつける言葉（db-restore.ps1 が、戻す前の自動のバックアップに before-restore とつける）
+    [string]$Suffix = ''
 )
 
 $ErrorActionPreference = 'Stop'
+
+# 名前に使える文字をしぼる（コマンドの中にそのまま入れるため）
+if ($Database -notmatch '^[A-Za-z0-9_]+$') {
+    throw "データベースの名前に使えるのは、英数字と _ だけです：$Database"
+}
+if ($Suffix -notmatch '^[A-Za-z0-9_-]*$') {
+    throw "Suffix に使えるのは、英数字と _ と - だけです：$Suffix"
+}
 
 # docker compose をリポジトリのいちばん上（compose.yaml がある場所）で動かす
 $root = Split-Path -Parent $PSScriptRoot
@@ -26,7 +37,7 @@ function Assert-Success([string]$step) {
 }
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$fileName = "$Database-$stamp.sql"
+$fileName = if ($Suffix) { "$Database-$stamp-$Suffix.sql" } else { "$Database-$stamp.sql" }
 $tmpInBox = "/tmp/$fileName"
 New-Item -ItemType Directory -Force (Join-Path $root 'backups') | Out-Null
 $dest = Join-Path $root "backups\$fileName"
