@@ -22,7 +22,8 @@ class CreateUser extends Command
     public function handle(): int
     {
         $name = (string) $this->ask('名前');
-        $email = (string) $this->ask('メールアドレス');
+        // メールアドレスは小文字にそろえて保存する（ログインのときも小文字にして探すため）
+        $email = strtolower((string) $this->ask('メールアドレス'));
 
         $validator = Validator::make(
             ['name' => $name, 'email' => $email],
@@ -51,7 +52,7 @@ class CreateUser extends Command
         // パスワードは User モデルの設定（casts の hashed）で、ハッシュにしてから保存される
         User::create([
             'name' => $name,
-            'email' => strtolower($email),
+            'email' => $email,
             'password' => $password,
         ]);
 

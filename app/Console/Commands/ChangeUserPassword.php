@@ -43,7 +43,10 @@ class ChangeUserPassword extends Command
             'password' => $password,
             'remember_token' => Str::random(60),
         ])->save();
-        DB::table('sessions')->where('user_id', $user->id)->delete();
+        // セッションをデータベースに置いているとき（このアプリの設定）は、その行を消す
+        if (config('session.driver') === 'database') {
+            DB::table(config('session.table'))->where('user_id', $user->id)->delete();
+        }
 
         $this->info("パスワードを変えました：{$email}（ほかの機械でのログインも終わりました）");
 

@@ -24,7 +24,7 @@ class UserCommandsTest extends TestCase
             ->expectsQuestion('メールアドレス', 'Me@Example.com')
             ->expectsQuestion(self::PASSWORD_QUESTION, 'long-password-1')
             ->expectsQuestion('もう一度パスワード', 'long-password-1')
-            ->expectsOutput('ユーザーを作りました：Me@Example.com')
+            ->expectsOutput('ユーザーを作りました：me@example.com')
             ->assertSuccessful();
 
         $user = User::where('email', 'me@example.com')->firstOrFail();
@@ -70,6 +70,8 @@ class UserCommandsTest extends TestCase
 
     public function test_パスワードを変えると新しいパスワードでログインでき今のログインは終わる(): void
     {
+        // テストはセッションを配列に置く設定なので、このテストだけアプリと同じデータベースにする
+        config(['session.driver' => 'database']);
         $user = User::factory()->create(['email' => 'me@example.com', 'password' => 'old-password-1']);
         $oldToken = $user->remember_token;
         DB::table('sessions')->insert([

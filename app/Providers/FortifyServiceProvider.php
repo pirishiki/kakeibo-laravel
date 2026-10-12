@@ -16,6 +16,11 @@ class FortifyServiceProvider extends ServiceProvider
     {
         // ログインの入力チェックを、メールアドレスの形も見るものに差しかえる
         $this->app->bind(FortifyLoginRequest::class, LoginRequest::class);
+
+        // Fortify の URL は使わない。機能をオフにしても、パスワードの確認の URL
+        // （/user/confirm-password。このアプリにはその画面がない）が残るため。
+        // ログイン・ログアウトの URL だけを routes/web.php に書く
+        Fortify::ignoreRoutes();
     }
 
     /**

@@ -57,6 +57,8 @@ class LoginTest extends TestCase
         $this->post('/register', ['name' => 'x', 'email' => 'x@example.com', 'password' => 'x'])->assertNotFound();
         $this->get('/forgot-password')->assertNotFound();
         $this->get('/reset-password/token')->assertNotFound();
+        // Fortify のパスワードの確認の URL も止めてある（このアプリには画面がない）
+        $this->actingAs(User::factory()->create())->get('/user/confirm-password')->assertNotFound();
     }
 
     public function test_正しく入れるとホームが開く(): void
@@ -108,8 +110,10 @@ class LoginTest extends TestCase
     {
         $user = $this->makeUser();
 
-        for ($i = 0; $i < 5; $i++) {
-            $this->post('/login', $this->form(['password' => 'wrong-password']));
+        // 5 回目までは、ふつうのまちがいの文（まだ止められていない）
+        for ($i = 1; $i <= 5; $i++) {
+            $this->post('/login', $this->form(['password' => 'wrong-password']))
+                ->assertSessionHasErrors(['email' => 'メールアドレスかパスワードがちがいます。']);
         }
 
         // 6 回目は、正しいパスワードでもログインできない
@@ -143,11 +147,13 @@ class LoginTest extends TestCase
     {
         $this->makeUser();
 
-        $this->post('/login', $this->form())
+        $response = $this->post('/login', $this->form())
             ->assertCookieMissing(Auth::guard()->getRecallerName());
 
-        // ログインの印（セッションのクッキー）は、ブラウザを閉じると消える種類にしてある
-        $this->assertTrue(config('session.expire_on_close'));
+        // ログインの印（セッションのクッキー）は、期限なし＝ブラウザを閉じると消える種類
+        $sessionCookie = $response->getCookie(config('session.cookie'), false);
+        $this->assertNotNull($sessionCookie);
+        $this->assertSame(0, $sessionCookie->getExpiresTime());
     }
 
     public function test_ログアウトするとログイン画面に戻る(): void
