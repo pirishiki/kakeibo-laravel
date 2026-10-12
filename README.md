@@ -104,11 +104,17 @@
 
 ## 技術スタック
 
+画面（フロントエンド）とサーバー（バックエンド）は、別々のアプリに分けず、Laravel の 1 つのアプリの中にある（サーバーが画面の HTML を作って返す形）。
+
 | 層 | 技術 |
 |---|---|
-| 画面・サーバー | PHP 8.5 + Laravel 13（画面は Blade + Livewire + Bootstrap 5.3、ログインは Fortify） |
+| フロントエンド | Blade（Laravel の画面のひな形）+ Livewire（画面の一部だけを書きかえる）+ Alpine.js（小さな動き）、Bootstrap 5.3（Sass で色を変え、Vite でビルド） |
+| バックエンド | PHP 8.5 + Laravel 13、ログインは Fortify（部品の管理は Composer） |
 | データベース | MySQL 8.4（LTS） |
-| インフラ | AWS（EC2・RDS）を Terraform で作る |
+| インフラ | AWS（CloudFront・EC2・RDS）を Terraform で作る |
+| 開発・自動チェック | GitHub Actions（PHPUnit・Larastan・Pint・ビルド）、Dependabot、開発用の MySQL は Docker |
+
+Livewire は、画面の部品を PHP で書き、ブラウザとサーバーのやりとりを自動でしてくれるもので、フロントエンドとバックエンドの両方にまたがる。
 
 くわしくは [要件定義書](要件定義書.md) を参照。
 
