@@ -1,0 +1,15 @@
+# Larastan（PHPStan に Laravel の知識を足したもの）の設定。コードを動かす前に読んで、型のまちがいを探す
+# 動かし方：vendor/bin/phpstan analyse
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # 調べるフォルダ（自分で書くコードがあるところ）
+    paths:
+        - app/
+        - config/
+        - database/
+        - routes/
+
+    # 調べる強さ（0〜10、大きいほどきびしい）。最初はやさしめの 5 から始め、慣れたら上げる
+    level: 5

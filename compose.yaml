@@ -1,0 +1,31 @@
+# 開発用の MySQL を Docker で動かす設定（PHP は Windows に直接入れて使う）
+# 起動：docker compose up -d --wait（MySQL が受けつけられる状態になるまで待つ）　／　止める：docker compose stop
+# データベースの名前・ユーザー・パスワードは、Laravel と同じ .env から読む（パスワードを Git に入れないため。N-06）
+services:
+  mysql:
+    # 本番の RDS と同じ 8.4 にそろえる（要件定義書 4.1）
+    image: mysql:8.4
+    # Docker が起動したら、MySQL も一緒に起動する（自分で docker compose stop したときは起動しない）
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      # 自分の PC の中（127.0.0.1）からだけつなげるようにする。同じ Wi-Fi のほかの機械からはつなげない
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
+    volumes:
+      # データは箱の外（ボリューム）に置く。箱を作り直してもデータは消えない
+      - mysql-data:/var/lib/mysql
+      # 箱を初めて作るときに、テスト用のデータベースも作る（:ro は「読むだけ」）
+      - ./docker/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/create-testing-database.sh:ro
+    healthcheck:
+      # MySQL が受けつけられる状態になったかを、数秒ごとに確かめる
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mysql-data:

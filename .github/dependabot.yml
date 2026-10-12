@@ -1,0 +1,38 @@
+# Dependabot：部品の新しい版が出たら、更新の PR を自動で作る（要件定義書 N-17）
+# 週 1 回（月曜 9 時）。小さな更新（minor・patch）は置き場ごとに 1 つの PR にまとめ、
+# 大きな更新（major）は 1 つずつ別の PR にする。
+# Docker（compose.yaml の mysql:8.4）は見ない。本番の RDS と同じ 8.4 にそろえるため。
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    groups:
+      composer-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]

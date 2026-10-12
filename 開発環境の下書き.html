@@ -1,0 +1,647 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>開発環境の下書き</title>
+<style>
+/* 上にいま決めること、下に言葉の説明。比較は表と図で */
+:root{
+  --bg:#f6f7f4; --panel:#ffffff; --fg:#1f2522; --muted:#5d6862; --line:#d5dbd6;
+  --accent:#2f6f5e; --accent-soft:#e2efe9; --mark:#2456b8; --warn:#9a5b10; --warn-soft:#fbf0de;
+  --font-body:"Noto Sans JP",system-ui,sans-serif; --font-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#161a18; --panel:#1f2522; --fg:#e6ebe8; --muted:#a3ada8; --line:#36403b;
+  --accent:#7cc3ad; --accent-soft:#233a33; --mark:#8db2ff; --warn:#f0b36a; --warn-soft:#3a2d1a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#161a18; --panel:#1f2522; --fg:#e6ebe8; --muted:#a3ada8; --line:#36403b;
+  --accent:#7cc3ad; --accent-soft:#233a33; --mark:#8db2ff; --warn:#f0b36a; --warn-soft:#3a2d1a; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);line-height:1.75;padding:0 16px}
+main{max-width:860px;margin:0 auto;padding-block:24px 64px;display:grid;gap:28px}
+h1{font-size:1.5rem;margin:0;text-wrap:balance}
+h2{font-size:1.2rem;margin:0 0 8px;text-wrap:balance}
+h3{font-size:1rem;margin:16px 0 6px}
+p{margin:6px 0}
+.sub{color:var(--muted);margin:4px 0 0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+.tag{display:inline-block;font-size:.75rem;letter-spacing:.06em;background:var(--accent-soft);color:var(--accent);padding:2px 10px;border-radius:999px;margin-bottom:8px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:12px}
+.opt{border:1px solid var(--line);border-radius:8px;padding:14px;min-width:0}
+.opt.rec{border:2px solid var(--accent)}
+.opt h3{margin:0 0 8px}
+.box{border:1px dashed var(--line);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:.9rem}
+.box b{display:block;font-size:.8rem;color:var(--muted);font-weight:600}
+.pill{display:inline-block;font-size:.8rem;padding:1px 8px;border-radius:4px;background:var(--bg);border:1px solid var(--line);margin:2px 2px 0 0}
+.pill.d{border-color:var(--accent);color:var(--accent)}
+.scroll{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:.9rem}
+th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+td.good{color:var(--accent);font-weight:600}
+td.bad{color:var(--warn)}
+.rec-label{font-size:.75rem;color:var(--accent);font-weight:700}
+.mk{display:inline-flex;align-items:center;justify-content:center;width:1.4em;height:1.4em;border-radius:50%;background:var(--mark);color:var(--panel);font-size:.75rem;font-weight:700;margin-right:4px}
+.note{background:var(--warn-soft);border-radius:8px;padding:10px 14px;margin-top:12px}
+ul{margin:6px 0;padding-left:1.3em}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;margin:8px 0}
+dt{font-weight:700}
+dd{margin:0}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px}
+.steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:.8rem;margin-bottom:8px}
+.steps span{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:2px 6px}
+.steps i{font-style:normal;color:var(--muted)}
+.fname{font-size:.8rem;color:var(--muted);font-weight:600;margin:10px 0 4px}
+.hint{font-size:.85rem;color:var(--muted)}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;overflow-x:auto;margin:0;font-size:.78rem;line-height:1.55}
+pre code{background:none;padding:0;font-size:inherit}
+code{font-family:var(--font-mono);font-size:.85em;background:var(--bg);padding:1px 5px;border-radius:4px}
+</style>
+
+<main>
+<header>
+  <h1>開発環境の下書き</h1>
+  <p class="sub">イシュー #15「開発環境を作る」。上にいま決めることを置く。</p>
+</header>
+
+<section id="restore-clean">
+  <span class="tag">⑧ 決定</span>
+  <h2>元に戻すとき、戻す先にもとからある表をどうするか（レビューの指摘 中2）</h2>
+  <div class="note" style="background:var(--accent-soft)"><b>決定：ア　いつも、戻す先を空にしてから戻す。</b> 空にする前に、今の中身を <code>backups\&lt;名前&gt;-&lt;日時&gt;-before-restore.sql</code> に自動で保存する（印 23）。2026-10-12 に試した：余分な表を足してから戻すと、余分な表は消え、戻す前のファイルには余分な表が入っていた。</div>
+  <p>いまの <code>db-restore.ps1</code> は、バックアップの中にある表だけを上書きします。<b>バックアップにない表は、そのまま残ります。</b></p>
+  <div class="note">
+    <b>困る例：</b>10/12 にバックアップを取る → 10/20 に「口座」の表を足す（マイグレーション） → 10/25 に 10/12 のバックアップから戻す。<br>
+    すると、「どの表を作ったか」の帳簿（migrations）は 10/12 の状態にもどります。ところが、口座の表は残ったままです。次に <code>php artisan migrate</code> を打つと、帳簿には「口座の表はまだない」とあるので作ろうとして、「もうある」というエラーで止まります。
+  </div>
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　いつも、戻す先を空にしてから戻す</h3>
+      <p style="font-size:.9rem">戻す前に、戻す先のデータベースを一度消して作り直す（中の表は全部消える）。戻したあとは、バックアップを取った瞬間とまったく同じになる。上書きの確認の文も「中身を全部消して戻します」に変える。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　選べるようにする（-Clean をつけたときだけ空にする）</h3>
+      <p style="font-size:.9rem">ふだんは今と同じ（残す）。<code>-Clean</code> をつけたときだけ空にしてから戻す。どちらを使うか毎回考える必要がある。</p>
+    </div>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　いつも空にする</th><th>イ　-Clean で選ぶ</th></tr></thead>
+    <tbody>
+      <tr><th>戻したあとの中身</th><td class="good">いつもバックアップと同じ</td><td>-Clean を忘れると、上の困る例になる</td></tr>
+      <tr><th>覚えること</th><td class="good">なし</td><td>-Clean の意味</td></tr>
+      <tr><th>表の一部だけ戻したいとき</th><td>できない（このアプリでは使う場面がない）</td><td class="good">できる</td></tr>
+      <tr><th>まちがえて戻したとき</th><td class="bad">戻す先の今の中身は全部消える（確認の文で強く伝える）</td><td>-Clean なしなら、ほかの表は残る</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h3>Claude が決めた細かい点（あとでまとめて確認）</h3>
+  <ul style="list-style:none;padding-left:0">
+    <li><span class="mk">23</span>アのとき、空にする前に、戻す先のデータベースの今の中身を自動でバックアップする（<code>backups\</code> に「戻す前」とわかる名前で保存）。まちがえて戻しても、すぐ元にもどせるため。</li>
+  </ul>
+</section>
+
+<section id="backup">
+  <span class="tag">⑦ 決定</span>
+  <h2>MySQL の中身を、どうやってファイルに保存し、どう元に戻すか（N-16）</h2>
+  <div class="note" style="background:var(--accent-soft)"><b>決定：⑦-1 ア　mysqldump、⑦-2 ア　スクリプト 2 つ（scripts/db-backup.ps1・db-restore.ps1）。</b><ul><li>イ（丸ごとコピー）を選ばなかった理由：MySQL を止める必要があり、別の名前のデータベースに戻せないので、よいところがない。</li><li>2026-10-12 に試した：別の名前のデータベースに戻すと表の行の数がそろい、日本語と絵文字（家計簿 テスト（絵文字🍙））も化けなかった。</li><li>動かし方は <code>powershell -ExecutionPolicy Bypass -File scriptsdb-backup.ps1</code>（この PC は .ps1 をそのまま動かせない設定のため。PC の設定は変えない）。日本語が化けないよう、スクリプトの先頭に BOM をつけた。</li></ul></div>
+  <p>バックアップは、たとえると<b>家計簿のノートをまるごとコピー機でとっておく</b>ことです。ノートをなくしても（データベースを作り直しても）、コピーから元に戻せます。合格の条件は「README の手順で中身をファイルに保存し、<b>別のデータベース</b>に戻すと、記録の件数と残高が同じになる」です（要件定義書 10 章）。</p>
+  <p>対象は<b>自分の PC の MySQL（Docker の箱）</b>です。本番の RDS は中身がテスト用のデータだけなので、取らないと決めています（全体構成設計書）。</p>
+
+  <h3>⑦-1　取り方</h3>
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　mysqldump（中身を SQL の文に書き出す）</h3>
+      <div class="box"><b>できるファイル</b><span class="pill d">kakeibo-20261012-1530.sql（文字のファイル）</span></div>
+      <p style="font-size:.9rem;margin-top:8px">MySQL についてくる道具。「この表を作る」「この行を入れる」という SQL の文を全部書き出す。戻すときはその文を MySQL に読ませる。動かしたままで取れる。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　保存場所（ボリューム）を丸ごとコピー</h3>
+      <div class="box"><b>できるファイル</b><span class="pill">mysql-data.tar（MySQL の中のファイル一式）</span></div>
+      <p style="font-size:.9rem;margin-top:8px">MySQL が使っているファイルをそのまま固める。取る前に MySQL を止める必要がある。</p>
+    </div>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　mysqldump</th><th>イ　丸ごとコピー</th></tr></thead>
+    <tbody>
+      <tr><th>取るとき</th><td class="good">動かしたままでよい</td><td class="bad">MySQL を止める</td></tr>
+      <tr><th>別のデータベースに戻す（合格の条件）</th><td class="good">名前を指定して戻せる</td><td class="bad">箱ごと入れかわる。別の名前には戻せない</td></tr>
+      <tr><th>MySQL の版が変わったあと</th><td class="good">SQL の文なので、たいてい戻せる</td><td class="bad">版がちがうと読めないことがある</td></tr>
+      <tr><th>中身を目で見る</th><td class="good">メモ帳で開ける</td><td>開けない</td></tr>
+      <tr><th>ファイルの大きさ・速さ</th><td>記録が 1 万件でも数 MB・数秒（N-12 の量）</td><td class="good">大きなデータでは速い（このアプリでは差がない）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>⑦-2　手順の形</h3>
+  <div class="note">
+    <b>気をつけること：</b>Windows PowerShell 5.1 で <code>docker compose exec mysql mysqldump … &gt; backup.sql</code> のように <code>&gt;</code> でファイルに書くと、PowerShell が文字の形（UTF-16）を勝手に変えます。日本語（相手の名前・分類）が化けたり、戻すときに MySQL が読めなかったりします。<b>どちらの案でも、ファイルは箱の中で作ってから PC に写します</b>。そのぶん、コマンドが長くなります。
+  </div>
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　スクリプト 2 つにする</h3>
+      <div class="box"><b>使い方</b><span class="pill d">.\scripts\db-backup.ps1</span><span class="pill d">.\scripts\db-restore.ps1 -File … -Database …</span></div>
+      <p style="font-size:.9rem;margin-top:8px">長いコマンドをファイルに書いておき、1 行で動かす。README にはこの 1 行と、確かめ方を書く。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　README にコマンドを書いて、手で打つ</h3>
+      <div class="box"><b>使い方</b><span class="pill">3〜4 行のコマンドを README から写して打つ</span></div>
+      <p style="font-size:.9rem;margin-top:8px">ファイルが増えない。中で何をしているかが README を読めば全部わかる。日付のファイル名は自分で打つ。</p>
+    </div>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　スクリプト</th><th>イ　手で打つ</th></tr></thead>
+    <tbody>
+      <tr><th>打ちまちがい</th><td class="good">起きにくい（毎回同じ）</td><td class="bad">長いので起きやすい。<code>&gt;</code> を使ってしまうと上の文字化け</td></tr>
+      <tr><th>ファイル名の日付</th><td class="good">自動でつく</td><td>自分で打つ</td></tr>
+      <tr><th>戻す前の確認</th><td class="good">「上書きします。よいですか」と聞ける</td><td>自分で気をつける</td></tr>
+      <tr><th>中身のわかりやすさ</th><td>スクリプトを開いて読む（コメントで説明を書く）</td><td class="good">README にすべて見えている</td></tr>
+      <tr><th>「作り直す前に取る」（N-16）</th><td class="good">1 行なので、気軽に取れる</td><td>面倒で、取るのを省きがち</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Claude が決めた細かい点（あとでまとめて確認）</h3>
+  <ul style="list-style:none;padding-left:0">
+    <li><span class="mk">17</span>保存先はリポジトリの中の <code>backups/</code> フォルダにし、<b>Git には入れない</b>（.gitignore）。中身は自分のお金の記録なので、公開のリポジトリに入れてはいけない（N-06 と同じ考え）。</li>
+    <li><span class="mk">18</span>ファイル名は <code>kakeibo-年月日-時分秒.sql</code>。古いファイルは自動では消さない（自分で消す）。</li>
+    <li><span class="mk">19</span>mysqldump は箱の中の root ユーザーで動かす。パスワードは箱の中の設定（compose.yaml で .env から渡したもの）を使い、Windows のコマンドには出さない（コマンドの履歴にパスワードが残らないように）。</li>
+    <li><span class="mk">20</span>取るときのオプション：<code>--single-transaction</code>（動かしたまま、ある瞬間の中身をそろえて取る）、文字は <code>utf8mb4</code>（絵文字も入る UTF-8）。</li>
+    <li><span class="mk">21</span>戻す先のデータベースは名前で選べる（最初は <code>kakeibo</code>）。合格の条件どおり、別の名前（例：<code>kakeibo_restore</code>）にも戻せる。上書きする前に確認を聞く。</li>
+    <li><span class="mk">22</span>いまは記録の表（records）がまだないので、今回は <b>ある表の行の数がそろうか</b>で確かめる。記録の件数と残高での確かめは、記録の機能を作ったあとにする（要件定義書 10 章のチェックはそのとき）。</li>
+  </ul>
+
+  <h3>考えたほかの案</h3>
+  <p>Laravel のコマンド（<code>php artisan db:backup</code> のようなもの）を自分で作る、または部品（spatie/laravel-backup）を入れる。PC に mysqldump が入っていないので、結局 Docker の箱の中で動かすことになり、遠回りになる。</p>
+</section>
+
+<section id="dependabot">
+  <span class="tag">⑥ 決定</span>
+  <h2>Dependabot に、何をどのくらいの間隔で見てもらうか</h2>
+  <div class="note" style="background:var(--accent-soft)"><b>決定：ア　週 1 回（月曜 9 時）・小さな更新（minor・patch）は置き場ごとにまとめる。</b> 見る置き場は composer・npm・GitHub Actions。リポジトリの設定で、あぶない穴のお知らせと直す PR もオンにした。ふだんの更新は master にマージしてから動く。</div>
+  <p><b>Dependabot</b> は、GitHub が部品の新しい版を見はってくれるしくみです。たとえると<b>冷蔵庫の賞味期限を見てくれる係</b>。古くなった部品（新しい版が出た・あぶない穴が見つかった）を見つけると、「この版に上げませんか」という PR を自動で作ります。マージするかどうかは自分で決めます（自動ではマージしない）。PR には CI（test・lint・build）が動くので、上げても壊れないかがわかります。</p>
+  <p>いまこのリポジトリでは、Dependabot は<b>何もオンになっていません</b>（2026-10-12 に確かめた）。オンにするものは 2 つあります。</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>しくみ</th><th>何をするか</th><th>オンにする方法</th></tr></thead>
+    <tbody>
+      <tr><th>あぶない穴のお知らせ＋直す PR（セキュリティ更新）</th><td>使っている版に穴が見つかったら、すぐに知らせて、直る版への PR を作る</td><td>GitHub のリポジトリの設定（コマンド 1 行ずつ）</td></tr>
+      <tr><th>ふだんの更新（バージョン更新）</th><td>穴がなくても、新しい版が出たら決まった間隔で PR を作る。祝日の部品の更新もこちら</td><td>リポジトリに <code>.github/dependabot.yml</code> を書く</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>⑥-1　どの部品の置き場を見てもらうか</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>置き場（ファイル）</th><th>中に入っているもの</th><th>見てもらう？</th></tr></thead>
+    <tbody>
+      <tr><th>Composer（composer.json）</th><td>Laravel・Larastan・Pint・祝日の部品など、PHP の部品</td><td class="good">見てもらう（N-17 の中心）</td></tr>
+      <tr><th>npm（package.json）</th><td>Bootstrap・Vite・Sass</td><td class="good">見てもらう</td></tr>
+      <tr><th>GitHub Actions（ci.yml）</th><td>CI で使う道具（actions/checkout など）</td><td class="good">見てもらう。古い道具はある日 GitHub で動かなくなることがある</td></tr>
+      <tr><th>Docker（compose.yaml）</th><td>MySQL の箱（mysql:8.4）</td><td>見てもらわない <span class="mk">13</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>⑥-2　ふだんの更新の間隔と、PR のまとめ方</h3>
+  <p>セキュリティ更新は、どれを選んでも<b>見つかったらすぐ</b>来ます。ここで決めるのは、ふだんの更新だけです。</p>
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　週 1 回・小さな更新はまとめる</h3>
+      <div class="box"><b>月曜に来る PR の例</b><span class="pill d">composer の小さな更新 まとめて 1 つ</span><span class="pill d">npm の小さな更新 まとめて 1 つ</span><span class="pill">Laravel 14 へ（大きな更新は 1 つずつ）</span></div>
+      <p style="font-size:.9rem;margin-top:8px">置き場ごとに週 1〜2 本。大きな更新（Laravel 13→14 など、書き方が変わることがある）だけは別の PR にして、落ち着いて読める。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　週 1 回・部品ごとに 1 つずつ</h3>
+      <div class="box"><b>月曜に来る PR の例</b><span class="pill">laravel/framework</span><span class="pill">vite</span><span class="pill">sass</span><span class="pill">…</span></div>
+      <p style="font-size:.9rem;margin-top:8px">どの部品で壊れたかがすぐわかる。そのかわり週に 5〜10 本来ることがあり、マージするたびに残りの PR の CI が動き直す。</p>
+    </div>
+    <div class="opt">
+      <h3>ウ　毎日・部品ごと</h3>
+      <div class="box"><b>毎朝来る PR の例</b><span class="pill">出たらすぐ 1 つずつ</span></div>
+      <p style="font-size:.9rem;margin-top:8px">いちばん新しい。ひとりで作っていると、PR を見る時間がアプリを作る時間を食う。</p>
+    </div>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　週 1・まとめる</th><th>イ　週 1・1 つずつ</th><th>ウ　毎日・1 つずつ</th></tr></thead>
+    <tbody>
+      <tr><th>PR の数</th><td class="good">少ない（週 2〜4 本ほど）</td><td>多い（週 5〜10 本）</td><td class="bad">いちばん多い</td></tr>
+      <tr><th>壊れたとき、原因の部品</th><td>まとめた中から探す（PR を分けて試す）</td><td class="good">すぐわかる</td><td class="good">すぐわかる</td></tr>
+      <tr><th>穴が見つかったとき</th><td class="good">すぐ来る（セキュリティ更新）</td><td class="good">同じ</td><td class="good">同じ</td></tr>
+      <tr><th>提出までの開発中</th><td class="good">作業の手が止まりにくい</td><td>マージ待ちがたまりやすい</td><td class="bad">毎日手が止まる</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Claude が決めた細かい点（あとでまとめて確認）</h3>
+  <ul style="list-style:none;padding-left:0">
+    <li><span class="mk">12</span>リポジトリの設定で「あぶない穴のお知らせ（Dependabot alerts）」と「直す PR（security updates）」をオンにする。</li>
+    <li><span class="mk">13</span>Docker（compose.yaml の mysql:8.4）は見てもらわない。<code>8.4</code> と書いておくと、箱を作り直すたびに 8.4 の中の最新（8.4.x）が入る。Dependabot に見せると MySQL 9 への PR が来るが、本番の RDS は 8.4 にそろえると決めているため（全体構成設計書）。</li>
+    <li><span class="mk">14</span>週 1 回は<b>月曜の朝 9 時（日本時間）</b>。週末に作業したあと、週のはじめに見る。</li>
+    <li><span class="mk">15</span>Dependabot の PR は、イシューを作らず、ブランチ名も <code>dependabot/…</code> のままにする（「イシュー → ブランチ」の決まりの例外）。中身が決まった形で、GitHub が自動で作るため。CLAUDE.md に例外として書く。</li>
+    <li><span class="mk">16</span>マージはほかの PR と同じく、CI が 3 つ通ったのを見て自分で GitHub の画面でする（自動マージにはしない）。</li>
+  </ul>
+
+  <h3>考えたほかの案</h3>
+  <p>Renovate（Dependabot と同じことをする、GitHub の外の道具）。設定が細かくできるが、GitHub に最初から入っている Dependabot で N-17 には足りる。</p>
+</section>
+
+<section id="ci">
+  <span class="tag">⑤ 決定</span>
+  <h2>自動チェック（CI）で何を確かめるか</h2>
+  <div class="note" style="background:var(--accent-soft)"><b>決定：⑤-1 ア　4 つ全部（Larastan はレベル 5）、⑤-2 ア　テストは MySQL 8.4。</b> 下書き PR #16 で、GitHub の上でも test・lint・build が全部通った。3 つともルールセット protect-master の必須チェックに入れた。</div>
+  <p>PR を作ると GitHub Actions（GitHub の上でコマンドを動かすしくみ）が動き、通らない PR はマージできないようにします（N-19）。taskmanagement でも同じしくみを使いました。決めることは 2 つです。</p>
+
+  <h3>⑤-1　チェックする中身</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>チェック</th><th>何を見るか</th><th>見つけられるまちがいの例</th><th>taskmanagement では</th></tr></thead>
+    <tbody>
+      <tr><th>テスト（PHPUnit）</th><td>書いたテストが全部通るか</td><td>月末の日付の計算がずれる（N-20）、ログインしないで画面が見える（N-01）</td><td>JUnit</td></tr>
+      <tr><th>書き方（Pint）</th><td>空白・改行・並び順が Laravel の決まりどおりか。最初から入っている</td><td>人によって書き方がばらばらで、差分が読みにくい</td><td>Checkstyle</td></tr>
+      <tr><th>まちがい探し（Larastan）</th><td>動かす前に、コードを読んで型のまちがいを探す（静的解析）</td><td>ない関数を呼んでいる、数字のところに文字を入れている</td><td>PMD</td></tr>
+      <tr><th>画面のビルド（npm run build）</th><td>Sass・JS が CSS・JS にできるか</td><td>Sass の書きまちがいで、本番（EC2）のビルドが止まる</td><td>npm run build</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="cols">
+    <div class="opt rec"><span class="rec-label">おすすめ</span><h3>ア　4 つ全部</h3><p style="font-size:.9rem">taskmanagement と同じ広さ。Larastan は最初はやさしめの強さ（レベル 5）から。</p></div>
+    <div class="opt"><h3>イ　テスト・書き方・ビルド</h3><p style="font-size:.9rem">Larastan を入れない。設定が 1 つへるが、型のまちがいは動かすまで気づかない。</p></div>
+    <div class="opt"><h3>ウ　テストだけ</h3><p style="font-size:.9rem">いちばん軽い。本番のビルドが止まるまちがいも、マージできてしまう。</p></div>
+  </div>
+
+  <h3>⑤-2　テストで使うデータベース</h3>
+  <p>Laravel の最初の設定では、テストは <b>SQLite</b>（ファイル 1 つの小さなデータベース。メモリの中だけで動く）を使います。</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th></th><th>ア　MySQL 8.4（おすすめ）</th><th>イ　SQLite（Laravel の最初の設定）</th></tr></thead>
+    <tbody>
+      <tr><th>本番とのちがい</th><td class="good">本番（RDS）と同じ MySQL 8.4。前に話した「版や種類がちがうと、手元で動いて本番で動かない」を防げる</td><td class="bad">MySQL とは別のデータベース。日付の関数・文字の比べ方・並び順などがちがうことがある</td></tr>
+      <tr><th>手元で動かすとき</th><td>いまの MySQL の箱に、テスト用のデータベース <code>kakeibo_testing</code> を足す（ふだんの記録とは別）</td><td class="good">何も足さなくてよい（ただし PHP の sqlite の機能をオンにする）</td></tr>
+      <tr><th>CI で動かすとき</th><td>GitHub Actions でも MySQL 8.4 の箱を動かす（taskmanagement の PostgreSQL と同じやり方）</td><td class="good">箱は要らない</td></tr>
+      <tr><th>速さ</th><td>少しおそい（今の大きさなら数秒の差）</td><td class="good">速い</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Claude が決めた細かい点（あとでまとめて確認）</h3>
+  <ul style="list-style:none;padding-left:0">
+    <li><span class="mk">10</span>CI のチェックの名前は <code>test</code>（テストと Larastan）・<code>lint</code>（Pint）・<code>build</code>（画面のビルド）の 3 つに分け、3 つともルールセット <code>protect-master</code> の必須チェックに入れる。どこで落ちたかが名前でわかるため。</li>
+    <li><span class="mk">11</span>手元で同じチェックを動かす方法（コマンド）を CLAUDE.md に書く（イシュー #15 の決まり）。</li>
+  </ul>
+</section>
+
+<section id="bootstrap">
+  <p style="font-size:.9rem;color:var(--muted)">2026-10-12：画面で確かめたとき、カードと入力欄が灰色になっていた。<code>$body-bg</code> をカードや入力欄も使っていたため。<code>$body-bg</code> は白のままにし、灰色は画面の背景にだけぬるよう直した。Livewire と Fortify は、使う機能を作るイシューで入れる。</p>
+  <span class="tag">④ 決定</span>
+  <h2>Bootstrap をどう読みこむか（と、Node.js をどこに置くか）</h2>
+  <div class="note" style="background:var(--accent-soft)">
+    <b>決定：ア　npm と Vite（Sass で基本の色を変える）。④-2 は a　本番のビルドは EC2 でする（EC2 にも Node.js を入れる）。</b>
+    <ul>
+      <li>Sass の <code>$primary</code> の 1 行で、青緑（#0b7a75）がボタンや光る枠まで全部に行きわたる。CDN では部品ごとに書き足し、もれると青が残る。</li>
+      <li>版が package.json に書かれ、Dependabot が更新の PR を作る（N-17）。本番は自分の CloudFront から届き、CDN にたよらない。</li>
+      <li>b（PC でビルドして Git に入れる）を選ばなかった理由：ビルドし忘れると本番の見た目が古いままになる。作ったファイルが Git に入ると差分が読みにくい。</li>
+    </ul>
+  </div>
+  <p>この 2 つはつながっています。Bootstrap を npm と Vite で読みこむと、画面用のファイルを作る（ビルドする）ために Node.js が要ります。CDN なら Node.js は要りません。</p>
+
+  <h3>まず、いちばん大きなちがい：基本の色（青緑 #0b7a75）が全部に行きわたるか</h3>
+  <p>画面設計書 6.3 で、基本の色を Bootstrap の青から <b>青緑 #0b7a75</b> に変えると決めました。Bootstrap の色の名前（変数）は 2 種類あります。</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>変数の種類</th><th>いつ色が決まるか</th><th>「基本の色＝青緑」と 1 か所書いたとき</th></tr></thead>
+    <tbody>
+      <tr><th>Sass の変数<br><code>$primary: #0b7a75;</code></th><td>ビルドするとき。Bootstrap の CSS を作り直す</td><td class="good">ボタン・選んでいる印・入力欄を押したときの光る枠・チェックボックスなど、<b>全部が青緑になる</b></td></tr>
+      <tr><th>CSS の変数<br><code>--bs-primary: #0b7a75;</code></th><td>ブラウザで読むとき。できあがった CSS の上から書く</td><td class="bad">文字の色など一部だけ変わる。<b>ボタン（<code>btn-primary</code>）は青のまま</b>。ボタン・光る枠・チェックボックスなど、部品ごとに色を書き足す必要がある</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="font-size:.9rem">Sass（サス）は、変数などを使って CSS を書ける言葉です。ブラウザは Sass を読めないので、Node.js で CSS に作り直して（ビルドして）から使います。</p>
+
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　npm と Vite（Sass で色を変える）</h3>
+      <div class="box"><b>リポジトリに書くもの</b><span class="pill d">package.json に bootstrap の版</span><span class="pill d">色を書いた Sass のファイル</span></div>
+      <div class="box"><b>Node.js が要る場所</b><span class="pill">自分の PC（入っている）</span><span class="pill">本番でビルドする場所（下の ④-2）</span></div>
+      <p style="font-size:.9rem;margin-top:8px">Laravel が最初から用意しているやり方。Laravel の新しいプロジェクトには Vite の設定が入っている（最初は Tailwind 用なので、Bootstrap に入れかえる）。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　CDN（インターネット上の置き場から読む）</h3>
+      <div class="box"><b>リポジトリに書くもの</b><span class="pill d">Blade に &lt;link&gt; と &lt;script&gt; を 1 行ずつ</span><span class="pill d">色を上書きする CSS</span></div>
+      <div class="box"><b>Node.js が要る場所</b>（どこにも要らない）</div>
+      <p style="font-size:.9rem;margin-top:8px">いちばん手軽。ただし色は CSS の変数で、部品ごとに書き足す。</p>
+    </div>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　npm と Vite</th><th>イ　CDN</th></tr></thead>
+    <tbody>
+      <tr><th>基本の色を青緑に</th><td class="good"><code>$primary</code> の 1 行で全部の部品に行きわたる</td><td class="bad">部品ごとに書き足す。書きもれると、そこだけ青が残る</td></tr>
+      <tr><th>はじめの手間</th><td>package.json と Vite の設定を Bootstrap 用に直す</td><td class="good">2 行書くだけ</td></tr>
+      <tr><th>Node.js</th><td class="bad">要る（PC と、本番でビルドする場所）</td><td class="good">要らない</td></tr>
+      <tr><th>版をそろえる・更新</th><td class="good">package.json に版が書かれ、Dependabot が更新の PR を作る（N-17）</td><td>URL の中に版を書く。Dependabot は見ない。自分で気づいて書きかえる</td></tr>
+      <tr><th>本番で開くとき</th><td class="good">自分の CloudFront から届く。ほかのサイトにたよらない</td><td>CDN のサイトが止まったり遅かったりすると、見た目がくずれる</td></tr>
+      <tr><th>読みこむ大きさ</th><td class="good">使わない部品を外して小さくできる</td><td>全部の部品を読む</td></tr>
+      <tr><th>CSS と JS をまとめる</th><td class="good">自分の CSS（カレンダーなど）も 1 つにまとめられる</td><td>自分の CSS は別のファイルで読む</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>④-2　アのとき：本番のビルドをどこでするか（Node.js をどこに置くか）</h3>
+  <p>デプロイは「EC2 が GitHub から master を取って、スクリプトを 1 つ動かす」と決めています（全体構成設計書 6.2）。</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th></th><th>a　EC2 でビルドする（おすすめ）</th><th>b　PC でビルドして、できたファイルを Git に入れる</th></tr></thead>
+    <tbody>
+      <tr><th>やること</th><td>EC2 にも Node.js を入れ、デプロイのスクリプトに <code>npm ci</code> と <code>npm run build</code> を足す</td><td>PC で <code>npm run build</code> をして、<code>public/build</code> をコミットする</td></tr>
+      <tr><th>よいところ</th><td class="good">Git にはもとのファイルだけ。いつも master のもとのファイルから作るので、ずれない</td><td class="good">EC2 に Node.js が要らない</td></tr>
+      <tr><th>気になるところ</th><td>EC2 に入れるものが 1 つ増える。デプロイが 1 分ほど長くなる</td><td class="bad">ビルドし忘れると、本番の見た目が古いまま。作ったファイルが Git に入ると、変更の差分が読みにくくなる</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Claude が決めた細かい点（あとでまとめて確認）</h3>
+  <ul style="list-style:none;padding-left:0">
+    <li><span class="mk">7</span>アのとき、Laravel に最初から入っている Tailwind は外す（package.json と Vite の設定から消す）。2 つあるとまぎらわしいため。</li>
+    <li><span class="mk">8</span>Bootstrap の JavaScript（確認の小窓・「保存しました」を消す動きに使う）も、同じく npm と Vite で読む。</li>
+    <li><span class="mk">9</span>字（Noto Sans JP）は、どちらの案でも Google Fonts から読む（画面設計書 6.4 のまま）。</li>
+  </ul>
+
+  <h3>考えたほかの案</h3>
+  <p>Bootstrap のできあがった CSS ファイルをダウンロードして、リポジトリ（public）に入れる。CDN にたよらずに済むが、色の変え方はイと同じで、更新も自分で入れ直すことになる。</p>
+</section>
+
+<section id="livewire">
+  <span class="tag">③ 決定</span>
+  <h2>画面の一部が動くところを、何で作るか（Livewire を使うか）</h2>
+  <div class="note" style="background:var(--accent-soft)">
+    <b>決定：ア　Blade ＋ Livewire。サーバーに聞かなくてよい小さな動き（5.7 の差の計算など）は、Livewire に入っている Alpine.js で書く。</b>
+    <ul>
+      <li>動くところの多くが「サーバーに聞く」もので、PHP の関数 1 つで書けるため、書く量が少ない。</li>
+      <li>つまずいたときに追いにくい点は、原因を理解するのもエンジニアの仕事と考えて受け入れる。追うときにはブラウザの通信（Network）も読むので、JavaScript 側の力も使う。</li>
+      <li>イ（Blade ＋ 自分で JavaScript と API）を選ばなかった理由：taskmanagement で経験した形で、今回は新しい形を学びたい。書く量も多い。</li>
+    </ul>
+  </div>
+  <p><b>どちらの案でも、ページは Blade で書きます。</b>ちがうのは、下の表の「動くところ」を Livewire（PHP）で書くか、JavaScript で書くかだけです。</p>
+  <p>画面設計では、ページを開き直さずに画面の一部が変わるところが、少なくとも次の 6 か所あります。</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>画面</th><th>動くところ</th><th>サーバーに聞く必要</th></tr></thead>
+    <tbody>
+      <tr><td>5.4 記録の登録</td><td>種類（支出・収入・移動）を切りかえると、下の欄が入れかわる</td><td>なし</td></tr>
+      <tr><td>5.4 記録の登録</td><td>相手を打つと、最近使った順の候補が出る。ないときは「＋ 新しい相手として追加」</td><td>あり（相手の一覧）</td></tr>
+      <tr><td>5.4 記録の登録</td><td>相手を選ぶと、その相手の前回の分類・口座が入る</td><td>あり（前回の記録）</td></tr>
+      <tr><td>5.7 口座の残高</td><td>実際の金額を入れると、差がすぐ出る</td><td>なし</td></tr>
+      <tr><td>5.9 相手</td><td>まとめ先を打つと候補が出る</td><td>あり</td></tr>
+      <tr><td>5.10 定期的な記録</td><td>種類の切りかえ（5.4 と同じ）、相手を選ぶと前回の分類・口座</td><td>あり</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　Blade ＋ Livewire</h3>
+      <div class="box"><b>書く言葉</b><span class="pill d">PHP</span><span class="pill d">Blade（画面のひな形）</span></div>
+      <p style="font-size:.9rem;margin-top:8px">画面の部品を PHP で書く。欄が変わると Livewire がサーバーに聞いて、変わった部分だけを書きかえる。JavaScript はほぼ書かない。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　Blade ＋ 自分で JavaScript</h3>
+      <div class="box"><b>書く言葉</b><span class="pill d">PHP</span><span class="pill d">Blade</span><span class="pill d">JavaScript</span></div>
+      <p style="font-size:.9rem;margin-top:8px">ふつうのページは Blade で作り、動くところだけ JavaScript を書く。候補や前回の値は、JavaScript からサーバーに聞く道（API）も作る。</p>
+    </div>
+  </div>
+
+  <h3>同じ動きを、実際に書くとどうなるか</h3>
+  <p>例：「相手を選ぶと、その相手の前回の分類・口座が入る」（5.4）。わかりやすくするため、相手は一覧から選ぶ形にし、細かいところは省いています。</p>
+
+  <div class="flow">
+    <div class="opt rec" style="min-width:0">
+      <h3>ア　Blade ＋ Livewire（ファイル 2 つ）</h3>
+      <div class="steps">
+        <span>相手を選ぶ</span><i>→</i><span>Livewire が自動でサーバーへ</span><i>→</i><span>PHP の関数が動く</span><i>→</i><span>変わった欄だけ書きかわる</span>
+      </div>
+      <p class="fname">① 部品の PHP（app/Livewire/RecordForm.php）</p>
+<pre><code>class RecordForm extends Component
+{
+    public $partnerId;
+    public $categoryId;
+    public $accountId;
+
+    // 相手の欄が変わったら、自動で呼ばれる
+    public function updatedPartnerId($partnerId)
+    {
+        $last = Record::where('partner_id', $partnerId)
+            ->latest('date')->first();
+
+        if ($last) {
+            $this->categoryId = $last->category_id;
+            $this->accountId  = $last->account_id;
+        }
+    }
+}</code></pre>
+      <p class="fname">② 部品の見た目（Blade）</p>
+<pre><code>&lt;select wire:model.live="partnerId"&gt; …相手の一覧… &lt;/select&gt;
+&lt;select wire:model="categoryId"&gt; …分類の一覧… &lt;/select&gt;
+&lt;select wire:model="accountId"&gt; …口座の一覧… &lt;/select&gt;</code></pre>
+      <p class="hint"><code>wire:model</code> と書くと、欄と PHP の変数がつながる。サーバーとのやりとりは Livewire がやるので、自分では書かない。</p>
+    </div>
+
+    <div class="opt" style="min-width:0">
+      <h3>イ　Blade ＋ JavaScript（ファイル 3 つ）</h3>
+      <div class="steps">
+        <span>相手を選ぶ</span><i>→</i><span>自分で書いた JS がサーバーへ聞く</span><i>→</i><span>API が前回の記録を返す</span><i>→</i><span>JS が欄に入れる</span>
+      </div>
+      <p class="fname">① サーバーに聞く道（routes/web.php）</p>
+<pre><code>Route::get('/partners/{partner}/last-record',
+    function (Partner $partner) {
+        return Record::where('partner_id', $partner->id)
+            ->latest('date')
+            ->first(['category_id', 'account_id']);
+    });</code></pre>
+      <p class="fname">② 見た目（Blade）</p>
+<pre><code>&lt;select id="partner"&gt; …相手の一覧… &lt;/select&gt;
+&lt;select id="category"&gt; …分類の一覧… &lt;/select&gt;
+&lt;select id="account"&gt; …口座の一覧… &lt;/select&gt;</code></pre>
+      <p class="fname">③ 動き（JavaScript）</p>
+<pre><code>document.getElementById('partner')
+  .addEventListener('change', async (e) =&gt; {
+    const res = await fetch(
+      `/partners/${e.target.value}/last-record`);
+    if (!res.ok) return;
+    const last = await res.json();
+    if (last) {
+      document.getElementById('category').value = last.category_id;
+      document.getElementById('account').value  = last.account_id;
+    }
+  });</code></pre>
+      <p class="hint">サーバー側（①）とブラウザ側（③）を両方書き、2 つの間で受けわたす形（JSON）も自分で合わせる。</p>
+    </div>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　Blade＋Livewire</th><th>イ　Blade＋JavaScript</th></tr></thead>
+    <tbody>
+      <tr><th>書く言葉</th><td class="good">PHP にそろう</td><td>PHP と JavaScript の 2 つ</td></tr>
+      <tr><th>候補・前回の値</th><td class="good">PHP の中でデータベースを調べるだけ</td><td class="bad">サーバーに聞く道（API）と、それを呼ぶ JavaScript を両方書く</td></tr>
+      <tr><th>入力のチェック</th><td class="good">打っているそばで、サーバーと同じチェックを出せる</td><td>保存したときにまとめて出す（すぐ出すなら JavaScript でも同じチェックを書く）</td></tr>
+      <tr><th>自動テスト</th><td class="good">動くところも PHP のテストで確かめられる</td><td>JavaScript の部分は別のテストの道具が要る</td></tr>
+      <tr><th>覚えること</th><td class="bad">Livewire の考え方（部品・欄とのつなぎ方）が新しく増える</td><td class="good">JavaScript は初級編で使った</td></tr>
+      <tr><th>うまく動かないとき</th><td>Livewire の中で何が起きたかを追う必要がある</td><td class="good">ブラウザの開発者ツールで追いやすい</td></tr>
+      <tr><th>Node.js</th><td class="good">要らない</td><td>JavaScript をまとめるなら要る（そのまま読みこむなら要らない）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>考えたほかの案</h3>
+  <p>JavaScript も Livewire も使わず、ページを開き直すだけで作る。選ばなかった理由：相手を選んだときに前回の分類・口座を入れることができず、画面設計どおりにならない。</p>
+</section>
+
+<section id="login">
+  <span class="tag">② 決定</span>
+  <h2>ログインのしくみを、どこから持ってくるか</h2>
+  <div class="note" style="background:var(--accent-soft)">
+    <b>決定：ア　Fortify だけ借りる。ログイン画面 1 枚は Bootstrap で自分で作る。</b>
+    <ul>
+      <li>N-05（メールアドレス＋IP ごとに 1 分 5 回）が Fortify の最初の設定と同じ。お金の記録を守るところに、Laravel が試験済みの処理を使える。</li>
+      <li>イを選ばなかった理由：Tailwind の画面や登録画面など使わないものが多く、消す作業が多い。消し忘れると登録画面が残る（N-04）。</li>
+      <li>ウを選ばなかった理由：安全のための細かい処理を書きもらすと穴になる。</li>
+    </ul>
+  </div>
+  <p>作るのはログインとログアウトだけです（要件定義書 No.1）。決まっていることは次の 5 つ。どの案でもこれを満たします。</p>
+  <ul>
+    <li>ログインしないと、どの画面もログイン画面になる。ログインしたら、開こうとしていた画面へ戻る</li>
+    <li>まちがえたら「メールアドレスかパスワードがちがいます」とだけ出す</li>
+    <li>同じメールアドレスと IP で 1 分に 5 回まちがえたら、60 秒ログインできない（N-05）</li>
+    <li>「ログインしたままにする」は最初からチェックあり</li>
+    <li>ユーザー登録・パスワードリセットの画面は作らない。ユーザーはコマンドで作る（N-04）</li>
+  </ul>
+
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　Fortify だけ借りる</h3>
+      <div class="box"><b>Laravel から借りる</b><span class="pill d">ログインの処理</span><span class="pill d">回数の制限</span><span class="pill d">ログアウト</span></div>
+      <div class="box"><b>自分で作る</b><span class="pill">ログイン画面（Bootstrap）</span></div>
+      <p style="font-size:.9rem;margin-top:8px">Fortify は、画面を持たない「ログインの処理だけ」の Laravel 公式の部品。スターターキットも中でこれを使っている。いらない機能（登録・パスワードリセットなど）は設定でオフにする。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　スターターキットを入れて描き直す</h3>
+      <div class="box"><b>Laravel から借りる</b><span class="pill d">ログインの処理</span><span class="pill d">画面一式（Tailwind）</span><span class="pill d">登録・設定の画面など</span></div>
+      <div class="box"><b>自分でやる</b><span class="pill">Tailwind の画面を消して Bootstrap で描き直す</span></div>
+      <p style="font-size:.9rem;margin-top:8px">使わない画面・部品がたくさん入るので、消す作業が多い。消し忘れると登録画面が残るおそれ（N-04）。</p>
+    </div>
+    <div class="opt">
+      <h3>ウ　全部自分で書く</h3>
+      <div class="box"><b>Laravel から借りる</b><span class="pill d">パスワードの確かめ方などの基本の道具</span></div>
+      <div class="box"><b>自分で作る</b><span class="pill">ログインの処理</span><span class="pill">回数の制限</span><span class="pill">ログイン画面</span></div>
+      <p style="font-size:.9rem;margin-top:8px">中で何が起きているかいちばんよく分かる。そのかわり、安全のための細かい処理（ログインのあとに合言葉を作り直す、など）を自分で忘れずに書く必要がある。</p>
+    </div>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　Fortify だけ</th><th>イ　スターターキット</th><th>ウ　全部自分で</th></tr></thead>
+    <tbody>
+      <tr><th>安全さ</th><td class="good">Laravel が試験済みの処理をそのまま使う</td><td class="good">同じ</td><td class="bad">書きもれがあると穴になる。お金の記録を守るところなので怖い</td></tr>
+      <tr><th>N-05（1 分に 5 回）</th><td class="good">Fortify の最初の設定がちょうどこれ（メールアドレス＋IP ごとに 1 分 5 回）</td><td class="good">同じ</td><td>自分で書く</td></tr>
+      <tr><th>入るもの</th><td class="good">要るものだけ</td><td class="bad">Tailwind・登録・設定画面・2 段階認証など、使わないものが多い</td><td class="good">要るものだけ</td></tr>
+      <tr><th>画面を Bootstrap で作る</th><td class="good">ログイン画面 1 枚を作るだけ</td><td class="bad">描き直しと、Tailwind を外す作業</td><td class="good">1 枚作るだけ</td></tr>
+      <tr><th>学べること</th><td>設定で機能をオン・オフするやり方</td><td>できあがったものを読む</td><td class="good">ログインのしくみそのもの</td></tr>
+      <tr><th>要件定義書との合い方</th><td class="good">「ログインが最初から用意されている」（Laravel を選んだ理由）どおり</td><td class="good">同じ</td><td>理由とずれる</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Claude が決めた細かい点（あとでまとめて確認）</h3>
+  <ul style="list-style:none;padding-left:0">
+    <li><span class="mk">4</span>Laravel のプロジェクトは <code>composer create-project laravel/laravel</code> で、スターターキットなしで作る（アかウのとき）。</li>
+    <li><span class="mk">5</span>「メールアドレスかパスワードがちがいます」などの文は、Laravel の日本語の文のファイル（<code>lang/ja/auth.php</code>）に書く。</li>
+    <li><span class="mk">6</span>ユーザーを作るコマンド（<code>php artisan</code> で動くもの）は、自分で 1 つ書く。Fortify にはコマンドがないため。</li>
+  </ul>
+</section>
+
+<section id="now">
+  <span class="tag">① 決定</span>
+  <h2>PHP・Composer・MySQL を、自分の PC のどこに置くか</h2>
+  <div class="note" style="background:var(--accent-soft)">
+    <b>決定：ア　PHP・Composer は Windows に直接、MySQL は Docker。Docker はサインインしたら自動で起動する。</b>
+    <ul>
+      <li>MySQL の版（8.4）がリポジトリの <code>compose.yaml</code> に書かれるので、手元・CI・本番の版をそろえやすい。版がずれると「手元で動いたのに本番で動かない」が起きる。</li>
+      <li>Docker を手で起動する手間は、自動で起動する設定でなくす。PC のメモリは 32GB（ふだん 12GB ほど使用）なので、Docker が 1〜2GB 使っても困らない。</li>
+      <li>イ（Sail）を選ばなかった理由：Windows ではコードを WSL に移し、コマンドも全部 Docker 経由になる。本番は Docker を使わないので練習になりにくい。</li>
+      <li>ウを選ばなかった理由：起動の手間はないが、版が PC の中にしかなく、ずれても気づきにくい。</li>
+    </ul>
+  </div>
+  <p>Laravel を動かすには、PHP（プログラムを動かす本体）、Composer（部品を入れる道具）、MySQL（データベース）の 3 つが要ります。置き方は大きく 3 とおりです。</p>
+
+  <div class="cols">
+    <div class="opt rec">
+      <span class="rec-label">おすすめ</span>
+      <h3>ア　PHP は直接、MySQL は Docker</h3>
+      <div class="box"><b>Windows に直接入れる</b><span class="pill d">PHP 8.5</span><span class="pill d">Composer</span></div>
+      <div class="box"><b>Docker の箱の中</b><span class="pill">MySQL 8.4</span></div>
+      <p style="font-size:.9rem;margin-top:8px">taskmanagement で PostgreSQL を Docker で動かしたのと同じ形。</p>
+    </div>
+    <div class="opt">
+      <h3>イ　全部 Docker（Laravel Sail）</h3>
+      <div class="box"><b>Windows に直接</b>（なし）</div>
+      <div class="box"><b>Docker の箱の中</b><span class="pill">PHP 8.5</span><span class="pill">Composer</span><span class="pill">MySQL 8.4</span></div>
+      <p style="font-size:.9rem;margin-top:8px">Laravel が用意している Docker のセット。Windows ではコードを WSL（PC の中の Linux）に置く必要がある。</p>
+    </div>
+    <div class="opt">
+      <h3>ウ　全部 Windows に直接</h3>
+      <div class="box"><b>Windows に直接入れる</b><span class="pill d">PHP 8.5</span><span class="pill d">Composer</span><span class="pill d">MySQL 8.4</span></div>
+      <div class="box"><b>Docker の箱の中</b>（なし）</div>
+      <p style="font-size:.9rem;margin-top:8px">MySQL は PC を起動するといつも動いているサービスになる。</p>
+    </div>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>比べる点</th><th>ア　PHP 直接＋MySQL Docker</th><th>イ　全部 Docker</th><th>ウ　全部直接</th></tr></thead>
+    <tbody>
+      <tr><th>本番（EC2）との近さ</th><td class="good">近い。本番も PHP を直接入れる</td><td class="bad">形がちがう（本番は Docker を使わない）</td><td class="good">近い</td></tr>
+      <tr><th>入れる手間</th><td>ふつう。PHP は winget で 1 行、MySQL は設定ファイル 1 つ</td><td class="bad">多い。WSL の使い方も覚える</td><td>ふつう。MySQL の入れ方の画面が長い</td></tr>
+      <tr><th>やめる・消すとき</th><td class="good">MySQL は箱を消すだけ</td><td class="good">箱を消すだけ</td><td class="bad">MySQL のアンインストールとデータの掃除が要る</td></tr>
+      <tr><th>MySQL の版を 8.4 にそろえる</th><td class="good">設定ファイルに 8.4 と書くだけ</td><td class="good">同じ</td><td>winget で 8.4 に固定はできるが、版は PC の中にしか残らない</td></tr>
+      <tr><th>使っていないとき</th><td class="good">Docker を止めれば MySQL も止まる</td><td class="good">同じ</td><td>止めないとずっと動いている</td></tr>
+      <tr><th>経験</th><td class="good">taskmanagement と同じやり方</td><td>はじめて</td><td>はじめて</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <b>どれを選んでも要ること：</b>Avast が HTTPS の中身を調べているため、PHP と Composer がインターネットから部品を取るときに「証明書が信用できない」と止まることがあります。前に Java と Node でやったのと同じように、Avast の証明書を PHP に教える設定を、入れるときに一緒にします。
+  </div>
+
+  <h3>Claude が決めた細かい点（あとでまとめて確認）</h3>
+  <ul style="list-style:none;padding-left:0">
+    <li><span class="mk">1</span>PHP は winget の <code>PHP.PHP.8.5</code>（いま 8.5.10、いちばん新しい）を入れる。</li>
+    <li><span class="mk">2</span>MySQL の箱の設定は <code>compose.yaml</code> というファイルに書き、リポジトリに入れる（ほかの PC でも同じ箱を作れる）。パスワードは <code>.env</code> に置き、Git には入れない（N-06）。</li>
+    <li><span class="mk">3</span>MySQL のデータは Docker の「ボリューム」（箱の外の保存場所）に置く。箱を作り直してもデータは消えない。</li>
+  </ul>
+
+  <h3>考えたほかの案</h3>
+  <p>Laravel Herd（Laravel 用の、PHP をまとめて入れるアプリ）も考えた。ただし MySQL が入っているのは有料版だけなので、MySQL は結局べつに用意することになる。</p>
+</section>
+
+<section>
+  <span class="tag">言葉</span>
+  <h2>この表で使った言葉</h2>
+  <dl>
+    <dt>Composer</dt><dd>PHP の部品を入れる道具。Node の npm の PHP 版。Laravel もこれで入れる。</dd>
+    <dt>Docker</dt><dd>アプリを「箱」に入れて動かすしくみ。PC を汚さずに入れられ、いらなくなったら箱ごと捨てられる。taskmanagement の PostgreSQL で使った。</dd>
+    <dt>winget</dt><dd>Windows に最初から入っている、アプリを入れる道具。コマンド 1 行でインストールできる。</dd>
+    <dt>WSL</dt><dd>Windows の中で Linux を動かすしくみ。</dd>
+  </dl>
+</section>
+</main>
+
+</body></html>

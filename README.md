@@ -34,6 +34,18 @@
   - 貯金の目標の進み具合を、口座の残高から出す（貯めた額を入力しなくてよい）
   - 残高の移り変わりをグラフで見られる
 
+## 動いているところ
+
+デプロイは 2 回行う（第 1 段階のあと・完成後）。回ごとに、操作の動画・日付・段階・URL を書く。動くことを確かめたら AWS は destroy するので、URL はそのときだけ開ける。
+
+### 1 回目（第 1 段階）
+
+（デプロイ後に書く）
+
+### 2 回目（完成後）
+
+（デプロイ後に書く）
+
 ## 設計で大事にした判断
 
 ここは目次。くわしい理由と、比べて選ばなかった案（「ほかに考えた案」）は、それぞれの判断のすぐ横に書いている。
@@ -79,6 +91,7 @@
 | [全体構成設計書](全体構成設計書.md) | AWS の中で何を・どこに・どうつなぐか。秘密の情報の渡し方、デプロイと destroy の手順の考え方。長く動かすことにしたら何を変えるか |
 | [全体の構成の下書き](全体の構成の下書き.html) | AWS の構成をどの案と比べて選んだか。通り道の図と比べる表（ダウンロードしてブラウザで開く） |
 | [画面の下書き](画面の下書き.html) | 画面がどんな見た目か。どの案と比べて選んだか（ダウンロードしてブラウザで開く） |
+| [開発環境の下書き](開発環境の下書き.html) | 開発環境（PHP・MySQL の置き方、ログイン、Livewire、Bootstrap、CI、Dependabot、バックアップ）をどの案と比べて選んだか（ダウンロードしてブラウザで開く） |
 
 はじめて読むときは、要件定義書から読む。目的と、作るもの・作らないものがわかると、ほかの文書の判断の理由が追いやすい。
 
@@ -86,30 +99,117 @@
 
 - 作業は「イシュー → ブランチ → PR → master にマージ」の順で進める。master への直接の変更は、GitHub の設定（ルールセット）で禁止している。
 - 作る順番は「要件定義 → 要件の見直し → データベース設計 → 画面設計 → 全体の構成 → 開発 → デプロイ」。設計の前に要件を見直した理由（11.1）と、データベースを画面より先に設計した理由（11.2）は、要件定義書の 11 章に書いている。
-- 部品（Composer で入れるもの）の更新は、開発環境を作ったあとに GitHub の Dependabot を入れて、更新の PR を自動で作るようにする予定。
+- PR を作ると自動チェック（CI：テスト・書き方・画面のビルド）が動き、3 つとも通らないとマージできない（N-19）。
+- 部品の更新は、GitHub の Dependabot が更新の PR を自動で作る（N-17。下の「開発環境のセットアップ」の 8）。
 
 ## 技術スタック
 
+画面（フロントエンド）とサーバー（バックエンド）は、別々のアプリに分けず、Laravel の 1 つのアプリの中にある（サーバーが画面の HTML を作って返す形）。
+
 | 層 | 技術 |
 |---|---|
-| 画面・サーバー | PHP 8.5 + Laravel 13（画面は Blade + Bootstrap 5.3） |
+| フロントエンド | Blade（Laravel の画面のひな形）+ Livewire（画面の一部だけを書きかえる）+ Alpine.js（小さな動き）、Bootstrap 5.3（Sass で色を変え、Vite でビルド） |
+| バックエンド | PHP 8.5 + Laravel 13、ログインは Fortify（部品の管理は Composer） |
 | データベース | MySQL 8.4（LTS） |
-| インフラ | AWS（EC2・RDS）を Terraform で作る |
+| インフラ | AWS（CloudFront・EC2・RDS）を Terraform で作る |
+| 開発・自動チェック | GitHub Actions（PHPUnit・Larastan・Pint・ビルド）、Dependabot、開発用の MySQL は Docker |
+
+Livewire は、画面の部品を PHP で書き、ブラウザとサーバーのやりとりを自動でしてくれるもので、フロントエンドとバックエンドの両方にまたがる。
 
 くわしくは [要件定義書](要件定義書.md) を参照。
 
-## デプロイして動いたことの証明
-
-デプロイは 2 回行う（第 1 段階のあと・完成後）。回ごとに、日付・段階・URL・画面のスクリーンショットを書く。
-
-### 1 回目（第 1 段階）
-
-（デプロイ後に書く）
-
-### 2 回目（完成後）
-
-（デプロイ後に書く）
-
 ## 開発環境のセットアップ
 
-（開発環境を作ったあとに書く）
+自分の PC（Windows 11）で動かす手順。PHP・Composer は Windows に直接入れ、MySQL は Docker で動かす。この形にした理由は [要件定義書](要件定義書.md) 4.1 の「開発環境」に書いている。
+
+コマンドは Windows PowerShell で打つ。Windows の最初の設定では .ps1 のスクリプトをそのまま動かせないので、npm は `npm.cmd` と打つ。
+
+### 1. 使うものを入れる（最初の 1 回だけ）
+
+| ソフト | 入れ方 |
+|---|---|
+| PHP 8.5 | `winget install --id PHP.PHP.8.5 --source winget` |
+| Composer 2 | [公式のインストーラー](https://getcomposer.org/download/)（ハッシュを確かめてから動かす） |
+| Docker Desktop | 公式サイトから入れる。設定で「サインインしたら起動する」をオンにする |
+| Node.js 24（LTS） | 公式サイトか winget で入れる |
+
+PHP の設定（php.ini）は、PHP のフォルダの中ではなく、ユーザーのフォルダ（例：`C:\Users\<名前>\php-config\php.ini`）に置き、ユーザーの環境変数 `PHPRC` でその場所を教える。winget で PHP を更新しても、設定が消えないようにするため。
+
+- `php.ini-development` をもとに作り、`extension_dir` を PHP の `ext` フォルダの絶対パスにする
+- 使う機能をオンにする：`curl`・`fileinfo`・`intl`・`mbstring`・`openssl`・`pdo_mysql`・`zip`
+- ウイルス対策ソフトが HTTPS の中身を調べている PC では、そのソフトの証明書を足した証明書の束を `curl.cainfo` と `openssl.cafile` に書く（ないと、Composer が「証明書が信用できない」で止まる）
+- 設定のフォルダの名前は `.php` のようにしない。ファイル名に見えて、ウイルス対策ソフトが php.exe を止めることがあった
+
+確かめる：`php -v`（8.5.x）、`composer diagnose`（全部 OK）、`docker version`、`node -v`（v24.x）。
+
+### 2. リポジトリを取ってきて、部品を入れる
+
+```powershell
+git clone https://github.com/pirishiki/kakeibo-laravel.git kakeibo
+cd kakeibo
+composer install
+npm.cmd ci
+```
+
+### 3. 設定ファイル（.env）を作る
+
+```powershell
+Copy-Item .env.example .env
+php artisan key:generate
+```
+
+`.env` を開いて、`DB_PASSWORD` と `DB_ROOT_PASSWORD` に自分で決めたパスワードを入れる（長い乱数がよい）。`.env` は Git に入れない（N-06）。
+
+### 4. MySQL を動かして、表を作る
+
+```powershell
+docker compose up -d --wait
+php artisan migrate
+```
+
+- `docker compose up -d --wait` で、MySQL 8.4 の箱が動く（`compose.yaml`）。`--wait` は、MySQL が受けつけられる状態になるまで待つ（初めてのときは数十秒かかる。待たずに migrate を打つと、つなげずに失敗する）。初めて動かすときは、ふだん使う `kakeibo` と、テスト用の `kakeibo_testing` の 2 つのデータベースができる。
+- 止めるときは `docker compose stop`。データは Docker のボリュームに残る。
+
+### 5. 動かす
+
+```powershell
+npm.cmd run build
+php artisan serve
+```
+
+ブラウザで http://127.0.0.1:8000 を開く。画面の CSS・JS を直しながら見るときは、`npm.cmd run build` のかわりに、別のターミナルで `npm.cmd run dev` を動かしておく（保存すると画面にすぐ反映される）。
+
+### 6. 自動チェックを手元で動かす
+
+PR を作る前に、CI（`.github/workflows/ci.yml`）と同じチェックを手元で通しておく。MySQL を動かしておくこと（テストは `kakeibo_testing` を使う）。
+
+| CI のチェック | 手元で動かすコマンド |
+|---|---|
+| `test` | `php artisan test` と `vendor/bin/phpstan analyse` |
+| `lint` | `vendor/bin/pint --test`（直すときは `vendor/bin/pint`） |
+| `build` | `npm.cmd run build` |
+
+### 7. データベースのバックアップと、元に戻す（N-16）
+
+データベースを作り直す前（`migrate:fresh` など）には、必ずバックアップを取る。
+
+```powershell
+# 取る：backups\kakeibo-年月日-時分秒.sql ができる
+powershell -ExecutionPolicy Bypass -File scripts\db-backup.ps1
+
+# 戻す：今の中身を全部消して入れかえてよいか聞かれるので y を打つ
+powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\kakeibo-20261012-151927.sql
+
+# 別の名前のデータベースに戻す（中身を確かめるとき）
+powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\kakeibo-20261012-151927.sql -Database kakeibo_restore
+```
+
+- `-ExecutionPolicy Bypass` は「この 1 回だけスクリプトを動かしてよい」という意味で、PC の設定は変えない。
+- 戻すときは、戻す先のデータベースをいったん空にしてから戻すので、バックアップを取った瞬間とまったく同じ中身になる（空にしないと、あとで足した表が残り、マイグレーションの帳簿とちぐはぐになるため）。空にする前の中身は `backups\<名前>-<日時>-before-restore.sql` に自動で保存されるので、まちがえて戻しても、そのファイルから戻せる。
+- `backups\` は Git に入れない。中身は自分のお金の記録のため。
+- PowerShell の `>` でファイルに書くと文字の形が変わり、日本語が化ける。スクリプトは MySQL の箱の中でファイルを作り、PC に写している。
+- 戻したあとの確かめ方：`$env:DB_DATABASE = 'kakeibo_restore'; php artisan db:show --counts` で、表ごとの行の数が元と同じかを見る（ターミナルを閉じると元に戻る）。記録の機能ができたら、記録の件数と残高でも確かめる（要件定義書 10 章）。
+
+### 8. 部品の更新
+
+部品の新しい版が出ると、Dependabot が更新の PR を毎週月曜 9 時に作る（`.github/dependabot.yml`、N-17）。イシューは作らない。CI の 3 つが通ったのを見てマージする。あぶない穴が見つかったときの PR は、曜日に関係なくすぐ来る。
