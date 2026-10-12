@@ -18,4 +18,6 @@ $font-family-sans-serif: 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', s
 
 body {
     background-color: $page-bg;
+    // 数字の幅をそろえ、上下に並んだ金額のけたをそろえる（画面設計書 6.4）
+    font-variant-numeric: tabular-nums;
 }
