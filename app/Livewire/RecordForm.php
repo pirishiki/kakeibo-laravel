@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -54,22 +55,29 @@ class RecordForm extends Component
 
     public string $memo = '';
 
-    /** 保存したあとに戻る画面 */
+    /**
+     * 保存したあとに戻る画面。画面の側から書きかえられないようにする（#[Locked]）。
+     * 書きかえられると、保存したときに、ほかのサイトや危ない URL へ移されてしまうため
+     */
+    #[Locked]
     public string $backUrl = '';
 
     /**
      * 画面を開いたときに 1 回だけ動く。「保存して続けて入力」のあとは、種類・日付・口座と戻る先を URL から受けとる
+     * URL の値は、だれでも書きかえられるので、形を確かめてから使う
      */
     public function mount(): void
     {
-        $query = request()->query();
-        $this->type = in_array($query['type'] ?? null, ['expense', 'income', 'transfer'], true) ? $query['type'] : 'expense';
-        $this->date = isset($query['date']) && strtotime((string) $query['date']) ? (string) $query['date'] : today()->toDateString();
-        $this->backUrl = $this->backUrlFrom((string) ($query['back'] ?? url()->previous()));
+        // URL の値は、文字か数のときだけ使う（?date[]=x のように並びで届いても、エラーにしないため）
+        $query = fn (string $key): string => is_scalar($value = request()->query($key)) ? (string) $value : '';
 
-        if (isset($query['account'])) {
-            $this->accountId = $this->activeAccountId((int) $query['account']);
-            $this->toAccountId = isset($query['to_account']) ? $this->activeAccountId((int) $query['to_account']) : null;
+        $this->type = in_array($query('type'), ['expense', 'income', 'transfer'], true) ? $query('type') : 'expense';
+        $this->date = $this->isDate($query('date')) ? $query('date') : today()->toDateString();
+        $this->backUrl = $this->backUrlFrom($query('back') !== '' ? $query('back') : url()->previous());
+
+        if (ctype_digit($query('account'))) {
+            $this->accountId = $this->activeAccountId((int) $query('account'));
+            $this->toAccountId = ctype_digit($query('to_account')) ? $this->activeAccountId((int) $query('to_account')) : null;
         } else {
             $this->fillLastAccounts();
         }
@@ -140,7 +148,7 @@ class RecordForm extends Component
     public function save(bool $continue = false): mixed
     {
         $this->amount = $this->normalizeAmount($this->amount);
-        $this->partnerName = trim(mb_convert_kana($this->partnerName, 's'));
+        $this->partnerName = Partner::normalizeName($this->partnerName);
         $data = $this->validate($this->rules(), $this->messages(), $this->fieldNames());
 
         DB::transaction(function () use ($data) {
@@ -183,7 +191,8 @@ class RecordForm extends Component
 
         return [
             'amount' => ['required', 'integer', 'min:1', 'max:'.self::MAX_AMOUNT],
-            'date' => ['required', 'date_format:Y-m-d'],
+            // 0 や年の打ちまちがい（0026 年など）に気づけるように、2000〜2099 年の中だけにする
+            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2099-12-31'],
             // 「使わない」口座は選べない
             'accountId' => ['required', Rule::exists('accounts', 'id')->where('is_active', true)],
             'toAccountId' => $isTransfer
@@ -214,6 +223,8 @@ class RecordForm extends Component
             'amount.max' => '金額は 99,999,999 円までで入れてください。',
             'date.required' => '日付を入れてください。',
             'date.date_format' => '日付の形がちがいます。',
+            'date.after_or_equal' => '日付は 2000年〜2099年 の中で入れてください。',
+            'date.before_or_equal' => '日付は 2000年〜2099年 の中で入れてください。',
             'accountId.required' => ($this->type === 'transfer' ? 'どこから' : '口座').'を選んでください。',
             'accountId.exists' => ($this->type === 'transfer' ? 'どこから' : '口座').'は、出ている中から選んでください。',
             'toAccountId.required' => 'どこへを選んでください。',
@@ -285,7 +296,7 @@ class RecordForm extends Component
     #[Computed]
     public function partnerSuggestions(): \Illuminate\Support\Collection
     {
-        $word = trim($this->partnerName);
+        $word = Partner::normalizeName($this->partnerName);
         if ($word === '' || $this->partnerId !== null) {
             return collect();
         }
@@ -301,7 +312,7 @@ class RecordForm extends Component
     #[Computed]
     public function exactPartner(): ?Partner
     {
-        $name = trim($this->partnerName);
+        $name = Partner::normalizeName($this->partnerName);
 
         return $name === '' ? null : Partner::query()->where('name', $name)->first();
     }
@@ -338,18 +349,37 @@ class RecordForm extends Component
         return $id !== null && Account::query()->whereKey($id)->where('is_active', true)->exists() ? $id : null;
     }
 
-    /** 金額の文字を、数だけの形にそろえる：全角の数字を半角に、カンマと空白を取る */
+    /** 金額の文字を、数だけの形にそろえる：全角の数字を半角に、カンマと空白を取り、頭の 0 を取る（0100 → 100） */
     private function normalizeAmount(string $amount): string
     {
-        return str_replace([',', '，', ' '], '', mb_convert_kana(trim($amount), 'ns'));
+        $digits = str_replace([',', '，', ' '], '', mb_convert_kana(trim($amount), 'ns'));
+
+        return preg_match('/^\d+$/', $digits) === 1 ? (ltrim($digits, '0') ?: '0') : $digits;
     }
 
-    /** 戻る先：このアプリの中の画面で、記録の登録の画面でないときだけ。それ以外はホーム */
+    /** 「2026-10-13」の形の、ほんとうにある日付か */
+    private function isDate(string $date): bool
+    {
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+
+        return $parsed !== false && $parsed->format('Y-m-d') === $date;
+    }
+
+    /**
+     * 戻る先：このアプリの中の画面で、記録の登録の画面でないときだけ。それ以外はホーム。
+     * URL の形（http・https）と場所（このアプリ）を確かめ、場所の部分だけを取り出して、このアプリの URL として組み立て直す
+     * （「javascript:」で始まる URL などで、保存したときに危ない動きをさせないため）
+     */
     private function backUrlFrom(string $previous): string
     {
-        $path = parse_url($previous, PHP_URL_PATH) ?? '/';
-        $sameHost = parse_url($previous, PHP_URL_HOST) === request()->getHost();
+        $parts = parse_url($previous);
+        $path = $parts['path'] ?? '/';
+        $isApp = $parts !== false
+            && in_array($parts['scheme'] ?? '', ['http', 'https'], true)
+            && ($parts['host'] ?? '') === request()->getHost()
+            && str_starts_with($path, '/')
+            && ! str_starts_with($path, '/records/create');
 
-        return $sameHost && ! str_starts_with($path, '/records/create') ? $previous : route('home');
+        return $isApp ? url($path).(isset($parts['query']) ? '?'.$parts['query'] : '') : route('home');
     }
 }

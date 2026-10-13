@@ -52,15 +52,15 @@
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
 
-                    @if ($partnerId === null && trim($partnerName) !== '')
-                        <div class="list-group mt-1" aria-label="相手の候補">
+                    @if ($partnerId === null && \App\Models\Partner::normalizeName($partnerName) !== '')
+                        <div class="list-group mt-1" role="group" aria-label="相手の候補" aria-live="polite">
                             @foreach ($this->partnerSuggestions as $suggestion)
                                 <button type="button" class="list-group-item list-group-item-action" wire:click="selectPartner({{ $suggestion->id }})">
                                     {{ $suggestion->name }}
                                 </button>
                             @endforeach
                             @if ($this->exactPartner === null)
-                                <div class="list-group-item small text-primary">＋ 「{{ trim($partnerName) }}」を新しい相手として追加します</div>
+                                <div class="list-group-item small text-primary">＋ 「{{ \App\Models\Partner::normalizeName($partnerName) }}」を新しい相手として追加します</div>
                             @elseif (! $this->exactPartner->is_active)
                                 <div class="list-group-item small text-secondary">「{{ $this->exactPartner->name }}」は『使わない』の相手です。保存すると『使う』に戻して使います</div>
                             @endif
@@ -121,9 +121,10 @@
             </div>
 
             <div class="d-grid gap-2">
-                <button type="submit" class="btn btn-primary">保存</button>
+                {{-- 保存しているあいだは押せなくする（2 回押して、同じ記録が 2 つできないように） --}}
+                <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">保存</button>
                 {{-- 夜にレシートをまとめて入れるとき：種類・日付・口座を残して、続けて入れる --}}
-                <button type="button" class="btn btn-outline-primary" wire:click="save(true)">保存して続けて入力</button>
+                <button type="button" class="btn btn-outline-primary" wire:click="save(true)" wire:loading.attr="disabled">保存して続けて入力</button>
             </div>
         </form>
     </div>

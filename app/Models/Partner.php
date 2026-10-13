@@ -46,6 +46,15 @@ class Partner extends Model
         return $this->hasMany(Record::class);
     }
 
+    /**
+     * 相手の名前の形をそろえる：全角の空白を半角に、続いた空白を 1 つに、前後の空白を取る。
+     * 相手の管理・記録の登録・まとめ先のどこで打っても、同じ形で保存して探すため（「セブン　イレブン」と「セブン イレブン」が別の相手にならないように）
+     */
+    public static function normalizeName(string $name): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', mb_convert_kana($name, 's')));
+    }
+
     /** 最後に使った日（いちばん新しい記録の日付）。まだ使っていなければ null */
     public function lastUsedOn(): ?CarbonImmutable
     {

@@ -12,6 +12,7 @@ use App\Models\Partner;
 use App\Models\Record;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -311,6 +312,89 @@ class RecordCreateTest extends TestCase
             ->assertSet('backUrl', route('accounts.index'));
         Livewire::withQueryParams(['back' => 'https://example.com/x'])->test(RecordForm::class)
             ->assertSet('backUrl', route('home'));
+    }
+
+    public function test_危ない戻る先は使わず_戻る先は画面から書きかえられない(): void
+    {
+        $host = parse_url(url('/'), PHP_URL_HOST);
+
+        foreach (["javascript://{$host}/%0aalert(1)", "//{$host}/x", 'ftp://'.$host.'/x'] as $back) {
+            Livewire::withQueryParams(['back' => $back])->test(RecordForm::class)->assertSet('backUrl', route('home'));
+        }
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+        Livewire::test(RecordForm::class)->set('backUrl', 'https://example.com');
+    }
+
+    public function test_ur_lの値がおかしくても画面は開けて最初の値になる(): void
+    {
+        $this->get('/records/create?date[]=x&back[]=y&type[]=z')->assertOk();
+
+        Livewire::withQueryParams(['date' => 'tomorrow', 'type' => 'other'])->test(RecordForm::class)
+            ->assertSet('date', '2026-10-13')
+            ->assertSet('type', 'expense');
+    }
+
+    public function test_日付は2000年から2099年まで(): void
+    {
+        $this->expense(['date' => '0026-10-13'])->call('save')->assertHasErrors(['date' => 'after_or_equal']);
+        $this->expense(['date' => '2100-01-01'])->call('save')->assertHasErrors(['date' => 'before_or_equal']);
+        $this->expense(['date' => '2026-13-01'])->call('save')->assertHasErrors(['date' => 'date_format']);
+        $this->expense(['date' => '2000-01-01'])->call('save')->assertHasNoErrors();
+    }
+
+    public function test_頭に0がついた金額も受けとる(): void
+    {
+        $this->expense(['amount' => '0100'])->call('save')->assertHasNoErrors();
+        $this->assertSame(100, Record::query()->sole()->amount);
+    }
+
+    public function test_品物は100文字まで_メモは1000文字まで(): void
+    {
+        $this->expense(['item' => str_repeat('あ', 101)])->call('save')->assertHasErrors(['item' => 'max']);
+        $this->expense(['memo' => str_repeat('あ', 1001)])->call('save')->assertHasErrors(['memo' => 'max']);
+        $this->expense(['item' => str_repeat('あ', 100), 'memo' => str_repeat('あ', 1000)])->call('save')->assertHasNoErrors();
+    }
+
+    public function test_保存すると保存しましたと出る(): void
+    {
+        $this->expense()->call('save');
+
+        $this->get(route('home'))->assertSee('保存しました');
+    }
+
+    public function test_移動には分類と相手が入らない(): void
+    {
+        Livewire::test(RecordForm::class)
+            ->set('categoryId', $this->food->id)
+            ->set('partnerName', 'コンビニ')
+            ->set('type', 'transfer')
+            ->set('amount', '1000')
+            ->set('accountId', $this->bank->id)
+            ->set('toAccountId', $this->cash->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $record = Record::query()->sole();
+        $this->assertNull($record->category_id);
+        $this->assertNull($record->partner_id);
+        $this->assertSame(0, Partner::query()->where('name', 'コンビニ')->count(), '移動では相手を作らない');
+    }
+
+    public function test_相手の名前は空白の形をそろえてから探して保存する(): void
+    {
+        $seven = Partner::factory()->create(['name' => 'セブン イレブン']);
+
+        Livewire::test(RecordForm::class)
+            ->set('partnerName', 'セブン　イレブン　')
+            ->assertDontSee('新しい相手として追加します');
+
+        $this->expense(['partnerName' => 'セブン　 イレブン'])->call('save')->assertHasNoErrors();
+        $this->assertSame($seven->id, Record::query()->sole()->partner_id);
+        $this->assertSame(1, Partner::query()->where('name', 'like', 'セブン%')->count());
+
+        // 相手の管理で打ったときも、同じ形にそろえる
+        $this->post('/partners', ['name' => 'セブン　イレブン'])->assertSessionHasErrors('name');
     }
 
     /**
