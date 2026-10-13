@@ -147,3 +147,28 @@ if (mergeForm && mergeInput && mergeDialog) {
         }
     });
 }
+// 金額の欄（data-amount）：打ち終えて欄を離れたら、1,000,000 のようにカンマをつける。0 の打ちすぎに気づきやすくするため
+// 打っているあいだはカンマをつけない（文字の位置がずれて打ちにくいため）。欄に戻ったらカンマを外す
+// 全角の数字も半角にそろえる。サーバーでも、カンマと全角を読みかえてから確かめる（app/Livewire/RecordForm.php）
+const toHalfWidth = (text) => text.replace(/[０-９，]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+const setAmount = (input, value) => {
+    input.value = value;
+    // Livewire に新しい値を知らせる（wire:model は、欄の input の合図で値を受けとる）
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+};
+document.addEventListener('focusout', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.matches('[data-amount]')) {
+        return;
+    }
+    const digits = toHalfWidth(input.value).replace(/[,\s]/g, '');
+    if (/^\d+$/.test(digits)) {
+        setAmount(input, Number(digits).toLocaleString('ja-JP'));
+    }
+});
+document.addEventListener('focusin', (event) => {
+    const input = event.target;
+    if (input instanceof HTMLInputElement && input.matches('[data-amount]') && input.value.includes(',')) {
+        setAmount(input, input.value.replace(/,/g, ''));
+    }
+});

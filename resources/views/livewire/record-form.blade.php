@@ -11,11 +11,12 @@
         </div>
 
         <form wire:submit="save" novalidate>
-            {{-- 金額：毎回入れるので、いちばん上。スマホでは数字のキーボードを出す（inputmode="numeric"） --}}
+            {{-- 金額：毎回入れるので、いちばん上。スマホでは数字のキーボードを出す（inputmode="numeric"）。
+                 欄を離れたらカンマをつける（data-amount。resources/js/app.js） --}}
             <div class="mb-3">
                 <label for="amount" class="form-label">金額</label>
                 <div class="input-group has-validation">
-                    <input type="text" id="amount" inputmode="numeric" wire:model="amount" autocomplete="off"
+                    <input type="text" id="amount" inputmode="numeric" wire:model="amount" autocomplete="off" data-amount
                         class="form-control text-end @error('amount') is-invalid @enderror" autofocus>
                     <span class="input-group-text">円</span>
                     @error('amount')
