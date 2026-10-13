@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 
@@ -14,4 +15,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->midd
 // ここから下は、ログインしないと見られない。ログインしていなければ /login へ移る
 Route::middleware('auth')->group(function () {
     Route::view('/', 'home')->name('home');
+
+    // 口座の管理（画面設計書 5.6）。1 つの口座だけを見る画面（show）はない。行を押すと変更の画面へ行く
+    Route::resource('accounts', AccountController::class)->only(['index', 'create', 'store', 'edit', 'update']);
 });

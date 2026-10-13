@@ -19,6 +19,18 @@
         </div>
     </header>
 
+    {{-- 保存・削除できたときのお知らせ。画面の上に数秒だけ出して消える（4 章の 3。消す動きは resources/js/app.js） --}}
+    @if (session('status'))
+        <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3">
+            <div class="toast align-items-center text-bg-primary border-0" role="status" aria-live="polite" data-bs-delay="3000">
+                <div class="d-flex">
+                    <div class="toast-body">{{ session('status') }}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="閉じる"></button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <main class="container py-4">
         @yield('content')
     </main>

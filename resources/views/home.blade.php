@@ -6,4 +6,6 @@
 @section('content')
     <h1 class="h4 mb-3">ホーム（準備中）</h1>
     <p>{{ auth()->user()->name }} さん、ログインしています。</p>
+    {{-- メニューができるまでの仮の入り口 --}}
+    <a href="{{ route('accounts.index') }}">口座の管理</a>
 @endsection
