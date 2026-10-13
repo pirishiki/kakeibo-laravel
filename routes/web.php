@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\CategoryController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 
@@ -19,4 +20,9 @@ Route::middleware('auth')->group(function () {
     // 口座の管理（画面設計書 5.6）。1 つの口座だけを見る画面（show）はない。行を押すと変更の画面へ行く
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::patch('/accounts/{account}/deactivate', [AccountController::class, 'deactivate'])->name('accounts.deactivate');
+
+    // 分類の管理（画面設計書 5.8）。口座と同じ形に、↑ ↓ の並べかえ（move）を足したもの
+    Route::resource('categories', CategoryController::class)->except(['show']);
+    Route::patch('/categories/{category}/deactivate', [CategoryController::class, 'deactivate'])->name('categories.deactivate');
+    Route::patch('/categories/{category}/move', [CategoryController::class, 'move'])->name('categories.move');
 });

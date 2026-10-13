@@ -9,6 +9,7 @@ return [
     'confirmed' => ':attributeが 2 回目と合っていません。',
     'email' => ':attributeの形がちがいます。',
     'enum' => ':attributeは、出ている中から選んでください。',
+    'exists' => ':attributeは、出ている中から選んでください。',
     'integer' => ':attributeは、小数のない数で入れてください。',
     'max' => [
         'string' => ':attributeは :max 文字以内で入れてください。',
@@ -32,7 +33,9 @@ return [
         'email' => 'メールアドレス',
         'initial_balance' => '最初の残高',
         'is_active' => '使う',
+        'kind' => '収入用・支出用',
         'name' => '名前',
+        'parent_id' => '親の大分類',
         'password' => 'パスワード',
         'type' => '種類',
     ],
