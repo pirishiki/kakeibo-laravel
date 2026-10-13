@@ -42,3 +42,18 @@
         <div class="form-text">使い始める日の金額。クレジットカードで、まだ払っていない分があるときはマイナスで入れます</div>
     @endif
 </div>
+
+@if ($account->exists)
+    {{-- 「使う」は変更の画面にだけ出す。外すと「使わない」になる（残高が 0 円のときだけ） --}}
+    <div class="form-check mb-4">
+        {{-- チェックを外すと何も送られないので、先に 0 を送っておく（チェックがあれば 1 で上書きされる） --}}
+        <input type="hidden" name="is_active" value="0">
+        <input type="checkbox" id="is_active" name="is_active" value="1"
+            class="form-check-input @error('is_active') is-invalid @enderror"
+            @checked(old('is_active', $account->is_active))>
+        <label for="is_active" class="form-check-label">使う</label>
+        @error('is_active')
+            <div class="invalid-feedback">{{ $message }}（「残高を合わせる」は準備中）</div>
+        @enderror
+    </div>
+@endif

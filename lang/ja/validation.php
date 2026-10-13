@@ -5,6 +5,7 @@
 
 return [
 
+    'boolean' => ':attributeは、チェックをつけるか外すかで選んでください。',
     'confirmed' => ':attributeが 2 回目と合っていません。',
     'email' => ':attributeの形がちがいます。',
     'enum' => ':attributeは、出ている中から選んでください。',
@@ -30,6 +31,7 @@ return [
     'attributes' => [
         'email' => 'メールアドレス',
         'initial_balance' => '最初の残高',
+        'is_active' => '使う',
         'name' => '名前',
         'password' => 'パスワード',
         'type' => '種類',

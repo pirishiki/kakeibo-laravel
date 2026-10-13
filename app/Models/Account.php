@@ -71,6 +71,32 @@ class Account extends Model
     }
 
     /**
+     * 「使わない」にできないときは、その理由の文を返す。できるときは null（画面設計書 5.6）
+     * 残高が 0 円の口座だけ「使わない」にできる。今日 0 円でも、先の日付の記録で残高が変わる口座はできない
+     *
+     * @param  int|null  $initialBalance  変更の画面で、最初の残高も一緒に直すときの新しい値
+     */
+    public function deactivationBlocker(?int $initialBalance = null): ?string
+    {
+        $balance = $this->balance() - $this->initial_balance + ($initialBalance ?? $this->initial_balance);
+
+        if ($balance !== 0) {
+            return '残高が '.number_format($balance).' 円あるので『使わない』にできません。お金をほかの口座へ移す記録をつけるか、残高を合わせて 0 円にしてください';
+        }
+
+        $hasFutureRecords = Record::query()
+            ->where(fn ($q) => $q->where('account_id', $this->id)->orWhere('to_account_id', $this->id))
+            ->where('date', '>', today()->toDateString())
+            ->exists();
+
+        if ($hasFutureRecords) {
+            return '先の日付の記録で残高が変わるので、『使わない』にできません';
+        }
+
+        return null;
+    }
+
+    /**
      * 一覧の並べ方：種類ごと（銀行口座 → 現金 → 交通系 IC → クレジットカード）、同じ種類の中は追加した順（画面設計書 5.6）
      *
      * @param  Builder<Account>  $query

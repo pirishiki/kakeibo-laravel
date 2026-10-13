@@ -17,5 +17,6 @@ Route::middleware('auth')->group(function () {
     Route::view('/', 'home')->name('home');
 
     // 口座の管理（画面設計書 5.6）。1 つの口座だけを見る画面（show）はない。行を押すと変更の画面へ行く
-    Route::resource('accounts', AccountController::class)->only(['index', 'create', 'store', 'edit', 'update']);
+    Route::resource('accounts', AccountController::class)->except(['show']);
+    Route::patch('/accounts/{account}/deactivate', [AccountController::class, 'deactivate'])->name('accounts.deactivate');
 });

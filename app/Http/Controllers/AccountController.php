@@ -40,6 +40,8 @@ class AccountController extends Controller
         return view('accounts.edit', [
             'account' => $account,
             'hasRecords' => $account->hasRecords(),
+            // 削除を押したときの小窓で、「使わない」にできるかを先に伝えるため
+            'blocker' => $account->is_active ? $account->deactivationBlocker() : null,
         ]);
     }
 
@@ -48,5 +50,31 @@ class AccountController extends Controller
         $account->update($request->validated());
 
         return to_route('accounts.index')->with('status', '保存しました');
+    }
+
+    /** 削除。記録がある口座は削除できない（4 章の 9）。画面の小窓でも止めるが、ここでも確かめる */
+    public function destroy(Account $account): RedirectResponse
+    {
+        if ($account->hasRecords()) {
+            return to_route('accounts.edit', $account)->withErrors(['delete' => '記録があるので削除できません']);
+        }
+
+        $account->delete();
+
+        return to_route('accounts.index')->with('status', '削除しました');
+    }
+
+    /** 削除の小窓から「使わない」にする（4 章の 9）。残高が 0 円の口座だけ */
+    public function deactivate(Account $account): RedirectResponse
+    {
+        $blocker = $account->deactivationBlocker();
+
+        if ($blocker !== null) {
+            return to_route('accounts.edit', $account)->withErrors(['is_active' => $blocker]);
+        }
+
+        $account->update(['is_active' => false]);
+
+        return to_route('accounts.index')->with('status', '「使わない」にしました');
     }
 }

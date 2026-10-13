@@ -8,6 +8,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
+use Illuminate\Validation\Validator;
 
 /**
  * 口座の追加・変更の入力チェック（画面設計書 5.6）
@@ -35,6 +36,37 @@ class AccountRequest extends FormRequest
             $rules['initial_balance'] = ['required', 'integer', 'between:'.-self::MAX_AMOUNT.','.self::MAX_AMOUNT];
         }
 
+        // 「使う」の欄は変更の画面にだけある。追加した口座は、いつも「使う」から始まる
+        if ($account !== null) {
+            $rules['is_active'] = ['required', 'boolean'];
+        }
+
         return $rules;
+    }
+
+    /**
+     * ほかの欄のチェックが通ったあとに、「使う」を外せるかを確かめる
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                /** @var Account|null $account */
+                $account = $this->route('account');
+
+                if ($account === null || ! $account->is_active || $this->boolean('is_active') || $validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                $initial = $this->has('initial_balance') && ! $account->hasRecords() ? $this->integer('initial_balance') : null;
+                $blocker = $account->deactivationBlocker($initial);
+
+                if ($blocker !== null) {
+                    $validator->errors()->add('is_active', $blocker);
+                }
+            },
+        ];
     }
 }

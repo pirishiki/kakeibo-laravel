@@ -29,7 +29,7 @@ class AccountManageTest extends TestCase
      */
     private function form(array $overrides = []): array
     {
-        return array_merge(['name' => 'みずほ銀行', 'type' => 'bank', 'initial_balance' => '350000'], $overrides);
+        return array_merge(['name' => 'みずほ銀行', 'type' => 'bank', 'initial_balance' => '350000', 'is_active' => '1'], $overrides);
     }
 
     public function test_ログインしないと口座の画面は開けない(): void
