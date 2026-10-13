@@ -19,8 +19,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $amount
  * @property int $account_id
  * @property int|null $to_account_id
+ * @property int|null $category_id
  */
-#[Fillable(['date', 'type', 'amount', 'account_id', 'to_account_id', 'item', 'memo'])]
+#[Fillable(['date', 'type', 'amount', 'account_id', 'to_account_id', 'category_id', 'item', 'memo'])]
 class Record extends Model
 {
     /** @use HasFactory<RecordFactory> */
@@ -57,5 +58,15 @@ class Record extends Model
     public function toAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'to_account_id');
+    }
+
+    /**
+     * 分類（小分類を選んだときは小分類、選ばなかったときは大分類）
+     *
+     * @return BelongsTo<Category, $this>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 }

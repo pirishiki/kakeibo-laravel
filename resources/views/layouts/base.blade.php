@@ -3,6 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{-- 画面の中から（JavaScript で）サーバーへ送るときに使う、なりすまし防止の合言葉（CSRF トークン） --}}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@hasSection('title')@yield('title') - @endif{{ config('app.name') }}</title>
 
     {{-- 字は Noto Sans JP（画面設計書 6.4）。太さはふつうと太いの 2 つだけ。読みこみ中は機械の字で先に出す（display=swap） --}}
