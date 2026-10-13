@@ -32,8 +32,9 @@ return new class extends Migration
         }
     }
 
+    /** 何もしない。もとに戻すときは、ひとつ前のマイグレーションで表ごと消える（ここで消すと、小分類や記録があるときに消せないため） */
     public function down(): void
     {
-        DB::table('categories')->whereNull('parent_id')->whereIn('name', array_merge(...array_values(self::NAMES)))->delete();
+        //
     }
 };

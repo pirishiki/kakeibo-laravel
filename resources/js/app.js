@@ -20,16 +20,32 @@ document.querySelectorAll('[data-show-when-changed]').forEach((note) => {
 // つまみ（.sort-handle）を押さえたまま動かすと並べかえられる一覧。data-sortable に、並べた順番の送り先を書く
 // 動かせるのは、その一覧のすぐ下の data-id のついたものだけ（大分類どうし・同じ大分類の中の小分類どうし）
 // data-fixed のついたもの（「使わない」分類）は、いつも下に置くので、動かせず、そのあいだや下にも置けない
+const sortables = [];
+
+const saveFailedMessage = (response, body) => {
+    if (response?.status === 401 || response?.status === 419) {
+        return 'ログインが切れました。画面を読みこみ直します';
+    }
+
+    return response?.status === 422 && body?.message ? body.message : '順番を保存できませんでした。画面を読みこみ直してから、もう一度動かしてください';
+};
+
 document.querySelectorAll('[data-sortable]').forEach((list) => {
-    Sortable.create(list, {
+    const sortable = Sortable.create(list, {
         handle: '.sort-handle',
         draggable: '[data-id]:not([data-fixed])',
         onMove: (event) => !event.related.hasAttribute('data-fixed'),
         animation: 150,
+        // 大分類のまとまりを、小分類の行の上を通って動かしやすくする
+        fallbackOnBody: true,
+        swapThreshold: 0.65,
         onEnd: async (event) => {
             if (event.oldIndex === event.newIndex) {
                 return;
             }
+
+            // 保存が終わるまで、次のドラッグを止める（続けて動かすと、送った順番が前後して古い順番が残ることがあるため）
+            sortables.forEach((s) => s.option('disabled', true));
 
             const ids = [...list.children].filter((el) => el.dataset.id).map((el) => Number(el.dataset.id));
             const response = await fetch(list.dataset.sortable, {
@@ -45,9 +61,13 @@ document.querySelectorAll('[data-sortable]').forEach((list) => {
             // 保存できなかったときは、知らせてから読みこみ直し、画面の順番をデータベースの順番にもどす
             if (!response?.ok) {
                 const body = await response?.json().catch(() => null);
-                window.alert(body?.message ?? '順番を保存できませんでした。画面を読みこみ直してから、もう一度動かしてください');
+                window.alert(saveFailedMessage(response, body));
                 window.location.reload();
+                return;
             }
+
+            sortables.forEach((s) => s.option('disabled', false));
         },
     });
+    sortables.push(sortable);
 });

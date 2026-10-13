@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\CategoryKind;
 use App\Http\Requests\CategoryRequest;
 use App\Models\Category;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -107,7 +108,13 @@ class CategoryController extends Controller
             return to_route('categories.edit', $category)->withErrors(['delete' => '記録があるので削除できません']);
         }
 
-        $category->delete();
+        // 確かめてから削除するまでのあいだに記録ができたときも、データベースが止めるので、同じ文で戻す
+        // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
+        try {
+            Category::query()->whereKey($category->id)->delete();
+        } catch (QueryException) {
+            return to_route('categories.edit', $category)->withErrors(['delete' => '記録があるので削除できません']);
+        }
 
         return to_route('categories.index')->with('status', '削除しました');
     }
@@ -131,7 +138,7 @@ class CategoryController extends Controller
             'ids.*' => ['integer'],
         ])['ids'];
 
-        if (! Category::reorder(array_values($ids))) {
+        if (! Category::saveOrder(array_values($ids))) {
             return response()->json(['message' => '順番を保存できませんでした。画面を読みこみ直してから、もう一度動かしてください'], 422);
         }
 

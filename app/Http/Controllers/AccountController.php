@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AccountRequest;
 use App\Models\Account;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -68,7 +69,13 @@ class AccountController extends Controller
             return to_route('accounts.edit', $account)->withErrors(['delete' => '記録があるので削除できません']);
         }
 
-        $account->delete();
+        // 確かめてから削除するまでのあいだに記録ができたときも、データベースが止めるので、同じ文で戻す
+        // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
+        try {
+            Account::query()->whereKey($account->id)->delete();
+        } catch (QueryException) {
+            return to_route('accounts.edit', $account)->withErrors(['delete' => '記録があるので削除できません']);
+        }
 
         return to_route('accounts.index')->with('status', '削除しました');
     }

@@ -50,8 +50,7 @@ body {
     // スマホで、つまみを押さえたときは画面をスクロールさせず、ドラッグにする（名前の部分はふつうにスクロールできる）
     touch-action: none;
 
-    &:hover,
-    &:focus-visible {
+    &:hover {
         background: $primary-soft;
         color: $primary;
     }

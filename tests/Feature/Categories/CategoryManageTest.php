@@ -276,8 +276,69 @@ class CategoryManageTest extends TestCase
         $food = $this->find('食費');
         $food->update(['is_active' => false]);
 
+        $daily = $this->find('日用品');
+
         $this->get('/categories')
-            ->assertDontSee('aria-label="食費をつかんで動かす"', false)
-            ->assertSee('aria-label="日用品をつかんで動かす"', false);
+            ->assertDontSee('id="handle-'.$food->id.'"', false)
+            ->assertSee('id="handle-'.$daily->id.'"', false);
+    }
+
+    public function test_使わない小分類を使うに戻すと_その大分類の使う小分類のいちばん下に入る(): void
+    {
+        $car = $this->find('自動車');
+        $wash = Category::factory()->childOf($car)->create(['name' => '洗車', 'is_active' => false]);
+        Category::factory()->childOf($car)->create(['name' => 'ガソリン']);
+
+        $this->put("/categories/{$wash->id}", ['name' => '洗車', 'parent_id' => $car->id, 'is_active' => '1'])->assertSessionHasNoErrors();
+
+        $this->assertSame(['ガソリン', '洗車'], $this->namesInOrder(CategoryKind::Expense, $car));
+    }
+
+    public function test_削除の小窓から使わないにできる(): void
+    {
+        $pet = Category::factory()->create(['name' => 'ペット']);
+
+        $this->patch("/categories/{$pet->id}/deactivate")->assertRedirect('/categories#category-'.$pet->id);
+        $this->assertFalse($pet->refresh()->is_active);
+    }
+
+    public function test_大分類を別の分類の下へは移せない(): void
+    {
+        $food = $this->find('食費');
+        $daily = $this->find('日用品');
+
+        $this->put("/categories/{$daily->id}", ['name' => '日用品', 'parent_id' => $food->id, 'is_active' => '1'])->assertSessionHasNoErrors();
+
+        $this->assertNull($daily->refresh()->parent_id, '大分類は大分類のまま（送られてきた親は受けとらない）');
+    }
+
+    public function test_ない大分類の下には小分類を作れない(): void
+    {
+        $this->post('/categories', ['name' => '外食', 'parent_id' => 99999])->assertSessionHasErrors('parent_id');
+        $this->assertDatabaseMissing('categories', ['name' => '外食']);
+    }
+
+    public function test_並べかえの順番が一覧の形でないときは受けとらない(): void
+    {
+        $before = $this->idsInOrder(CategoryKind::Expense);
+
+        $this->patchJson('/categories/reorder', ['ids' => 'abc'])->assertStatus(422);
+        $this->patchJson('/categories/reorder', ['ids' => ['a', 'b']])->assertStatus(422);
+        $this->patchJson('/categories/reorder', [])->assertStatus(422);
+
+        $this->assertSame($before, $this->idsInOrder(CategoryKind::Expense));
+    }
+
+    public function test_使わない分類をふくめた順番も保存できる(): void
+    {
+        $food = $this->find('食費');
+        $food->update(['is_active' => false]);
+        // 画面では、使う分類のあとに使わない分類が並んでいる。その順番のまま送られてくる
+        $active = Category::query()->whereNull('parent_id')->where('kind', CategoryKind::Expense)->where('is_active', true)->orderBy('sort_order')->pluck('id')->all();
+
+        $this->patchJson('/categories/reorder', ['ids' => [...array_reverse($active), $food->id]])->assertOk();
+
+        $this->assertSame('食費', last($this->namesInOrder(CategoryKind::Expense)));
+        $this->assertSame('その他', $this->namesInOrder(CategoryKind::Expense)[0]);
     }
 }

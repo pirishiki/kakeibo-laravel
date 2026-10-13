@@ -5,10 +5,11 @@
         {{-- 「使わない」分類（と、「使わない」大分類の下の小分類）は、いつも下に出すので動かせない。名前の位置をそろえるため、つまみの幅だけ空ける --}}
         <span class="sort-handle-space" aria-hidden="true"></span>
     @else
-        {{-- つまみ：ここを押さえたまま上下に動かすと並べかえられる（同じ段の中だけ。resources/js/app.js） --}}
-        <button type="button" class="sort-handle" title="押さえたまま上下に動かす" aria-label="{{ $category->name }}をつかんで動かす">
+        {{-- つまみ：ここを押さえたまま上下に動かすと並べかえられる（同じ段の中だけ。resources/js/app.js）。
+             マウスと指だけで使う（キーボードでは並べかえない）ので、Tab で止まるボタンにはしない --}}
+        <span class="sort-handle" id="handle-{{ $category->id }}" title="押さえたまま上下に動かす" aria-hidden="true">
             <x-grip-icon />
-        </button>
+        </span>
     @endif
     <a href="{{ route('categories.edit', $category) }}" class="flex-grow-1 text-reset text-decoration-none text-break">
         {{ $category->name }}

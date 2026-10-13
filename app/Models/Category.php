@@ -106,7 +106,7 @@ class Category extends Model
      *
      * @param  list<int>  $ids  上から順の id
      */
-    public static function reorder(array $ids): bool
+    public static function saveOrder(array $ids): bool
     {
         return DB::transaction(function () use ($ids) {
             $first = self::query()->find($ids[0] ?? 0);
