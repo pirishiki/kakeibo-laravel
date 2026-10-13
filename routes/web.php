@@ -22,6 +22,8 @@ Route::middleware('auth')->group(function () {
     // 口座の管理（画面設計書 5.6）。1 つの口座だけを見る画面（show）はない。行を押すと変更の画面へ行く
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::patch('/accounts/{account}/deactivate', [AccountController::class, 'deactivate'])->name('accounts.deactivate');
+    // 残高を合わせる（画面設計書 5.7）。入力欄と保存は Livewire の部品（app/Livewire/AdjustBalance.php）
+    Route::get('/accounts/{account}/adjust', [AccountController::class, 'adjust'])->name('accounts.adjust');
 
     // 分類の管理（画面設計書 5.8）。口座と同じ形に、ドラッグの並べかえ（reorder）を足したもの
     // reorder は resource より先に書く（あとに書くと、/categories/reorder の reorder が分類の id として読まれてしまうため）

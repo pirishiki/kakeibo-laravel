@@ -169,4 +169,14 @@ class AccountManageTest extends TestCase
 
         $this->assertDatabaseCount('accounts', 5);
     }
+
+    public function test_最初の残高はカンマや全角_マイナスで打っても受けとる(): void
+    {
+        $this->post('/accounts', $this->form(['name' => 'カード', 'initial_balance' => '－12,800']))->assertSessionHasNoErrors();
+        $this->post('/accounts', $this->form(['name' => '財布2', 'initial_balance' => '１,０００']))->assertSessionHasNoErrors();
+
+        $this->assertSame(-12800, Account::query()->where('name', 'カード')->sole()->initial_balance);
+        $this->assertSame(1000, Account::query()->where('name', '財布2')->sole()->initial_balance);
+        $this->get(route('accounts.edit', Account::query()->where('name', 'カード')->sole()))->assertSee('value="-12,800"', false);
+    }
 }

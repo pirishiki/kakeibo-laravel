@@ -80,6 +80,12 @@ class AccountController extends Controller
         return to_route('accounts.index')->with('status', '削除しました');
     }
 
+    /** 残高を合わせる（画面設計書 5.7）。入力欄と保存は Livewire の部品（app/Livewire/AdjustBalance.php） */
+    public function adjust(Account $account): View
+    {
+        return view('accounts.adjust', ['account' => $account]);
+    }
+
     /** 削除の小窓から「使わない」にする（4 章の 9）。残高が 0 円の口座だけ */
     public function deactivate(Account $account): RedirectResponse
     {

@@ -25,9 +25,10 @@
 <div class="mb-4">
     <label for="initial_balance" class="form-label">最初の残高</label>
     <div class="input-group has-validation">
-        {{-- step="1"：円に小数はない。マイナスも入れられる（クレジットカードなど） --}}
-        <input type="number" id="initial_balance" name="initial_balance" step="1"
-            value="{{ old('initial_balance', $account->initial_balance) }}"
+        {{-- 記録の金額の欄と同じ形：文字の欄で、欄を離れたらカンマをつける（data-amount。resources/js/app.js）。
+             マイナスも入れられる（クレジットカードなど）ので、「-」のあるキーボードにする --}}
+        <input type="text" id="initial_balance" name="initial_balance" inputmode="text" autocomplete="off" data-amount
+            value="{{ old('initial_balance', number_format((int) $account->initial_balance)) }}"
             class="form-control text-end @error('initial_balance') is-invalid @enderror"
             aria-describedby="initial_balance-help"
             @disabled($hasRecords) required>
@@ -37,8 +38,12 @@
         @enderror
     </div>
     @if ($hasRecords)
-        {{-- 「残高を合わせる」（5.7）の画面ができたら、ここをリンクにする --}}
-        <div id="initial_balance-help" class="form-text">記録があるので変えられません。今の残高を直すときは「残高を合わせる」を使います（準備中）</div>
+        {{-- 「使わない」口座は残高を合わせられないので、リンクにしない --}}
+        @if ($account->is_active)
+            <div id="initial_balance-help" class="form-text">記録があるので変えられません。今の残高を直すときは<a href="{{ route('accounts.adjust', $account) }}">「残高を合わせる」</a>を使います</div>
+        @else
+            <div id="initial_balance-help" class="form-text">記録があるので変えられません。今の残高を直すときは「残高を合わせる」を使います</div>
+        @endif
     @else
         <div id="initial_balance-help" class="form-text">使い始める日の金額。クレジットカードで、まだ払っていない分があるときはマイナスで入れます</div>
     @endif
@@ -54,7 +59,7 @@
             @checked(old('is_active', $account->is_active))>
         <label for="is_active" class="form-check-label">使う</label>
         @error('is_active')
-            <div class="invalid-feedback">{{ $message }}（「残高を合わせる」は準備中）</div>
+            <div class="invalid-feedback">{{ $message }}@if (str_starts_with($message, '残高が'))（<a href="{{ route('accounts.adjust', $account) }}">残高を合わせる</a>）@endif</div>
         @enderror
     </div>
 @endif
