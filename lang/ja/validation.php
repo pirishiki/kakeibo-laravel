@@ -34,6 +34,7 @@ return [
         'initial_balance' => '最初の残高',
         'is_active' => '使う',
         'kind' => '収入用・支出用',
+        'merge_target' => 'まとめ先',
         'name' => '名前',
         'parent_id' => '親の大分類',
         'password' => 'パスワード',

@@ -20,8 +20,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $account_id
  * @property int|null $to_account_id
  * @property int|null $category_id
+ * @property int|null $partner_id
  */
-#[Fillable(['date', 'type', 'amount', 'account_id', 'to_account_id', 'category_id', 'item', 'memo'])]
+#[Fillable(['date', 'type', 'amount', 'account_id', 'to_account_id', 'category_id', 'partner_id', 'item', 'memo'])]
 class Record extends Model
 {
     /** @use HasFactory<RecordFactory> */
@@ -68,5 +69,15 @@ class Record extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * 相手
+     *
+     * @return BelongsTo<Partner, $this>
+     */
+    public function partner(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class);
     }
 }

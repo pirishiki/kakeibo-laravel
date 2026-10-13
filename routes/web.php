@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\PartnerController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 
@@ -26,4 +27,9 @@ Route::middleware('auth')->group(function () {
     Route::patch('/categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
     Route::resource('categories', CategoryController::class)->except(['show']);
     Route::patch('/categories/{category}/deactivate', [CategoryController::class, 'deactivate'])->name('categories.deactivate');
+
+    // 相手の管理（画面設計書 5.9）。口座と同じ形に、ほかの相手にまとめる（merge）を足したもの
+    Route::resource('partners', PartnerController::class)->except(['show']);
+    Route::patch('/partners/{partner}/deactivate', [PartnerController::class, 'deactivate'])->name('partners.deactivate');
+    Route::post('/partners/{partner}/merge', [PartnerController::class, 'merge'])->name('partners.merge');
 });

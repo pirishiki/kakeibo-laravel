@@ -1,5 +1,5 @@
 // Bootstrap の動き（確認の小窓・「保存しました」の表示など）を使えるようにする
-import { Toast } from 'bootstrap';
+import { Modal, Toast } from 'bootstrap';
 // ドラッグで並べかえる部品（分類の管理。画面設計書 5.8）
 import Sortable from 'sortablejs';
 
@@ -82,3 +82,41 @@ if (savedRow?.classList.contains('list-group-item')) {
     // しおりを URL から外す（読みこみ直したときに、また光らないように）
     history.replaceState(null, '', window.location.pathname + window.location.search);
 }
+
+// 名前で探す：打った文字をふくむ行だけを出す（相手の管理。画面設計書 5.9）
+// data-filter に一覧の場所、一覧の中の data-filter-group にまとまり、行に data-name を書く
+document.querySelectorAll('[data-filter]').forEach((input) => {
+    const root = document.querySelector(input.dataset.filter);
+    const update = () => {
+        const word = input.value.trim().toLowerCase();
+        let shown = 0;
+        root.querySelectorAll('[data-filter-group]').forEach((group) => {
+            let groupShown = 0;
+            group.querySelectorAll('[data-name]').forEach((row) => {
+                const hit = row.dataset.name.toLowerCase().includes(word);
+                row.classList.toggle('d-none', !hit);
+                groupShown += hit ? 1 : 0;
+            });
+            group.hidden = groupShown === 0;
+            shown += groupShown;
+        });
+        root.querySelector('[data-filter-empty]').hidden = shown > 0 || word === '';
+    };
+    input.addEventListener('input', update);
+});
+
+// ほかの相手にまとめる：まとめ先が候補にあるかを確かめてから、確認の小窓に名前を入れて出す（画面設計書 5.9）
+document.querySelectorAll('[data-merge-open]').forEach((button) => {
+    const input = document.getElementById('merge_target');
+    const names = [...document.querySelectorAll(`#${input.getAttribute('list')} option`)].map((o) => o.value);
+    button.addEventListener('click', () => {
+        const ok = names.includes(input.value.trim());
+        input.classList.toggle('is-invalid', !ok);
+        if (!ok) {
+            input.focus();
+            return;
+        }
+        document.querySelector('[data-merge-target-name]').textContent = input.value.trim();
+        Modal.getOrCreateInstance(document.getElementById('merge-dialog')).show();
+    });
+});
