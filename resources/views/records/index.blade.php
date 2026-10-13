@@ -27,7 +27,9 @@
         <div class="card">
             <div class="card-body text-center py-5">
                 <p class="mb-3">この月の記録はまだありません</p>
-                <a href="{{ route('records.create') }}" class="btn btn-primary">＋ 記録する</a>
+                {{-- 今月でないときは、その月の 1 日を日付の最初の値にする（見ている月の記録をつけたいときに、日付を探さずに済むように） --}}
+                <a href="{{ route('records.create', $month->isSameMonth(today()) ? [] : ['date' => $month->toDateString()]) }}"
+                    class="btn btn-primary">＋ 記録する</a>
             </div>
         </div>
     @else
@@ -39,11 +41,11 @@
                     <x-date :date="$records->first()->date" />
                     <span class="fw-normal text-nowrap">支出 <x-money :amount="$dayExpenses[$date]" /></span>
                 </h3>
-                <ul class="list-group list-group-flush">
+                <div class="list-group list-group-flush">
                     @foreach ($records as $record)
                         @include('records._row')
                     @endforeach
-                </ul>
+                </div>
             </section>
         @endforeach
     @endif

@@ -138,7 +138,7 @@ class RecordListTest extends TestCase
             // 収入：緑の太い字で「+」
             ->assertSeeInOrder(['会社', 'fw-bold text-success">+', '250,000', '給与 · 財布'], false)
             // 移動：灰色で「どこから → どこへ」
-            ->assertSeeInOrder(['list-group-item text-secondary', '財布 → Suica', '3,000'], false)
+            ->assertSeeInOrder(['gap-2 text-secondary"', '財布 → Suica', '3,000'], false)
             // 調整：「調整」と口座。増えたら「+」、減ったら赤い字の「-」
             ->assertSeeInOrder(['調整', '+<span', '300', '財布'], false)
             ->assertSeeInOrder(['調整', 'text-danger">-200', 'Suica'], false);
