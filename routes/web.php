@@ -21,8 +21,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::patch('/accounts/{account}/deactivate', [AccountController::class, 'deactivate'])->name('accounts.deactivate');
 
-    // 分類の管理（画面設計書 5.8）。口座と同じ形に、↑ ↓ の並べかえ（move）を足したもの
+    // 分類の管理（画面設計書 5.8）。口座と同じ形に、ドラッグの並べかえ（reorder）を足したもの
+    // reorder は resource より先に書く（あとに書くと、/categories/reorder の reorder が分類の id として読まれてしまうため）
+    Route::patch('/categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
     Route::resource('categories', CategoryController::class)->except(['show']);
     Route::patch('/categories/{category}/deactivate', [CategoryController::class, 'deactivate'])->name('categories.deactivate');
-    Route::patch('/categories/{category}/move', [CategoryController::class, 'move'])->name('categories.move');
 });

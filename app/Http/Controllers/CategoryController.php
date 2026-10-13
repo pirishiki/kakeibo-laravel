@@ -6,6 +6,7 @@ use App\Enums\CategoryKind;
 use App\Http\Requests\CategoryRequest;
 use App\Models\Category;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -116,12 +117,22 @@ class CategoryController extends Controller
         return $this->toRow($category)->with('status', '「使わない」にしました');
     }
 
-    /** ↑ ↓ で、同じ段の中だけで順番を入れかえる。動かした分類が画面に見えるように、その行の場所へ戻る */
-    public function move(Request $request, Category $category): RedirectResponse
+    /**
+     * つまみのドラッグで並べかえたあと、画面から新しい順番（同じ段の分類の id を上から順に）を受けとって保存する。
+     * 画面は読みこみ直さないので、答えは JSON で返す（resources/js/app.js）
+     */
+    public function reorder(Request $request): JsonResponse
     {
-        $category->move($request->input('direction') === 'up');
+        $ids = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ])['ids'];
 
-        return $this->toRow($category);
+        if (! Category::reorder(array_values($ids))) {
+            return response()->json(['message' => '順番を保存できませんでした。画面を読みこみ直してから、もう一度動かしてください'], 422);
+        }
+
+        return response()->json(['message' => '順番を保存しました']);
     }
 
     /** 一覧の、その分類の行へ戻る（分類が多く、いちばん上に戻ると探しにくいため） */

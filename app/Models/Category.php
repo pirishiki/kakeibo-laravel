@@ -100,25 +100,32 @@ class Category extends Model
     }
 
     /**
-     * 同じ段のとなりの分類と、並び順を入れかえる（画面設計書 5.8 の ↑ ↓）。いちばん上で ↑、いちばん下で ↓ のときは何もしない
+     * 同じ段の分類を、渡された id の順に並べ直す（画面設計書 5.8 のドラッグ）。
+     * 同じ段の分類が「全部・1 つずつ（同じ id が 2 回ない）・ほかの段なし」でそろっていないときは、何もせずに false を返す
+     * （ほかの画面で分類を足した・消したあとに、古い一覧のまま動かしたときなど）
+     *
+     * @param  list<int>  $ids  上から順の id
      */
-    public function move(bool $up): void
+    public static function reorder(array $ids): bool
     {
-        DB::transaction(function () use ($up) {
-            $neighbor = self::query()
-                ->sameLevelAs($this)
-                ->where('sort_order', $up ? '<' : '>', $this->sort_order)
-                ->orderBy('sort_order', $up ? 'desc' : 'asc')
-                ->lockForUpdate()
-                ->first();
+        return DB::transaction(function () use ($ids) {
+            $first = self::query()->find($ids[0] ?? 0);
 
-            if ($neighbor === null) {
-                return;
+            if ($first === null) {
+                return false;
             }
 
-            [$this->sort_order, $neighbor->sort_order] = [$neighbor->sort_order, $this->sort_order];
-            $this->save();
-            $neighbor->save();
+            $level = self::query()->sameLevelAs($first)->lockForUpdate()->pluck('id')->all();
+
+            if (count($level) !== count($ids) || array_diff($level, $ids) !== []) {
+                return false;
+            }
+
+            foreach ($ids as $i => $id) {
+                self::query()->whereKey($id)->update(['sort_order' => $i + 1]);
+            }
+
+            return true;
         });
     }
 }

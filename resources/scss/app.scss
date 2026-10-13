@@ -33,3 +33,32 @@ body {
     --bs-btn-active-border-color: #{$primary};
     --bs-btn-active-color: #{$primary};
 }
+
+// 並べかえのつまみ（分類の管理。画面設計書 5.8）。ふだんは灰色、カーソルを合わせると青緑になり、手の形になる
+.sort-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: $border-radius;
+    background: transparent;
+    color: $secondary;
+    cursor: grab;
+    // スマホで、つまみを押さえたときは画面をスクロールさせず、ドラッグにする（名前の部分はふつうにスクロールできる）
+    touch-action: none;
+
+    &:hover,
+    &:focus-visible {
+        background: $primary-soft;
+        color: $primary;
+    }
+}
+
+// ドラッグしている行の、置く場所の印
+.sortable-ghost > .list-group-item,
+.sortable-ghost.list-group-item {
+    background: $primary-soft;
+}

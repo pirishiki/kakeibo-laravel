@@ -132,30 +132,67 @@ class CategoryManageTest extends TestCase
             ->assertSessionHasErrors(['name' => '名前は 50 文字以内で入れてください。']);
     }
 
-    public function test_上下の矢印で同じ段の中だけ順番が変わる(): void
+    /**
+     * @return list<int>
+     */
+    private function idsInOrder(CategoryKind $kind, ?Category $parent = null): array
+    {
+        return Category::query()
+            ->where('kind', $kind)
+            ->when($parent, fn ($q) => $q->where('parent_id', $parent->id), fn ($q) => $q->whereNull('parent_id'))
+            ->orderBy('sort_order')
+            ->pluck('id')
+            ->all();
+    }
+
+    public function test_ドラッグで並べた順番が保存される(): void
     {
         $food = $this->find('食費');
-        $daily = $this->find('日用品');
         $a = Category::factory()->childOf($food)->create(['name' => '食料品']);
         $b = Category::factory()->childOf($food)->create(['name' => '外食']);
 
-        $this->patch("/categories/{$daily->id}/move", ['direction' => 'up'])->assertRedirect('/categories#category-'.$daily->id);
-        $this->assertSame(['日用品', '食費'], array_slice($this->namesInOrder(CategoryKind::Expense), 0, 2));
+        // いちばん下の「その他」を、1 回でいちばん上へ
+        $ids = $this->idsInOrder(CategoryKind::Expense);
+        $ids = [array_pop($ids), ...$ids];
+        $this->patchJson('/categories/reorder', ['ids' => $ids])->assertOk()->assertJson(['message' => '順番を保存しました']);
+        $this->assertSame(['その他', '食費', '日用品'], array_slice($this->namesInOrder(CategoryKind::Expense), 0, 3));
 
-        // 小分類を動かしても、大分類の順番は変わらない
-        $this->patch("/categories/{$b->id}/move", ['direction' => 'up']);
+        // 小分類を並べかえても、大分類の順番は変わらない
+        $this->patchJson('/categories/reorder', ['ids' => [$b->id, $a->id]])->assertOk();
         $this->assertSame(['外食', '食料品'], $this->namesInOrder(CategoryKind::Expense, $food));
-        $this->assertSame(['日用品', '食費'], array_slice($this->namesInOrder(CategoryKind::Expense), 0, 2));
+        $this->assertSame('その他', $this->namesInOrder(CategoryKind::Expense)[0]);
 
-        // いちばん上の ↑・いちばん下の ↓ は何もしない
-        $this->patch("/categories/{$b->id}/move", ['direction' => 'up']);
-        $this->patch("/categories/{$a->id}/move", ['direction' => 'down']);
-        $this->assertSame(['外食', '食料品'], $this->namesInOrder(CategoryKind::Expense, $food));
+        // 一覧の画面にも、その順番で出る
+        $this->get('/categories')->assertSeeInOrder(['支出の分類', 'その他', '食費', '外食', '食料品', '日用品']);
+    }
 
-        // 収入の大分類は、支出の大分類とは別の段
+    public function test_ちがう段がまざった順番やそろっていない順番は保存しない(): void
+    {
+        $food = $this->find('食費');
+        $child = Category::factory()->childOf($food)->create(['name' => '外食']);
+        $before = $this->idsInOrder(CategoryKind::Expense);
+        $message = '順番を保存できませんでした。画面を読みこみ直してから、もう一度動かしてください';
+
+        // 大分類の中に小分類がまざっている
+        $this->patchJson('/categories/reorder', ['ids' => [...$before, $child->id]])->assertStatus(422)->assertJson(['message' => $message]);
+        // 支出の大分類の中に収入の大分類がまざっている
         $salary = $this->find('給与', CategoryKind::Income);
-        $this->patch("/categories/{$salary->id}/move", ['direction' => 'up']);
-        $this->assertSame('給与', $this->namesInOrder(CategoryKind::Income)[0]);
+        $this->patchJson('/categories/reorder', ['ids' => [...array_slice($before, 1), $salary->id]])->assertStatus(422);
+        // 同じ段の分類が 1 つ足りない（ほかの画面で分類を足したあと、古い一覧のまま動かしたときなど）
+        $this->patchJson('/categories/reorder', ['ids' => array_slice($before, 1)])->assertStatus(422);
+        // 同じ id が 2 回
+        $this->patchJson('/categories/reorder', ['ids' => [$before[0], ...$before]])->assertStatus(422);
+
+        $this->assertSame($before, $this->idsInOrder(CategoryKind::Expense));
+    }
+
+    public function test_ログインしないと並べかえは保存できない(): void
+    {
+        $before = $this->idsInOrder(CategoryKind::Expense);
+        auth()->logout();
+
+        $this->patchJson('/categories/reorder', ['ids' => array_reverse($before)])->assertUnauthorized();
+        $this->assertSame($before, $this->idsInOrder(CategoryKind::Expense));
     }
 
     public function test_小分類の親を変えると記録もいっしょに移り_移した先のいちばん下に入る(): void
