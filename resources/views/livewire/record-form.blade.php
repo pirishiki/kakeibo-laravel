@@ -27,7 +27,9 @@
 
             <div class="mb-3">
                 <label for="date" class="form-label">日付</label>
-                <input type="date" id="date" wire:model="date" class="form-control @error('date') is-invalid @enderror">
+                <input type="date" id="date" wire:model.live="date" class="form-control @error('date') is-invalid @enderror" aria-describedby="date-hint">
+                {{-- 曜日と、今日から何日か（画面設計書 4 章の 5 の「10月9日（金）」の形）。1 年以内の打ちまちがいにも気づけるように --}}
+                <div id="date-hint" class="form-text">{{ $this->dateHint }}</div>
                 @error('date')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror

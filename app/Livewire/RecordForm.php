@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,9 @@ class RecordForm extends Component
 {
     /** 金額の欄に入れられるいちばん大きい数（要件定義書 10.1） */
     public const MAX_AMOUNT = 99_999_999;
+
+    /** 記録の日付に入れられる、いちばん前の日 */
+    public const FIRST_DATE = '2000-01-01';
 
     /** 種類：expense（支出）・income（収入）・transfer（移動） */
     public string $type = 'expense';
@@ -191,8 +195,9 @@ class RecordForm extends Component
 
         return [
             'amount' => ['required', 'integer', 'min:1', 'max:'.self::MAX_AMOUNT],
-            // 0 や年の打ちまちがい（0026 年など）に気づけるように、2000〜2099 年の中だけにする
-            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before_or_equal:2099-12-31'],
+            // 年の打ちまちがい（0026 年・2062 年など）に気づけるように、2000年1月1日から、今日の 1 年先までにする。
+            // 上の区切りは今日から数えるので、何年たっても止まらない（決まった年で区切ると、その年をすぎたら保存できなくなるため）
+            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.self::FIRST_DATE, 'before_or_equal:'.$this->lastDate()->toDateString()],
             // 「使わない」口座は選べない
             'accountId' => ['required', Rule::exists('accounts', 'id')->where('is_active', true)],
             'toAccountId' => $isTransfer
@@ -223,8 +228,8 @@ class RecordForm extends Component
             'amount.max' => '金額は 99,999,999 円までで入れてください。',
             'date.required' => '日付を入れてください。',
             'date.date_format' => '日付の形がちがいます。',
-            'date.after_or_equal' => '日付は 2000年〜2099年 の中で入れてください。',
-            'date.before_or_equal' => '日付は 2000年〜2099年 の中で入れてください。',
+            'date.after_or_equal' => $this->dateRangeMessage(),
+            'date.before_or_equal' => $this->dateRangeMessage(),
             'accountId.required' => ($this->type === 'transfer' ? 'どこから' : '口座').'を選んでください。',
             'accountId.exists' => ($this->type === 'transfer' ? 'どこから' : '口座').'は、出ている中から選んでください。',
             'toAccountId.required' => 'どこへを選んでください。',
@@ -317,6 +322,29 @@ class RecordForm extends Component
         return $name === '' ? null : Partner::query()->where('name', $name)->first();
     }
 
+    /**
+     * 日付の欄の下に出す文：「10月20日（火）・あと 7 日」。曜日と、今日から何日かを出して、1 年以内の打ちまちがい（10月と11月など）にも気づけるようにする
+     */
+    #[Computed]
+    public function dateHint(): string
+    {
+        if (! $this->isDate($this->date)) {
+            return '';
+        }
+
+        $date = CarbonImmutable::parse($this->date);
+        $days = (int) today()->diffInDays($date, false);
+        $relative = match (true) {
+            $days === 0 => '今日',
+            $days === 1 => '明日',
+            $days === -1 => '昨日',
+            $days > 0 => 'あと '.number_format($days).' 日',
+            default => number_format(-$days).' 日前',
+        };
+
+        return $date->locale('ja')->isoFormat($date->isCurrentYear() ? 'M月D日（ddd）' : 'YYYY年M月D日（ddd）').'・'.$relative;
+    }
+
     public function render(): View
     {
         return view('livewire.record-form');
@@ -355,6 +383,17 @@ class RecordForm extends Component
         $digits = str_replace([',', '，', ' '], '', mb_convert_kana(trim($amount), 'ns'));
 
         return preg_match('/^\d+$/', $digits) === 1 ? (ltrim($digits, '0') ?: '0') : $digits;
+    }
+
+    /** 記録の日付に入れられる、いちばん先の日（今日の 1 年先） */
+    private function lastDate(): CarbonImmutable
+    {
+        return today()->toImmutable()->addYear();
+    }
+
+    private function dateRangeMessage(): string
+    {
+        return '日付は 2000年1月1日 から '.$this->lastDate()->isoFormat('YYYY年M月D日').'（今日の 1 年先）までで入れてください。';
     }
 
     /** 「2026-10-13」の形の、ほんとうにある日付か */

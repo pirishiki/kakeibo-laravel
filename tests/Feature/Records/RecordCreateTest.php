@@ -335,12 +335,36 @@ class RecordCreateTest extends TestCase
             ->assertSet('type', 'expense');
     }
 
-    public function test_日付は2000年から2099年まで(): void
+    public function test_日付は2000年1月1日から今日の1年先まで(): void
     {
+        // 今日は 2026年10月13日（setUp で決めてある）
         $this->expense(['date' => '0026-10-13'])->call('save')->assertHasErrors(['date' => 'after_or_equal']);
-        $this->expense(['date' => '2100-01-01'])->call('save')->assertHasErrors(['date' => 'before_or_equal']);
+        $this->expense(['date' => '2062-10-13'])->call('save')->assertHasErrors(['date' => 'before_or_equal']);
+        $this->expense(['date' => '2027-10-14'])->call('save')->assertHasErrors(['date' => 'before_or_equal']);
         $this->expense(['date' => '2026-13-01'])->call('save')->assertHasErrors(['date' => 'date_format']);
         $this->expense(['date' => '2000-01-01'])->call('save')->assertHasNoErrors();
+        $this->expense(['date' => '2027-10-13'])->call('save')->assertHasNoErrors();
+    }
+
+    public function test_年がかわっても上の区切りは今日から数える(): void
+    {
+        // 今日が 2030年1月1日なら、2030年12月31日も保存でき、2031年1月2日は保存できない
+        $this->travelTo(now()->setDate(2030, 1, 1));
+
+        $this->expense(['date' => '2030-12-31'])->call('save')->assertHasNoErrors();
+        $this->expense(['date' => '2031-01-02'])->call('save')->assertHasErrors(['date' => 'before_or_equal']);
+    }
+
+    public function test_日付の下に曜日と今日から何日かが出る(): void
+    {
+        Livewire::test(RecordForm::class)
+            ->assertSee('10月13日（火）・今日')
+            ->set('date', '2026-10-20')
+            ->assertSee('10月20日（火）・あと 7 日')
+            ->set('date', '2026-10-12')
+            ->assertSee('10月12日（月）・昨日')
+            ->set('date', '2025-12-30')
+            ->assertSee('2025年12月30日（火）・287 日前');
     }
 
     public function test_頭に0がついた金額も受けとる(): void
