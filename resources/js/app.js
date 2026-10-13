@@ -83,40 +83,67 @@ if (savedRow?.classList.contains('list-group-item')) {
     history.replaceState(null, '', window.location.pathname + window.location.search);
 }
 
+// 名前をくらべるときの形をそろえる：全角と半角（ＡＢ／AB）、大文字と小文字を同じにする
+// （データベースの名前のくらべ方〔データベース設計書 1 章〕でも、全角と半角の英数字は同じ名前になるため）
+const normalizeName = (text) => text.normalize('NFKC').trim().toLowerCase();
+
 // 名前で探す：打った文字をふくむ行だけを出す（相手の管理。画面設計書 5.9）
 // data-filter に一覧の場所、一覧の中の data-filter-group にまとまり、行に data-name を書く
 document.querySelectorAll('[data-filter]').forEach((input) => {
     const root = document.querySelector(input.dataset.filter);
+    if (!root) {
+        return;
+    }
+    const empty = root.querySelector('[data-filter-empty]');
     const update = () => {
-        const word = input.value.trim().toLowerCase();
+        const word = normalizeName(input.value);
         let shown = 0;
         root.querySelectorAll('[data-filter-group]').forEach((group) => {
             let groupShown = 0;
             group.querySelectorAll('[data-name]').forEach((row) => {
-                const hit = row.dataset.name.toLowerCase().includes(word);
+                const hit = normalizeName(row.dataset.name).includes(word);
                 row.classList.toggle('d-none', !hit);
                 groupShown += hit ? 1 : 0;
             });
             group.hidden = groupShown === 0;
             shown += groupShown;
         });
-        root.querySelector('[data-filter-empty]').hidden = shown > 0 || word === '';
+        if (empty) {
+            empty.hidden = shown > 0 || word === '';
+        }
     };
     input.addEventListener('input', update);
 });
 
-// ほかの相手にまとめる：まとめ先が候補にあるかを確かめてから、確認の小窓に名前を入れて出す（画面設計書 5.9）
-document.querySelectorAll('[data-merge-open]').forEach((button) => {
-    const input = document.getElementById('merge_target');
-    const names = [...document.querySelectorAll(`#${input.getAttribute('list')} option`)].map((o) => o.value);
-    button.addEventListener('click', () => {
-        const ok = names.includes(input.value.trim());
-        input.classList.toggle('is-invalid', !ok);
-        if (!ok) {
-            input.focus();
+// ほかの相手にまとめる（画面設計書 5.9）：まとめ先が候補にあるかを確かめてから、確認の小窓に名前を入れて出す。
+// 小窓の「まとめる」を押したときだけ送る（欄で Enter を押しても、すぐには送らず、小窓を出す。まとめると元に戻せないため）
+const mergeForm = document.getElementById('merge-form');
+const mergeInput = document.getElementById('merge_target');
+const mergeDialog = document.getElementById('merge-dialog');
+if (mergeForm && mergeInput && mergeDialog) {
+    const names = [...document.querySelectorAll(`#${mergeInput.getAttribute('list')} option`)].map((o) => o.value);
+    let confirmed = false;
+
+    const openDialog = () => {
+        const target = names.find((name) => normalizeName(name) === normalizeName(mergeInput.value));
+        mergeInput.classList.toggle('is-invalid', target === undefined);
+        if (target === undefined) {
+            mergeInput.focus();
             return;
         }
-        document.querySelector('[data-merge-target-name]').textContent = input.value.trim();
-        Modal.getOrCreateInstance(document.getElementById('merge-dialog')).show();
+        mergeInput.value = target;
+        mergeDialog.querySelector('[data-merge-target-name]').textContent = target;
+        Modal.getOrCreateInstance(mergeDialog).show();
+    };
+
+    mergeForm.querySelector('[data-merge-open]')?.addEventListener('click', openDialog);
+    mergeDialog.querySelector('[data-merge-confirm]')?.addEventListener('click', () => {
+        confirmed = true;
     });
-});
+    mergeForm.addEventListener('submit', (event) => {
+        if (!confirmed) {
+            event.preventDefault();
+            openDialog();
+        }
+    });
+}

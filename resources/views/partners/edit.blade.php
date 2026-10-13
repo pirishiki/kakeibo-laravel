@@ -28,25 +28,29 @@
     <div class="card" style="max-width: 560px">
         <div class="card-body">
             <h2 class="h6">ほかの相手にまとめる</h2>
+            @if ($mergeTargets->isEmpty())
+                <p class="text-secondary mb-0">まとめ先にできる相手がありません（「使う」になっている、ほかの相手が必要です）</p>
+            @else
             <form method="POST" action="{{ route('partners.merge', $partner) }}" id="merge-form" novalidate>
                 @csrf
                 <div class="mb-3">
                     <label for="merge_target" class="form-label">まとめ先</label>
                     {{-- 打つと候補が出る（自分と「使わない」相手は出ない） --}}
                     <input type="text" id="merge_target" name="merge_target" list="merge-targets" value="{{ old('merge_target') }}"
-                        class="form-control @error('merge_target') is-invalid @enderror" autocomplete="off" required>
+                        class="form-control @error('merge_target') is-invalid @enderror" autocomplete="off" required aria-describedby="merge_target-error">
                     <datalist id="merge-targets">
                         @foreach ($mergeTargets as $name)
                             <option value="{{ $name }}"></option>
                         @endforeach
                     </datalist>
-                    <div class="invalid-feedback" data-merge-error>
+                    <div class="invalid-feedback" id="merge_target-error">
                         @error('merge_target'){{ $message }}@else まとめ先は、出てくる相手から選んでください。@enderror
                     </div>
                 </div>
                 {{-- 押すと、まとめ先が候補にあるかを確かめてから、確認の小窓を出す（resources/js/app.js） --}}
                 <button type="button" class="btn btn-outline-primary" data-merge-open>まとめる</button>
             </form>
+            @endif
         </div>
     </div>
 
@@ -60,7 +64,7 @@
                     </p>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" form="merge-form" class="btn btn-primary">まとめる</button>
+                    <button type="submit" form="merge-form" class="btn btn-primary" data-merge-confirm>まとめる</button>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">やめる</button>
                 </div>
             </div>

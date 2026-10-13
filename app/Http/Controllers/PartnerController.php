@@ -97,7 +97,17 @@ class PartnerController extends Controller
         ]);
 
         $target = Partner::query()->where('name', $request->string('merge_target')->toString())->firstOrFail();
-        $partner->mergeInto($target);
+
+        // 確かめたあとに、まとめ先を「使わない」にした・記録が足された、などで、まとめられなかったときは、もう一度選んでもらう
+        try {
+            $merged = $partner->mergeInto($target);
+        } catch (QueryException) {
+            $merged = false;
+        }
+
+        if (! $merged) {
+            return back()->withInput()->withErrors(['merge_target' => 'まとめられませんでした。画面を読みこみ直してから、もう一度まとめてください']);
+        }
 
         return to_route('partners.index')->with('status', 'まとめました');
     }

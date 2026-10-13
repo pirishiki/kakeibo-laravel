@@ -144,7 +144,57 @@ class PartnerManageTest extends TestCase
         foreach (['コンビ二', '旧ジム', 'ないお店', ''] as $name) {
             $this->post("/partners/{$partner->id}/merge", ['merge_target' => $name])->assertSessionHasErrors('merge_target');
         }
+        $this->post("/partners/{$partner->id}/merge", ['merge_target' => 'ないお店'])
+            ->assertSessionHasErrors(['merge_target' => 'まとめ先は、出てくる相手から選んでください。']);
         $this->assertModelExists($partner);
+    }
+
+    public function test_確かめたあとでまとめ先が使わないになっていたらまとめない(): void
+    {
+        $typo = Partner::factory()->create(['name' => 'コンビ二']);
+        $right = Partner::factory()->create(['name' => 'コンビニ']);
+        $this->useOn($typo, '2026-10-02');
+
+        // 別の画面で、まとめ先を「使わない」にしたあと
+        Partner::query()->whereKey($right->id)->update(['is_active' => false]);
+
+        $this->assertFalse($typo->mergeInto($right));
+        $this->assertModelExists($typo);
+        $this->assertSame(1, $typo->records()->count());
+    }
+
+    public function test_全角と半角の英数字は同じ名前として扱う(): void
+    {
+        Partner::factory()->create(['name' => 'ABストア']);
+
+        $this->post('/partners', ['name' => 'ＡＢストア'])->assertSessionHasErrors('name');
+
+        // まとめ先も、全角で打っても半角の相手が見つかる
+        $typo = Partner::factory()->create(['name' => 'ABすとあ']);
+        $this->post("/partners/{$typo->id}/merge", ['merge_target' => 'ＡＢストア'])->assertSessionHasNoErrors();
+        $this->assertModelMissing($typo);
+    }
+
+    public function test_名前を変えずに保存できる(): void
+    {
+        $partner = Partner::factory()->create(['name' => 'コンビニ']);
+
+        $this->put("/partners/{$partner->id}", ['name' => 'コンビニ', 'is_active' => '1'])->assertSessionHasNoErrors();
+    }
+
+    public function test_まとめ先にできる相手がないときはその文を出す(): void
+    {
+        Partner::query()->delete();
+        $only = Partner::factory()->create(['name' => 'コンビニ']);
+
+        $this->get("/partners/{$only->id}/edit")->assertSee('まとめ先にできる相手がありません')->assertDontSee('id="merge-form"', false);
+    }
+
+    public function test_相手がないときは案内を出す(): void
+    {
+        Partner::query()->delete();
+
+        $this->get('/partners')->assertSee('まだ相手がありません')->assertSee('＋ 相手を追加');
     }
 
     public function test_記録がない相手は確認の小窓のあと削除できる(): void

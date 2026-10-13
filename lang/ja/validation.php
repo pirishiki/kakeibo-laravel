@@ -26,6 +26,9 @@ return [
         'initial_balance' => [
             'between' => '最初の残高は -99,999,999〜99,999,999 円で入れてください。',
         ],
+        'merge_target' => [
+            'exists' => 'まとめ先は、出てくる相手から選んでください。',
+        ],
     ],
 
     // 欄の名前（:attribute に入る）

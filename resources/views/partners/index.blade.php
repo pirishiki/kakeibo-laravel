@@ -14,6 +14,11 @@
     </div>
 
     <div id="partner-lists" style="max-width: 560px">
+        @if ($used->isEmpty() && $unused->isEmpty() && $inactive->isEmpty())
+            {{-- 相手がまだないときは、空白にせず次にすることを出す（4 章の 6） --}}
+            <p>まだ相手がありません。よく行くお店などを追加しましょう</p>
+        @endif
+
         @if ($used->isNotEmpty())
             <div class="list-group mb-3" data-filter-group>
                 @foreach ($used as $partner)
@@ -33,7 +38,7 @@
             </section>
         @endif
 
-        <p class="text-secondary" data-filter-empty hidden>打った文字をふくむ相手はありません</p>
+        <p class="text-secondary" data-filter-empty role="status" hidden>打った文字をふくむ相手はありません</p>
 
         <a href="{{ route('partners.create') }}" class="btn btn-primary mb-4">＋ 相手を追加</a>
 
