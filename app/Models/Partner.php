@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\CarbonImmutable;
 use Database\Factories\PartnerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -57,11 +58,12 @@ class Partner extends Model
      * - unused：まだ使っていない相手を、追加した順
      * - inactive：「使わない」相手を、最近使った順
      *
+     * @param  Builder<Partner>|null  $query  しぼりこんだ相手だけで分けるとき（記録の登録の相手の候補など）
      * @return array{used: Collection<int, Partner>, unused: Collection<int, Partner>, inactive: Collection<int, Partner>}
      */
-    public static function listGroups(): array
+    public static function listGroups(?Builder $query = null): array
     {
-        $partners = self::query()->withMax('records', 'date')->orderBy('id')->get();
+        $partners = ($query ?? self::query())->withMax('records', 'date')->orderBy('id')->get();
         $recent = fn (Collection $group) => $group->sortByDesc('records_max_date', SORT_STRING)->values();
         [$active, $inactive] = $partners->partition(fn (Partner $p) => $p->is_active);
 
