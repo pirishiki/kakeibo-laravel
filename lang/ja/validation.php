@@ -5,8 +5,11 @@
 
 return [
 
+    'boolean' => ':attributeは、チェックをつけるか外すかで選んでください。',
     'confirmed' => ':attributeが 2 回目と合っていません。',
     'email' => ':attributeの形がちがいます。',
+    'enum' => ':attributeは、出ている中から選んでください。',
+    'integer' => ':attributeは、小数のない数で入れてください。',
     'max' => [
         'string' => ':attributeは :max 文字以内で入れてください。',
     ],
@@ -17,11 +20,21 @@ return [
     'string' => ':attributeは文字で入れてください。',
     'unique' => 'この:attributeは、もう使われています。',
 
+    // 欄ごとに文を変えるもの（金額は、けたが読みやすいようにカンマをつけて書く）
+    'custom' => [
+        'initial_balance' => [
+            'between' => '最初の残高は -99,999,999〜99,999,999 円で入れてください。',
+        ],
+    ],
+
     // 欄の名前（:attribute に入る）
     'attributes' => [
         'email' => 'メールアドレス',
+        'initial_balance' => '最初の残高',
+        'is_active' => '使う',
         'name' => '名前',
         'password' => 'パスワード',
+        'type' => '種類',
     ],
 
 ];
