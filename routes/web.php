@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PartnerController;
+use App\Http\Controllers\RecordController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 
@@ -32,6 +33,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('partners', PartnerController::class)->except(['show']);
     Route::patch('/partners/{partner}/deactivate', [PartnerController::class, 'deactivate'])->name('partners.deactivate');
     Route::post('/partners/{partner}/merge', [PartnerController::class, 'merge'])->name('partners.merge');
+
+    // 記録の一覧（画面設計書 5.3）。見る月は ?month=2026-09 のように URL のうしろにつける
+    Route::get('/records', [RecordController::class, 'index'])->name('records.index');
 
     // 記録の登録（画面設計書 5.4）。入力欄は Livewire の部品なので、画面を出すだけでよい
     Route::view('/records/create', 'records.create')->name('records.create');
