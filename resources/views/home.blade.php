@@ -10,5 +10,6 @@
     <ul>
         <li><a href="{{ route('accounts.index') }}">口座の管理</a></li>
         <li><a href="{{ route('categories.index') }}">分類の管理</a></li>
+        <li><a href="{{ route('partners.index') }}">相手の管理</a></li>
     </ul>
 @endsection
