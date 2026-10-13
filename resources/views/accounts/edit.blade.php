@@ -7,7 +7,7 @@
     <h1 class="h4 mb-3">口座を直す</h1>
 
     @error('delete')
-        <div class="alert alert-danger" style="max-width: 560px">{{ $message }}</div>
+        <div class="alert alert-danger" role="alert" style="max-width: 560px">{{ $message }}</div>
     @enderror
 
     <div class="card" style="max-width: 560px">
@@ -26,7 +26,7 @@
     </div>
 
     {{-- 削除の小窓。記録があるかどうか、「使わない」にできるかどうかで、出す文とボタンを変える --}}
-    <div class="modal fade" id="delete-dialog" tabindex="-1" aria-labelledby="delete-dialog-title" aria-hidden="true">
+    <div class="modal fade" id="delete-dialog" tabindex="-1" aria-labelledby="delete-dialog-title" @if ($hasRecords && $blocker !== null) aria-describedby="delete-dialog-reason" @endif aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-body">
@@ -38,7 +38,7 @@
                         <p id="delete-dialog-title" class="mb-0">記録があるので削除できません。『使わない』にしますか？</p>
                     @else
                         <p id="delete-dialog-title">記録があるので削除できません。</p>
-                        <p class="mb-0">{{ $blocker }}（「残高を合わせる」は準備中）</p>
+                        <p id="delete-dialog-reason" class="mb-0">{{ $blocker }}（「残高を合わせる」は準備中）</p>
                     @endif
                 </div>
                 <div class="modal-footer">

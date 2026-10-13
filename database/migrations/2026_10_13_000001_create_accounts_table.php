@@ -14,7 +14,9 @@ return new class extends Migration
     {
         Schema::create('accounts', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 50)->unique();
+            // 名前の同じ・ちがうは、日本語用の決まり（照合順序）で決める。濁点（ハハ／パパ）・ひらがなとカタカナ・大文字と小文字は別の名前、
+            // 全角と半角の英数字（ＡＢ／AB）は同じ名前（データベース設計書 1 章）
+            $table->string('name', 50)->collation('utf8mb4_ja_0900_as_cs_ks')->unique();
             $table->string('type', 20);
             $table->integer('initial_balance');
             $table->string('reserve_type', 20)->default('none');

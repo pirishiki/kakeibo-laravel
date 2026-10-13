@@ -155,4 +155,18 @@ class AccountManageTest extends TestCase
         $this->assertSame('みずほ', $bank->name);
         $this->assertSame(350_000, $bank->initial_balance);
     }
+
+    public function test_濁点やひらがなとカタカナがちがえば別の名前としてつけられる(): void
+    {
+        $this->post('/accounts', $this->form(['name' => 'ハハ']))->assertSessionHasNoErrors();
+        $this->post('/accounts', $this->form(['name' => 'パパ']))->assertSessionHasNoErrors();
+        $this->post('/accounts', $this->form(['name' => 'ゆうちょ']))->assertSessionHasNoErrors();
+        $this->post('/accounts', $this->form(['name' => 'ユウチョ']))->assertSessionHasNoErrors();
+
+        // 全角と半角の英数字は同じ名前として扱う
+        $this->post('/accounts', $this->form(['name' => 'ＡＢ銀行']))->assertSessionHasNoErrors();
+        $this->post('/accounts', $this->form(['name' => 'AB銀行']))->assertSessionHasErrors('name');
+
+        $this->assertDatabaseCount('accounts', 5);
+    }
 }

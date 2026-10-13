@@ -160,4 +160,50 @@ class AccountDeactivateTest extends TestCase
         $this->put("/accounts/{$cash->id}", $this->form($cash, false))->assertRedirect('/accounts')->assertSessionHasNoErrors();
         $this->assertFalse($cash->refresh()->is_active);
     }
+
+    public function test_使わない口座の最初の残高を0円でない額に直すことはできない(): void
+    {
+        $old = Account::factory()->create(['name' => '旧カード', 'is_active' => false]);
+
+        $this->put("/accounts/{$old->id}", ['initial_balance' => '5000'] + $this->form($old, false))
+            ->assertSessionHasErrors(['is_active' => '残高が 5,000 円あるので『使わない』にできません。お金をほかの口座へ移す記録をつけるか、残高を合わせて 0 円にしてください']);
+        $this->assertSame(0, $old->refresh()->initial_balance);
+
+        // 「使う」に戻すのと同時なら直せる
+        $this->put("/accounts/{$old->id}", ['initial_balance' => '5000'] + $this->form($old, true))->assertSessionHasNoErrors();
+        $this->assertSame(5_000, $old->refresh()->initial_balance);
+    }
+
+    public function test_使わないにできないときは小窓に理由と閉じるだけが出る(): void
+    {
+        $cash = $this->cash(1_000);
+        $this->spend($cash, 300);
+
+        $this->get("/accounts/{$cash->id}/edit")
+            ->assertSee('記録があるので削除できません。')
+            ->assertSee('残高が 700 円あるので『使わない』にできません')
+            ->assertSee('閉じる')
+            ->assertDontSee('「使わない」にする')
+            ->assertDontSee('削除する');
+    }
+
+    public function test_記録がある使わない口座で削除を押すと_もう使わないになっていると出る(): void
+    {
+        $cash = $this->cash(1_000);
+        $this->spend($cash, 1_000);
+        $cash->update(['is_active' => false]);
+
+        $this->get("/accounts/{$cash->id}/edit")
+            ->assertSee('この口座は、もう「使わない」になっています。')
+            ->assertDontSee('「使わない」にする');
+    }
+
+    public function test_先の日付の記録があるときは今日の残高が0円でなくても先の日付の文を出す(): void
+    {
+        $cash = $this->cash(3_000);
+        $this->spend($cash, 3_000, today()->addDays(2)->toDateString());
+
+        $this->put("/accounts/{$cash->id}", $this->form($cash, false))
+            ->assertSessionHasErrors(['is_active' => '先の日付の記録で残高が変わるので、『使わない』にできません']);
+    }
 }

@@ -29,6 +29,7 @@
         <input type="number" id="initial_balance" name="initial_balance" step="1"
             value="{{ old('initial_balance', $account->initial_balance) }}"
             class="form-control text-end @error('initial_balance') is-invalid @enderror"
+            aria-describedby="initial_balance-help"
             @disabled($hasRecords) required>
         <span class="input-group-text">円</span>
         @error('initial_balance')
@@ -37,9 +38,9 @@
     </div>
     @if ($hasRecords)
         {{-- 「残高を合わせる」（5.7）の画面ができたら、ここをリンクにする --}}
-        <div class="form-text">記録があるので変えられません。今の残高を直すときは「残高を合わせる」を使います（準備中）</div>
+        <div id="initial_balance-help" class="form-text">記録があるので変えられません。今の残高を直すときは「残高を合わせる」を使います（準備中）</div>
     @else
-        <div class="form-text">使い始める日の金額。クレジットカードで、まだ払っていない分があるときはマイナスで入れます</div>
+        <div id="initial_balance-help" class="form-text">使い始める日の金額。クレジットカードで、まだ払っていない分があるときはマイナスで入れます</div>
     @endif
 </div>
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AccountRequest;
 use App\Models\Account;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -30,7 +31,11 @@ class AccountController extends Controller
 
     public function store(AccountRequest $request): RedirectResponse
     {
-        Account::create($request->validated());
+        try {
+            Account::create($request->validated());
+        } catch (UniqueConstraintViolationException) {
+            return $this->nameTaken();
+        }
 
         return to_route('accounts.index')->with('status', '保存しました');
     }
@@ -47,7 +52,11 @@ class AccountController extends Controller
 
     public function update(AccountRequest $request, Account $account): RedirectResponse
     {
-        $account->update($request->validated());
+        try {
+            $account->update($request->validated());
+        } catch (UniqueConstraintViolationException) {
+            return $this->nameTaken();
+        }
 
         return to_route('accounts.index')->with('status', '保存しました');
     }
@@ -76,5 +85,14 @@ class AccountController extends Controller
         $account->update(['is_active' => false]);
 
         return to_route('accounts.index')->with('status', '「使わない」にしました');
+    }
+
+    /**
+     * 入力チェックのあと、保存までのあいだに同じ名前の口座ができていたとき（保存を 2 回押したときなど）。
+     * データベースの「同じ名前は 1 つだけ」の決まりで止まるので、名前のまちがいとして画面に戻す
+     */
+    private function nameTaken(): RedirectResponse
+    {
+        return back()->withInput()->withErrors(['name' => __('validation.unique', ['attribute' => __('validation.attributes.name')])]);
     }
 }

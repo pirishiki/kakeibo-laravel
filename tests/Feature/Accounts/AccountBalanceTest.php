@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use App\Enums\RecordType;
 use App\Models\Account;
 use App\Models\Record;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -113,5 +114,15 @@ class AccountBalanceTest extends TestCase
 
         $this->expectException(QueryException::class);
         $cash->delete();
+    }
+
+    public function test_日付は日本時間で数えるので夜中の0時すぎもその日の記録が入る(): void
+    {
+        // 日本時間 10月14日 0時30分 ＝ 世界の標準時（UTC）では まだ 10月13日
+        $this->travelTo(CarbonImmutable::parse('2026-10-14 00:30', 'Asia/Tokyo'));
+        $cash = Account::factory()->create(['type' => AccountType::Cash, 'initial_balance' => 10_000]);
+        $this->record(RecordType::Expense, 1_000, $cash, date: '2026-10-14');
+
+        $this->assertSame(9_000, $cash->balance());
     }
 }

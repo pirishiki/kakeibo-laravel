@@ -45,7 +45,7 @@ class AccountRequest extends FormRequest
     }
 
     /**
-     * ほかの欄のチェックが通ったあとに、「使う」を外せるかを確かめる
+     * ほかの欄のチェックが通ったあとに、「使わない」にしてよいかを確かめる
      *
      * @return array<int, callable(Validator): void>
      */
@@ -56,7 +56,8 @@ class AccountRequest extends FormRequest
                 /** @var Account|null $account */
                 $account = $this->route('account');
 
-                if ($account === null || ! $account->is_active || $this->boolean('is_active') || $validator->errors()->isNotEmpty()) {
+                // 「使わない」のまま最初の残高を直すときも確かめる（「使わない」口座は、いつも 0 円にしておくため）
+                if ($account === null || $this->boolean('is_active') || $validator->errors()->isNotEmpty()) {
                     return;
                 }
 

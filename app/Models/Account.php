@@ -78,12 +78,7 @@ class Account extends Model
      */
     public function deactivationBlocker(?int $initialBalance = null): ?string
     {
-        $balance = $this->balance() - $this->initial_balance + ($initialBalance ?? $this->initial_balance);
-
-        if ($balance !== 0) {
-            return '残高が '.number_format($balance).' 円あるので『使わない』にできません。お金をほかの口座へ移す記録をつけるか、残高を合わせて 0 円にしてください';
-        }
-
+        // 先の日付の記録があるときは、先にこちらを伝える（今日の残高の文だと、もう記録してある移動を「つけて」と言ってしまうため）
         $hasFutureRecords = Record::query()
             ->where(fn ($q) => $q->where('account_id', $this->id)->orWhere('to_account_id', $this->id))
             ->where('date', '>', today()->toDateString())
@@ -91,6 +86,12 @@ class Account extends Model
 
         if ($hasFutureRecords) {
             return '先の日付の記録で残高が変わるので、『使わない』にできません';
+        }
+
+        $balance = $this->balance() - $this->initial_balance + ($initialBalance ?? $this->initial_balance);
+
+        if ($balance !== 0) {
+            return '残高が '.number_format($balance).' 円あるので『使わない』にできません。お金をほかの口座へ移す記録をつけるか、残高を合わせて 0 円にしてください';
         }
 
         return null;
