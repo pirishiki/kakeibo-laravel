@@ -36,6 +36,8 @@ Route::middleware('auth')->group(function () {
 
     // 記録の一覧（画面設計書 5.3）。見る月は ?month=2026-09 のように URL のうしろにつける
     Route::get('/records', [RecordController::class, 'index'])->name('records.index');
+    // 記録の編集・削除（画面設計書 5.4）。{record} の番号から、その記録を Laravel が探して渡す（ない番号なら 404）
+    Route::get('/records/{record}/edit', [RecordController::class, 'edit'])->name('records.edit');
 
     // 記録の登録（画面設計書 5.4）。入力欄は Livewire の部品なので、画面を出すだけでよい
     Route::view('/records/create', 'records.create')->name('records.create');

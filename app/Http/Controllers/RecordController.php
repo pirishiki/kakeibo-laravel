@@ -44,6 +44,14 @@ class RecordController extends Controller
     }
 
     /**
+     * 記録の編集（画面設計書 5.4）。入力欄と保存・削除は、登録と同じ Livewire の部品（RecordForm）
+     */
+    public function edit(Record $record): View
+    {
+        return view('records.edit', ['record' => $record]);
+    }
+
+    /**
      * ?month=2026-09 から、見る月の 1 日を出す。書いていないとき・形がちがうときは今月
      */
     private function month(mixed $value): CarbonImmutable
