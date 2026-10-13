@@ -62,3 +62,8 @@ body {
 .sortable-ghost.list-group-item {
     background: $primary-soft;
 }
+
+// 動かせない行（「使わない」分類）で、つまみのかわりに空ける幅
+.sort-handle-space {
+    flex: 0 0 32px;
+}

@@ -20,9 +20,11 @@ class CategoryController extends Controller
     public function index(): View
     {
         // 大分類を並び順に、その下に小分類を並び順に。支出用と収入用は別の四角に出す
+        // 「使わない」分類は、その段のいちばん下に出す（大分類は小分類ごと。使う分類が上にそろうように）
         $parents = Category::query()
             ->whereNull('parent_id')
-            ->with('children')
+            ->with(['children' => fn ($q) => $q->reorder()->orderByDesc('is_active')->orderBy('sort_order')])
+            ->orderByDesc('is_active')
             ->orderBy('sort_order')
             ->get()
             ->groupBy(fn (Category $category) => $category->kind->value);
@@ -80,7 +82,8 @@ class CategoryController extends Controller
         $category->fill($request->validated());
 
         // 小分類を別の大分類へ移したときは、移した先のいちばん下に入れる。過去の記録も小分類についていくので、いっしょに移る
-        if ($category->isDirty('parent_id')) {
+        // 「使う」に戻したときも、使う分類のいちばん下に入れる（好きな場所へは、つまみで動かす）
+        if ($category->isDirty('parent_id') || ($category->isDirty('is_active') && $category->is_active)) {
             $category->sort_order = (int) Category::query()->sameLevelAs($category)->max('sort_order') + 1;
         }
 

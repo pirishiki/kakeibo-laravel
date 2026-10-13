@@ -21,13 +21,13 @@
                     <div class="list-group list-group-flush" data-sortable="{{ route('categories.reorder') }}">
                         @foreach ($kindParents as $parent)
                             {{-- 大分類と、その下の小分類・「＋ 小分類を追加」を 1 つのまとまりにし、大分類を動かすと小分類もいっしょに動くようにする --}}
-                            <div class="category-group" data-id="{{ $parent->id }}">
+                            <div class="category-group" data-id="{{ $parent->id }}" @unless ($parent->is_active) data-fixed @endunless>
                                 @include('categories._row', ['category' => $parent, 'muted' => ! $parent->is_active])
                                 {{-- 小分類どうしは、同じ大分類の中だけで並べかえられる --}}
                                 <div class="list-group list-group-flush" data-sortable="{{ route('categories.reorder') }}">
                                     @foreach ($parent->children as $child)
                                         {{-- 大分類が「使わない」なら、その下の小分類も選べないので、薄い字にする --}}
-                                        <div data-id="{{ $child->id }}">
+                                        <div data-id="{{ $child->id }}" @if (! $child->is_active || ! $parent->is_active) data-fixed @endif>
                                             @include('categories._row', ['category' => $child, 'muted' => ! $child->is_active || ! $parent->is_active])
                                         </div>
                                     @endforeach

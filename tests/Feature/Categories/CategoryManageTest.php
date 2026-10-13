@@ -246,17 +246,38 @@ class CategoryManageTest extends TestCase
         $this->assertFalse($food->refresh()->is_active);
     }
 
-    public function test_使わない分類は一覧のその場で薄い字になり_使うに戻せる(): void
+    public function test_使わない大分類は小分類ごとその用のいちばん下に出て_使うに戻すと使う分類のいちばん下に入る(): void
     {
         $food = $this->find('食費');
         Category::factory()->childOf($food)->create(['name' => '外食']);
 
         $this->put("/categories/{$food->id}", ['name' => '食費', 'is_active' => '0'])->assertSessionHasNoErrors();
         $this->assertFalse($food->refresh()->is_active);
-        // 下へまとめず、その場に出す
-        $this->get('/categories')->assertSeeInOrder(['食費', '（使わない）', '外食', '日用品']);
+        $this->get('/categories')->assertSeeInOrder(['支出の分類', '日用品', '税金・社会保険', 'その他', '食費', '（使わない）', '外食', '収入の分類']);
 
         $this->put("/categories/{$food->id}", ['name' => '食費', 'is_active' => '1']);
         $this->assertTrue($food->refresh()->is_active);
+        $this->assertSame('食費', last($this->namesInOrder(CategoryKind::Expense)));
+    }
+
+    public function test_使わない小分類はその大分類の中のいちばん下に出る(): void
+    {
+        $car = $this->find('自動車');
+        $wash = Category::factory()->childOf($car)->create(['name' => '洗車']);
+        Category::factory()->childOf($car)->create(['name' => 'ガソリン']);
+
+        $this->put("/categories/{$wash->id}", ['name' => '洗車', 'parent_id' => $car->id, 'is_active' => '0'])->assertSessionHasNoErrors();
+
+        $this->get('/categories')->assertSeeInOrder(['自動車', 'ガソリン', '洗車', '（使わない）', 'ローン']);
+    }
+
+    public function test_使わない分類にはつまみが出ない(): void
+    {
+        $food = $this->find('食費');
+        $food->update(['is_active' => false]);
+
+        $this->get('/categories')
+            ->assertDontSee('aria-label="食費をつかんで動かす"', false)
+            ->assertSee('aria-label="日用品をつかんで動かす"', false);
     }
 }

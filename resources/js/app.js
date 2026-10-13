@@ -19,10 +19,12 @@ document.querySelectorAll('[data-show-when-changed]').forEach((note) => {
 
 // つまみ（.sort-handle）を押さえたまま動かすと並べかえられる一覧。data-sortable に、並べた順番の送り先を書く
 // 動かせるのは、その一覧のすぐ下の data-id のついたものだけ（大分類どうし・同じ大分類の中の小分類どうし）
+// data-fixed のついたもの（「使わない」分類）は、いつも下に置くので、動かせず、そのあいだや下にも置けない
 document.querySelectorAll('[data-sortable]').forEach((list) => {
     Sortable.create(list, {
         handle: '.sort-handle',
-        draggable: '[data-id]',
+        draggable: '[data-id]:not([data-fixed])',
+        onMove: (event) => !event.related.hasAttribute('data-fixed'),
         animation: 150,
         onEnd: async (event) => {
             if (event.oldIndex === event.newIndex) {
