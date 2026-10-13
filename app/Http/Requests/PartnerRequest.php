@@ -12,6 +12,14 @@ use Illuminate\Validation\Rules\Unique;
  */
 class PartnerRequest extends FormRequest
 {
+    /** 確かめる前に、名前の形をそろえる（Partner::normalizeName） */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('name'))) {
+            $this->merge(['name' => Partner::normalizeName($this->input('name'))]);
+        }
+    }
+
     /**
      * @return array<string, array<int, string|Unique>>
      */

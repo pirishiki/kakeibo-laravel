@@ -90,6 +90,10 @@ class PartnerController extends Controller
      */
     public function merge(Request $request, Partner $partner): RedirectResponse
     {
+        if (is_string($request->input('merge_target'))) {
+            $request->merge(['merge_target' => Partner::normalizeName($request->input('merge_target'))]);
+        }
+
         $request->validate([
             'merge_target' => ['required', 'string', Rule::exists('partners', 'name')
                 ->where('is_active', true)
