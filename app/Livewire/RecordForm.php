@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
+use App\Support\FormInput;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,10 +31,10 @@ use Livewire\Component;
 class RecordForm extends Component
 {
     /** 金額の欄に入れられるいちばん大きい数（要件定義書 10.1） */
-    public const MAX_AMOUNT = 99_999_999;
+    public const MAX_AMOUNT = FormInput::MAX_AMOUNT;
 
     /** 記録の日付に入れられる、いちばん前の日 */
-    public const FIRST_DATE = '2000-01-01';
+    public const FIRST_DATE = FormInput::FIRST_DATE;
 
     /** 編集している記録の id。登録のときは null。画面の側から書きかえられないようにする（ほかの記録を書きかえられないように） */
     #[Locked]
@@ -76,6 +77,13 @@ class RecordForm extends Component
     public string $backUrl = '';
 
     /**
+     * 口座を変えずに記録するとき（残高を合わせる画面の「＋ つけ忘れを記録する」から開いたとき）。
+     * 相手を選んでも、口座はその口座のまま入れかえない（画面設計書 5.4・5.7）
+     */
+    #[Locked]
+    public bool $keepAccount = false;
+
+    /**
      * original() で読んだものを、1 回の通信の中だけとっておく（private なので画面には送らない）
      *
      * @var array{type: RecordType|null, accounts: list<int>, categories: list<int>, partner: Partner|null}|null
@@ -93,16 +101,18 @@ class RecordForm extends Component
 
         if ($record !== null) {
             $this->fillFrom($record);
-            $this->backUrl = $this->backUrlFrom(url()->previous());
+            // 残高を合わせる画面の最近の記録から開いたときは、URL の back（その画面の戻る先もふくむ）を先に使う
+            $this->backUrl = $this->backUrlFrom($query('back') !== '' ? $query('back') : url()->previous());
 
             return;
         }
 
         $this->type = in_array($query('type'), ['expense', 'income', 'transfer'], true) ? $query('type') : 'expense';
-        $this->date = $this->isDate($query('date')) ? $query('date') : today()->toDateString();
+        $this->date = FormInput::isDate($query('date')) ? $query('date') : today()->toDateString();
         $this->backUrl = $this->backUrlFrom($query('back') !== '' ? $query('back') : url()->previous());
 
         if (ctype_digit($query('account'))) {
+            $this->keepAccount = $query('keep_account') === '1';
             $this->accountId = $this->activeAccountId((int) $query('account'));
             $this->toAccountId = ctype_digit($query('to_account')) ? $this->activeAccountId((int) $query('to_account')) : null;
         } else {
@@ -129,7 +139,7 @@ class RecordForm extends Component
         $this->categoryId = null;
         $this->subcategoryId = null;
         $this->resetErrorBag();
-        if ($this->recordId === null) {
+        if ($this->recordId === null && ! $this->keepAccount) {
             $this->fillLastAccounts();
         }
     }
@@ -185,12 +195,14 @@ class RecordForm extends Component
         $parentActive = $parent !== null && $parent->is_active;
         $this->categoryId = $parentActive ? $parent->id : null;
         $this->subcategoryId = $parentActive && $category !== $parent && $category->is_active ? $category->id : null;
-        $this->accountId = $this->activeAccountId($latest->account_id);
+        if (! $this->keepAccount) {
+            $this->accountId = $this->activeAccountId($latest->account_id);
+        }
     }
 
     public function save(bool $continue = false): mixed
     {
-        $this->amount = $this->normalizeAmount($this->amount);
+        $this->amount = FormInput::normalizeAmount($this->amount);
         $this->partnerName = Partner::normalizeName($this->partnerName);
         $data = $this->validate($this->rules(), $this->messages(), $this->fieldNames());
 
@@ -235,6 +247,7 @@ class RecordForm extends Component
                 'date' => $this->date,
                 'account' => $this->accountId,
                 'to_account' => $this->type === 'transfer' ? $this->toAccountId : null,
+                'keep_account' => $this->keepAccount ? 1 : null,
                 'back' => $this->backUrl,
             ])));
         }
@@ -449,7 +462,7 @@ class RecordForm extends Component
     #[Computed]
     public function dateHint(): string
     {
-        if (! $this->isDate($this->date)) {
+        if (! FormInput::isDate($this->date)) {
             return '';
         }
 
@@ -623,14 +636,6 @@ class RecordForm extends Component
         return $id !== null && Account::query()->whereKey($id)->where('is_active', true)->exists() ? $id : null;
     }
 
-    /** 金額の文字を、数だけの形にそろえる：全角の数字を半角に、カンマと空白を取り、頭の 0 を取る（0100 → 100） */
-    private function normalizeAmount(string $amount): string
-    {
-        $digits = str_replace([',', '，', ' '], '', mb_convert_kana(trim($amount), 'ns'));
-
-        return preg_match('/^\d+$/', $digits) === 1 ? (ltrim($digits, '0') ?: '0') : $digits;
-    }
-
     /** 記録の日付に入れられる、いちばん先の日（今日の 1 年先） */
     private function lastDate(): CarbonImmutable
     {
@@ -642,32 +647,9 @@ class RecordForm extends Component
         return '日付は 2000年1月1日 から '.$this->lastDate()->isoFormat('YYYY年M月D日').'（今日の 1 年先）までで入れてください。';
     }
 
-    /** 「2026-10-13」の形の、ほんとうにある日付か */
-    private function isDate(string $date): bool
-    {
-        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
-
-        return $parsed !== false && $parsed->format('Y-m-d') === $date;
-    }
-
-    /**
-     * 戻る先：このアプリの中の画面で、記録の登録の画面でないときだけ。それ以外はホーム。
-     * URL の形（http・https）と場所（このアプリ）を確かめ、場所の部分だけを取り出して、このアプリの URL として組み立て直す
-     * （「javascript:」で始まる URL などで、保存したときに危ない動きをさせないため）
-     */
+    /** 戻る先：このアプリの中の画面で、記録の登録・編集の画面でないとき（保存したあとに、同じ画面へ戻ってしまわないように） */
     private function backUrlFrom(string $previous): string
     {
-        $parts = parse_url($previous);
-        $path = $parts['path'] ?? '/';
-        $isApp = $parts !== false
-            && in_array($parts['scheme'] ?? '', ['http', 'https'], true)
-            && ($parts['host'] ?? '') === request()->getHost()
-            && str_starts_with($path, '/')
-            // 「//よそのサイト」は、ブラウザがよそのサイトへの URL として読むので通さない
-            && ! str_starts_with($path, '//')
-            && ! str_starts_with($path, '/records/create')
-            && preg_match('#^/records/\d+/edit#', $path) !== 1;
-
-        return $isApp ? url($path).(isset($parts['query']) ? '?'.$parts['query'] : '') : route('home');
+        return FormInput::backUrl($previous, ['#^/records/create#', '#^/records/\d+/edit#']);
     }
 }

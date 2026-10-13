@@ -17,11 +17,18 @@
     // 品物は入れたときだけ出す
     $details = array_filter($details, fn ($text) => $text !== null && $text !== '');
 @endphp
-<a href="{{ route('records.edit', $record) }}"
+{{-- $back：直したあと・やめたあとに戻る画面（残高を合わせるの最近の記録から開くとき。その画面の戻る先も引き継ぐため） --}}
+<a href="{{ route('records.edit', isset($back) ? ['record' => $record, 'back' => $back] : $record) }}"
     @class(['list-group-item list-group-item-action d-flex align-items-center gap-2', 'text-secondary' => $record->type === RecordType::Transfer])>
     <div class="flex-grow-1" style="min-width: 0">
         <div class="d-flex justify-content-between align-items-baseline gap-3">
-            <span class="text-break">{{ $title }}</span>
+            <span class="text-break">
+                {{-- 日付の見出しがない場所（残高を合わせるの最近の記録）では、行の頭に日付を出す --}}
+                @if ($showDate ?? false)
+                    <x-date :date="$record->date" class="text-secondary me-1" />
+                @endif
+                {{ $title }}
+            </span>
             <span class="text-nowrap">
                 @switch($record->type)
                     @case(RecordType::Income)

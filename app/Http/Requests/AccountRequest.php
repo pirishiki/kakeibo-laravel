@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\AccountType;
 use App\Models\Account;
+use App\Support\FormInput;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -16,7 +17,18 @@ use Illuminate\Validation\Validator;
 class AccountRequest extends FormRequest
 {
     /** 金額の欄に入れられるいちばん大きい数（要件定義書 10.1）。最初の残高はマイナスも同じ大きさまで */
-    public const MAX_AMOUNT = 99_999_999;
+    public const MAX_AMOUNT = FormInput::MAX_AMOUNT;
+
+    /**
+     * 最初の残高は、記録の金額の欄と同じ形（文字の欄、欄を離れたらカンマ）なので、
+     * 「1,000」や全角の数字・マイナスを、チェックの前に数だけの形にそろえる
+     */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('initial_balance'))) {
+            $this->merge(['initial_balance' => FormInput::normalizeAmount($this->input('initial_balance'))]);
+        }
+    }
 
     /**
      * @return array<string, array<int, string|ValidationRule|Unique>>
