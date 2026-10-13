@@ -71,3 +71,14 @@ document.querySelectorAll('[data-sortable]').forEach((list) => {
     });
     sortables.push(sortable);
 });
+
+// 保存したあと、一覧の URL の後ろに #category-12 のような「しおり」がついていたら、その行を画面のまん中に出し、
+// 数秒だけうすい青緑で光らせる（今保存した行がすぐわかるように。画面設計書 5.8）
+const savedRow = window.location.hash ? document.getElementById(window.location.hash.slice(1)) : null;
+if (savedRow?.classList.contains('list-group-item')) {
+    savedRow.scrollIntoView({ block: 'center' });
+    savedRow.classList.add('just-saved');
+    setTimeout(() => savedRow.classList.remove('just-saved'), 3000);
+    // しおりを URL から外す（読みこみ直したときに、また光らないように）
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+}
