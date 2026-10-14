@@ -58,6 +58,31 @@ class MonthlySummary
     }
 
     /**
+     * その月の、日ごとの収入と支出の合計（ホームのカレンダー。画面設計書 5.2）。収入も支出もない日は入れない
+     * 日付と種類ごとに、データベースで足して受けとる（記録の件数ではなく、日数 × 2 行まで）
+     *
+     * @return array<string, array{income: int, expense: int}> 日付（2026-10-09）→ 収入と支出
+     */
+    public static function dailyIncomeExpense(CarbonImmutable $month): array
+    {
+        $days = [];
+
+        $rows = self::records($month)->toBase()
+            ->whereIn('type', [RecordType::Income->value, RecordType::Expense->value])
+            ->groupBy('date', 'type')
+            ->selectRaw('date, type, SUM(amount) AS total')
+            ->get();
+
+        foreach ($rows as $row) {
+            $date = substr((string) $row->date, 0, 10);
+            $days[$date] ??= ['income' => 0, 'expense' => 0];
+            $days[$date][$row->type === RecordType::Income->value ? 'income' : 'expense'] = (int) $row->total;
+        }
+
+        return $days;
+    }
+
+    /**
      * その月の、大分類ごとの合計（収入か支出のどちらか）。金額の多い順で、同じ金額なら分類の並び順。0 円の分類は入れない
      * 大分類の金額 ＝ その小分類の合計 ＋ 小分類を選ばなかった記録の合計。children の category が null の行は「小分類なし」
      * 「使わない」分類も、その月に記録があれば入れる
