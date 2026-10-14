@@ -11,7 +11,7 @@ use Tests\TestCase;
  */
 class ProductionSettingsTest extends TestCase
 {
-    public function test_本番ではLaravelが作るURLがいつもhttpsになる(): void
+    public function test_本番では_laravelが作る_ur_lがいつもhttpsになる(): void
     {
         $this->app['env'] = 'production';
         (new AppServiceProvider($this->app))->boot();
@@ -24,7 +24,7 @@ class ProductionSettingsTest extends TestCase
         $this->assertStringStartsWith('http://', route('login'));
     }
 
-    public function test_CloudFrontがつけるX_Forwarded_Forから_使っている人のIPアドレスを取る(): void
+    public function test_cloud_frontがつける_x_forwarded_forから_使っている人の_i_pアドレスを取る(): void
     {
         Route::get('/_test/ip', fn () => request()->ip());
 
