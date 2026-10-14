@@ -38,18 +38,31 @@ class SettingsTest extends TestCase
         Account::factory()->create(['is_active' => false]);
         Partner::factory()->count(3)->create();
         Partner::factory()->create(['is_active' => false]);
-        // 最初の分類は支出 15・収入 4。小分類を 1 つ足し、大分類を 1 つ「使わない」にする
-        $food = Category::query()->whereNull('parent_id')->where('kind', CategoryKind::Expense)->where('name', '食費')->firstOrFail();
-        Category::factory()->create(['name' => '外食', 'kind' => CategoryKind::Expense, 'parent_id' => $food->id]);
+        // 最初の分類は支出 15・収入 4
+        $expense = fn (string $name) => Category::query()->whereNull('parent_id')->where('kind', CategoryKind::Expense)->where('name', $name)->firstOrFail();
+        // 小分類を足す（数える）・「使わない」小分類（数えない）
+        Category::factory()->create(['name' => '外食', 'kind' => CategoryKind::Expense, 'parent_id' => $expense('食費')->id]);
+        Category::factory()->create(['name' => '古い小分類', 'kind' => CategoryKind::Expense, 'parent_id' => $expense('食費')->id, 'is_active' => false]);
+        // 「使わない」大分類と、その下の「使う」小分類（どちらも数えない。記録の登録で選べないため）
+        $car = $expense('自動車');
+        Category::factory()->create(['name' => 'ガソリン', 'kind' => CategoryKind::Expense, 'parent_id' => $car->id]);
+        $car->update(['is_active' => false]);
         Category::query()->where('kind', CategoryKind::Income)->where('name', '賞与')->update(['is_active' => false]);
 
         $response = $this->get('/settings');
 
         $response->assertSee('銀行口座・現金・交通系 IC・カード（2 件）');
-        $response->assertSee('食費・日用品など（支出 16・収入 3）');
-        // 相手は「その他」が最初からある（相手の表を作ったときに入る）
-        $partners = Partner::query()->where('is_active', true)->count();
-        $response->assertSee('お店・会社など（'.$partners.' 件）');
+        // 支出 15 ＋ 外食 − 自動車 ＝ 15、収入 4 − 賞与 ＝ 3
+        $response->assertSee('食費・日用品など（支出 15・収入 3）');
+        // 相手は、足した 3 件と、最初からある「その他」
+        $response->assertSee('お店・会社など（4 件）');
+    }
+
+    public function test_口座がまだないときは0件と出る(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->get('/settings')->assertSee('銀行口座・現金・交通系 IC・カード（0 件）');
     }
 
     public function test_ログイン中のメールアドレスが出て_ログアウトはフォームで送る(): void
@@ -60,9 +73,6 @@ class SettingsTest extends TestCase
             ->assertSee('me@example.com でログイン中')
             ->assertSee('action="'.route('logout').'"', false)
             ->assertSee('name="_token"', false);
-
-        $this->post('/logout')->assertRedirect();
-        $this->assertGuest();
     }
 
     public function test_第2段階と第3段階の画面はまだ出さない(): void

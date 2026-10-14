@@ -27,7 +27,7 @@
         ])
     </div>
 
-    {{-- 設定の中にログアウトがあると思う人が多いため、画面の上に加えてここにも置く。
+    {{-- 設定の中にログアウトがあると思う人が多いため、画面の上に加えてここにも置く（設計書ではスマホのときだけ。パソコンの左メニューを作るときに見直す）。
          ログアウトは状態を変える操作なので、リンクではなく、合言葉（@csrf）つきのフォームで送る --}}
     <h2 class="h6 text-secondary">ログイン</h2>
     <form method="POST" action="{{ route('logout') }}" class="list-group">
@@ -35,7 +35,7 @@
         <button type="submit" class="list-group-item list-group-item-action d-flex align-items-center gap-2 text-start">
             <span class="flex-grow-1 min-w-0">
                 <span class="d-block">ログアウト</span>
-                <span class="d-block small text-secondary text-truncate">{{ auth()->user()->email }} でログイン中</span>
+                <span class="d-block small text-secondary text-break">{{ auth()->user()->email }} でログイン中</span>
             </span>
             <span class="text-secondary" aria-hidden="true">›</span>
         </button>
