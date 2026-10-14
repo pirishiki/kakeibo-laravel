@@ -1,0 +1,12 @@
+# 毎分、kakeibo-schedule.service（Laravel のスケジューラー）を起こす目覚まし（全体構成設計書 5 章）。
+# EC2 の OS の時計は UTC のままでよい（毎分起こすだけで、「0:05」は Laravel が日本時間で決める）
+[Unit]
+Description=Run Laravel scheduler every minute (kakeibo)
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+# 最初の設定では最大 1 分ずれることがあり、0:05 に起こすはずが 0:06 になると、その日の 0:05 の処理が動かないため 1 秒にする
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

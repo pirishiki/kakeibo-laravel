@@ -23,7 +23,7 @@ return new class extends Migration
             $table->unsignedBigInteger('parent_key')->storedAs('coalesce(parent_id, 0)');
             $table->unsignedInteger('sort_order');
             $table->boolean('is_active')->default(true);
-            $table->timestamps();
+            $table->datetimes();
 
             // 同じ段（同じ用の大分類どうし、同じ大分類の中の小分類どうし）で同じ名前はつけられない（画面設計書 5.8）
             $table->unique(['kind', 'parent_key', 'name']);
