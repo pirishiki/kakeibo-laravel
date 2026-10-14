@@ -1,0 +1,12 @@
+# Laravel のスケジューラーを 1 回動かす（全体構成設計書 5 章）。kakeibo-schedule.timer が毎分起こす。
+# 「何時に何をするか」は、Laravel の予定表（routes/console.php）にだけ書く。
+# アプリを動かす利用者 kakeibo で動かす（root で動かすと、ログなどのファイルが root の持ち物になり、アプリから書けなくなるため）
+[Unit]
+Description=Laravel scheduler (kakeibo)
+
+[Service]
+Type=oneshot
+User=kakeibo
+Group=kakeibo
+WorkingDirectory=/var/www/kakeibo
+ExecStart=/usr/bin/php /var/www/kakeibo/artisan schedule:run --no-interaction

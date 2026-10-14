@@ -1,0 +1,49 @@
+#!/bin/bash
+# EC2 が最初に起きたときに 1 回だけ動く準備（全体構成設計書 6.2）。Terraform が $${db_host} のようなところを埋めてから渡す。
+# PHP・nginx・Node.js・Composer を入れ、アプリの利用者と設定ファイルを作り、リポジトリを取ってくる。
+# アプリを動かすところ（部品をそろえる・.env・データベースの表・nginx の設定・定期実行のタイマー）は、scripts/deploy.sh がする。
+# 動いた記録は /var/log/cloud-init-output.log に残る
+set -euxo pipefail
+
+# 1. swap 2GB（メモリ 1GB では、Composer と画面のファイルのビルドで足りなくなることがあるため）
+dd if=/dev/zero of=/swapfile bs=1M count=2048
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+
+# 2. 部品：PHP 8.5（手元と同じ。Laravel が使う拡張だけ）・nginx・Node.js 24（画面のファイルのビルド用。手元と同じ）・git・jq
+dnf install -y php8.5-cli php8.5-fpm php8.5-mysqlnd php8.5-mbstring php8.5-xml nginx nodejs24 nodejs24-npm git jq
+alternatives --set node /usr/bin/node-24
+
+# 3. Composer（PHP の部品を入れる道具）。配り元の署名と照らしてから入れる
+EXPECTED="$(curl -fsSL https://composer.github.io/installer.sig)"
+curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php
+ACTUAL="$(php -r "echo hash_file('sha384', '/tmp/composer-setup.php');")"
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+    echo "Composer の配り元の署名が合いません" >&2
+    exit 1
+fi
+php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+rm /tmp/composer-setup.php
+
+# 4. アプリを動かす利用者 kakeibo（ログインはできない）。PHP-FPM・定期実行・デプロイのコマンドは、この利用者で動かす
+useradd --system --create-home --home-dir /var/lib/kakeibo --shell /sbin/nologin kakeibo
+
+# 5. デプロイ用のスクリプトが読む設定（RDS の住所・金庫の場所。秘密ではない）。root と kakeibo だけが読める
+install -d -m 750 -g kakeibo /etc/kakeibo
+cat > /etc/kakeibo/deploy.env <<ENV
+DB_HOST=${db_host}
+DB_PORT=${db_port}
+DB_DATABASE=${db_name}
+DB_SECRET_ARN=${db_secret_arn}
+AWS_REGION=ap-southeast-2
+ENV
+chown root:kakeibo /etc/kakeibo/deploy.env
+chmod 640 /etc/kakeibo/deploy.env
+
+# 6. アプリのコード：GitHub から master を取ってくる（2 回目からは、scripts/deploy.sh が新しくする）
+install -d -m 755 -o kakeibo -g kakeibo /var/www/kakeibo
+sudo -u kakeibo git clone --branch master "${repository_url}" /var/www/kakeibo
+
+echo "準備ができました。Session Manager で入り、sudo bash /var/www/kakeibo/scripts/deploy.sh <アプリのアドレス> を動かしてください"
