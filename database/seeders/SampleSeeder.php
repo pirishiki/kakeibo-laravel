@@ -5,17 +5,19 @@ namespace Database\Seeders;
 use App\Enums\AccountType;
 use App\Enums\CategoryKind;
 use App\Enums\RecordType;
+use App\Enums\RecurringShift;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
+use App\Models\Recurring;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
  * 手元で画面を確かめるための、ためしのデータ（php artisan db:seed --class=SampleSeeder）。
- * 口座（「使わない」口座もふくむ）・小分類・相手と、今月・先月の記録（支出・収入・移動・調整）を入れる。
+ * 口座（「使わない」口座もふくむ）・小分類・相手と、今月・先月の記録（支出・収入・移動・調整）、定期的な記録を入れる。
  * 本番では動かさない。口座か記録がもう入っているときも、本物のデータとまざらないように入れずに止める
  */
 class SampleSeeder extends Seeder
@@ -78,11 +80,47 @@ class SampleSeeder extends Seeder
                 ]);
             }
 
+            // 定期的な記録（画面設計書 5.10）：金額が変わる収入・決まった金額の支出・選んだ月だけ・移動・終わったもの・「使わない」もの
+            // 最初の月は、登録の画面と同じく、記録する日がまだ来ていない月にする（過ぎた月を「今回はなし」にしなくて済むように）
+            // 口座はみずほ銀行。$values で、毎月でないもの・金額が変わるもの・移動の「どこへ」・分類・相手・最後の月・「使わない」を変える
+            $recurring = function (string $name, RecordType $type, int $day, RecurringShift $shift, int $amount, array $values = []) use ($bank, $today) {
+                $values += ['months' => null, 'is_fixed' => true, 'to_account_id' => null, 'category_id' => null, 'partner' => null, 'end_month' => null, 'is_active' => true];
+                $end = $values['end_month'];
+                Recurring::create([
+                    'name' => $name,
+                    'type' => $type,
+                    'day' => $day,
+                    'shift' => $shift,
+                    'months' => $values['months'],
+                    'is_fixed' => $values['is_fixed'],
+                    'amount' => $values['is_fixed'] ? $amount : null,
+                    'estimated_amount' => $values['is_fixed'] ? null : $amount,
+                    'account_id' => $bank->id,
+                    'to_account_id' => $values['to_account_id'],
+                    'category_id' => $values['category_id'],
+                    'partner_id' => $values['partner'] === null ? null : $this->use(Partner::firstOrCreate(['name' => $values['partner']]))->id,
+                    // 終わったものは、最後の月の 1 年前から
+                    'start_month' => $end !== null ? $end->subYear() : Recurring::firstUpcomingMonth($day, $shift, $values['months'], $today),
+                    'end_month' => $end,
+                    'is_active' => $values['is_active'],
+                ]);
+            };
+            $recurring('給料', RecordType::Income, 25, RecurringShift::Previous, 250000, ['is_fixed' => false, 'category_id' => $salary->id, 'partner' => '会社']);
+            $recurring('賞与', RecordType::Income, 10, RecurringShift::Previous, 400000, [
+                'months' => [6, 12], 'is_fixed' => false, 'category_id' => $this->category('賞与', CategoryKind::Income)->id, 'partner' => '会社',
+            ]);
+            $recurring('家賃', RecordType::Expense, 27, RecurringShift::Next, 70000, ['category_id' => $this->category('住まい')->id, 'partner' => '不動産会社']);
+            $recurring('Suica へ移す', RecordType::Transfer, 1, RecurringShift::Next, 3000, ['to_account_id' => $ic->id]);
+            $recurring('古いローン', RecordType::Expense, 5, RecurringShift::Next, 10000, [
+                'category_id' => $this->category('ローン')->id, 'partner' => '銀行', 'end_month' => $today->subMonthsNoOverflow(2)->startOfMonth(),
+            ]);
+            $recurring('ジムの会費', RecordType::Expense, 20, RecurringShift::Next, 8000, ['category_id' => $this->category('趣味・娯楽')->id, 'partner' => 'ジム', 'is_active' => false]);
+
             // 「使わない」にした口座の記録が、元の名前のまま出るかを見るため（記録を入れてから「使わない」にする）
             $old->update(['is_active' => false]);
         });
 
-        $this->command->info('ためしのデータを入れました（口座 4・記録 12）。');
+        $this->command->info('ためしのデータを入れました（口座 4・記録 12・定期的な記録 6）。');
     }
 
     /**

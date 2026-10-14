@@ -2,15 +2,13 @@
 
 namespace App\Livewire;
 
-use App\Enums\CategoryKind;
 use App\Enums\RecordType;
+use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
 use App\Models\Account;
-use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
 use App\Support\FormInput;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -26,10 +24,12 @@ use Livewire\Component;
  * 開くときに記録を渡したら編集、渡さなければ登録として動く（欄とチェックの決まりを 1 か所にまとめるため）
  *
  * @property-read string|null $deleteBlocker
- * @property-read bool $isOriginalPartner
  */
 class RecordForm extends Component
 {
+    // 口座・分類・小分類・相手の欄（定期的な記録の登録と共通）
+    use ChoosesPartnerCategoryAccount;
+
     /** 金額の欄に入れられるいちばん大きい数（要件定義書 10.1） */
     public const MAX_AMOUNT = FormInput::MAX_AMOUNT;
 
@@ -47,23 +47,6 @@ class RecordForm extends Component
     public string $amount = '';
 
     public string $date = '';
-
-    /** 口座（移動のときは「どこから」） */
-    public ?int $accountId = null;
-
-    /** 移動のときの「どこへ」 */
-    public ?int $toAccountId = null;
-
-    /** 分類（大分類） */
-    public ?int $categoryId = null;
-
-    public ?int $subcategoryId = null;
-
-    /** 相手の欄に打った名前 */
-    public string $partnerName = '';
-
-    /** 候補から選んだ相手。打ち直すと空に戻る */
-    public ?int $partnerId = null;
 
     public string $item = '';
 
@@ -144,18 +127,6 @@ class RecordForm extends Component
         }
     }
 
-    /** 分類を変えたら、小分類を空に戻す */
-    public function updatedCategoryId(): void
-    {
-        $this->subcategoryId = null;
-    }
-
-    /** 相手の欄を打ち直したら、選んでいた相手を外す（候補をまた出す） */
-    public function updatedPartnerName(): void
-    {
-        $this->partnerId = null;
-    }
-
     /**
      * 候補から相手を選んだ。その相手・同じ種類のいちばん新しい記録（今日まで）から、分類・小分類・口座を入れる（画面設計書 5.4）
      */
@@ -174,30 +145,7 @@ class RecordForm extends Component
             return;
         }
 
-        $latest = Record::query()
-            ->where('partner_id', $partner->id)
-            ->where('type', $this->type)
-            ->where('date', '<=', today()->toDateString())
-            ->with('category')
-            ->orderByDesc('date')
-            ->orderByDesc('id')
-            ->first();
-
-        // その相手の記録がまだないときは、何も変えない
-        if ($latest === null) {
-            return;
-        }
-
-        // 入れようとした分類・口座が「使わない」になっているときは、その欄は空にする
-        // 支出・収入の記録には分類があるが、列は空も入れられるので、空のときも考える
-        $category = $latest->category_id !== null ? $latest->category : null;
-        $parent = $category === null || $category->isParent() ? $category : $category->parent;
-        $parentActive = $parent !== null && $parent->is_active;
-        $this->categoryId = $parentActive ? $parent->id : null;
-        $this->subcategoryId = $parentActive && $category !== $parent && $category->is_active ? $category->id : null;
-        if (! $this->keepAccount) {
-            $this->accountId = $this->activeAccountId($latest->account_id);
-        }
+        $this->fillFromLatestRecord($partner, ! $this->keepAccount);
     }
 
     public function save(bool $continue = false): mixed
@@ -230,7 +178,7 @@ class RecordForm extends Component
         }
 
         DB::transaction(function () use ($record, $values, $hasCategory) {
-            $values['partner_id'] = $hasCategory ? $this->partnerIdToSave($record) : null;
+            $values['partner_id'] = $hasCategory ? $this->partnerIdToSave($record !== null) : null;
             $record === null ? Record::create($values) : $record->update($values);
         });
 
@@ -289,16 +237,10 @@ class RecordForm extends Component
      */
     protected function rules(): array
     {
-        $isTransfer = $this->type === 'transfer';
         $isAdjustment = $this->isAdjustment();
-        $hasCategory = ! $isTransfer && ! $isAdjustment;
-        $kind = $this->type === 'income' ? CategoryKind::Income : CategoryKind::Expense;
-        $original = $this->original();
 
-        // 「使わない」口座・分類は選べない。ただし編集のとき、その記録にもともと入っているものは、そのまま保存できる
-        $usable = fn (array $ids) => fn ($query) => $query->where('is_active', true)->orWhereIn('id', $ids);
-
-        return [
+        // 口座・分類・小分類・相手のチェックは、定期的な記録の登録と共通（「使わない」ものは選べない）
+        return [...$this->choiceRules(),
             // 調整の記録は調整のまま。ほかの記録は支出・収入・移動のどれか（種類の欄を書きかえられても、ここで止める）
             'type' => ['required', Rule::in($isAdjustment ? ['adjustment'] : ['expense', 'income', 'transfer'])],
             // 調整は、増やすときプラス・減らすときマイナスの、0 以外の整数（データベース設計書 3.5）
@@ -308,16 +250,6 @@ class RecordForm extends Component
             // 年の打ちまちがい（0026 年・2062 年など）に気づけるように、2000年1月1日から、今日の 1 年先までにする。
             // 上の区切りは今日から数えるので、何年たっても止まらない（決まった年で区切ると、その年をすぎたら保存できなくなるため）
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.self::FIRST_DATE, 'before_or_equal:'.$this->lastDate()->toDateString()],
-            'accountId' => ['required', Rule::exists('accounts', 'id')->where($usable($original['accounts']))],
-            'toAccountId' => $isTransfer
-                ? ['required', 'different:accountId', Rule::exists('accounts', 'id')->where($usable($original['accounts']))]
-                : ['nullable'],
-            // 分類は、その種類の「使う」大分類から。小分類は、選んだ大分類の「使う」小分類から
-            'categoryId' => $hasCategory ? ['required', Rule::exists('categories', 'id')
-                ->whereNull('parent_id')->where('kind', $kind->value)->where($usable($original['categories']))] : ['nullable'],
-            'subcategoryId' => $hasCategory ? ['nullable', Rule::exists('categories', 'id')
-                ->where('parent_id', $this->categoryId ?? 0)->where($usable($original['categories']))] : ['nullable'],
-            'partnerName' => $hasCategory ? ['required', 'string', 'max:50'] : ['nullable'],
             'item' => ['nullable', 'string', 'max:100'],
             'memo' => ['nullable', 'string', 'max:1000'],
         ];
@@ -330,7 +262,7 @@ class RecordForm extends Component
      */
     protected function messages(): array
     {
-        return [
+        return [...$this->choiceMessages(),
             'amount.required' => '金額を入れてください。',
             'amount.integer' => '金額は、数字だけで入れてください。',
             'amount.min' => $this->isAdjustment() ? '金額は -99,999,999 円から 99,999,999 円までで入れてください。' : '金額は 1 円以上で入れてください。',
@@ -340,16 +272,6 @@ class RecordForm extends Component
             'date.date_format' => '日付の形がちがいます。',
             'date.after_or_equal' => $this->dateRangeMessage(),
             'date.before_or_equal' => $this->dateRangeMessage(),
-            'accountId.required' => ($this->type === 'transfer' ? 'どこから' : '口座').'を選んでください。',
-            'accountId.exists' => ($this->type === 'transfer' ? 'どこから' : '口座').'は、出ている中から選んでください。',
-            'toAccountId.required' => 'どこへを選んでください。',
-            'toAccountId.different' => 'どこから と どこへ に同じ口座は選べません',
-            'toAccountId.exists' => 'どこへは、出ている中から選んでください。',
-            'categoryId.required' => '分類を選んでください。',
-            'categoryId.exists' => '分類は、出ている中から選んでください。',
-            'subcategoryId.exists' => '小分類は、出ている中から選んでください。',
-            'partnerName.required' => '相手を入れてください。',
-            'partnerName.max' => '相手は 50 文字以内で入れてください。',
             'item.max' => '品物は 100 文字以内で入れてください。',
             'memo.max' => 'メモは 1,000 文字以内で入れてください。',
         ];
@@ -361,99 +283,6 @@ class RecordForm extends Component
     protected function fieldNames(): array
     {
         return ['amount' => '金額', 'date' => '日付', 'item' => '品物', 'memo' => 'メモ'];
-    }
-
-    /**
-     * 口座の選ぶ欄に出す口座（「使う」口座を、口座の管理と同じ順に）。
-     * 編集のときは、その記録にもともと入っている「使わない」口座も出す（要件定義書 5.4）
-     *
-     * @return Collection<int, Account>
-     */
-    #[Computed]
-    public function accounts(): Collection
-    {
-        $ids = $this->original()['accounts'];
-
-        return Account::query()->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $ids))->ordered()->get();
-    }
-
-    /**
-     * 分類の選ぶ欄に出す大分類（その種類の「使う」大分類を、分類の管理と同じ順に）。
-     * 編集のときは、その記録にもともと入っている「使わない」大分類も出す
-     *
-     * @return Collection<int, Category>
-     */
-    #[Computed]
-    public function categories(): Collection
-    {
-        $ids = $this->original()['categories'];
-
-        return Category::query()
-            ->whereNull('parent_id')
-            ->where('kind', $this->type === 'income' ? CategoryKind::Income : CategoryKind::Expense)
-            ->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $ids))
-            ->orderBy('sort_order')
-            ->get();
-    }
-
-    /**
-     * 小分類の選ぶ欄に出す小分類（選んだ大分類の「使う」小分類）。
-     * 編集のときは、その記録にもともと入っている「使わない」小分類も出す
-     *
-     * @return Collection<int, Category>
-     */
-    #[Computed]
-    public function subcategories(): Collection
-    {
-        $ids = $this->original()['categories'];
-
-        return $this->categoryId === null
-            ? new Collection
-            : Category::query()
-                ->where('parent_id', $this->categoryId)
-                ->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $ids))
-                ->orderBy('sort_order')
-                ->get();
-    }
-
-    /**
-     * 相手の候補：打った文字をふくむ「使う」相手を、最近使った順に 8 つまで
-     *
-     * @return \Illuminate\Support\Collection<int, Partner>
-     */
-    #[Computed]
-    public function partnerSuggestions(): \Illuminate\Support\Collection
-    {
-        $word = Partner::normalizeName($this->partnerName);
-        if ($word === '' || $this->partnerId !== null) {
-            return collect();
-        }
-
-        $groups = Partner::listGroups(Partner::query()->where('name', 'like', '%'.addcslashes($word, '%_\\').'%'));
-
-        return $groups['used']->concat($groups['unused'])->take(8);
-    }
-
-    /**
-     * 打った名前とまったく同じ名前の相手（「使わない」相手もふくむ）。候補にないときの文に使う
-     */
-    #[Computed]
-    public function exactPartner(): ?Partner
-    {
-        $name = Partner::normalizeName($this->partnerName);
-
-        return $name === '' ? null : Partner::query()->where('name', $name)->first();
-    }
-
-    /**
-     * 打った名前が、編集している記録にもともと入っている相手の名前か（そのときは「使わない」相手でも「使う」に戻さない）
-     */
-    #[Computed]
-    public function isOriginalPartner(): bool
-    {
-        $original = $this->original()['partner'];
-
-        return $original !== null && $original->name === Partner::normalizeName($this->partnerName);
     }
 
     /**
@@ -517,7 +346,7 @@ class RecordForm extends Component
      *
      * @return array{type: RecordType|null, accounts: list<int>, categories: list<int>, partner: Partner|null}
      */
-    private function original(): array
+    protected function original(): array
     {
         // 1 回の通信の中で何度も使うので、最初に読んだものをとっておく（同じ記録を何度も読みに行かない）
         if ($this->originalCache !== null) {
@@ -532,20 +361,6 @@ class RecordForm extends Component
             'categories' => array_values(array_filter([$record?->category_id, $record?->category?->parent_id])),
             'partner' => $record?->partner,
         ];
-    }
-
-    /**
-     * 保存する相手。編集で、もともとの相手と同じ名前のときは、その相手をそのまま使う（「使わない」相手でも「使う」に戻さない）。
-     * それ以外は、打った名前の相手（ないときは作る）
-     */
-    private function partnerIdToSave(?Record $record): int
-    {
-        $original = $this->original()['partner'];
-        if ($record !== null && $original !== null && $original->name === $this->partnerName) {
-            return $original->id;
-        }
-
-        return $this->resolvePartner()->id;
     }
 
     /**
@@ -609,19 +424,6 @@ class RecordForm extends Component
             : $this->backUrl;
     }
 
-    /** 打った名前の相手を返す。ないときは新しく作り、「使わない」相手なら「使う」に戻す（画面設計書 5.4 の相手の欄） */
-    private function resolvePartner(): Partner
-    {
-        $partner = Partner::query()->where('name', $this->partnerName)->lockForUpdate()->first()
-            ?? Partner::create(['name' => $this->partnerName]);
-
-        if (! $partner->is_active) {
-            $partner->update(['is_active' => true]);
-        }
-
-        return $partner;
-    }
-
     /** 口座の最初の値：その種類で、最後に保存した記録と同じ口座（「使わない」口座なら空） */
     private function fillLastAccounts(): void
     {
@@ -629,11 +431,6 @@ class RecordForm extends Component
 
         $this->accountId = $last !== null ? $this->activeAccountId($last->account_id) : null;
         $this->toAccountId = $last !== null && $this->type === 'transfer' ? $this->activeAccountId($last->to_account_id) : null;
-    }
-
-    private function activeAccountId(?int $id): ?int
-    {
-        return $id !== null && Account::query()->whereKey($id)->where('is_active', true)->exists() ? $id : null;
     }
 
     /** 記録の日付に入れられる、いちばん先の日（今日の 1 年先） */

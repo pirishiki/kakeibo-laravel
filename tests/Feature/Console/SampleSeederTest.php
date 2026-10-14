@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
+use App\Models\Recurring;
 use Database\Seeders\SampleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -35,6 +36,13 @@ class SampleSeederTest extends TestCase
         }
         $this->assertSame(9, Record::query()->whereBetween('date', ['2026-10-01', '2026-10-31'])->count());
         $this->assertSame(3, Record::query()->whereBetween('date', ['2026-09-01', '2026-09-30'])->count());
+
+        // 定期的な記録：一覧の上のまとまりに 4 つ、下のまとまり（終わったもの・使わないもの）に 2 つ
+        $this->assertSame(6, Recurring::query()->count());
+        $this->assertSame(4, Recurring::query()->running()->count());
+        // 最初の月は、記録する日がまだ来ていない月。10月14日なので、給料（10月23日）は 10 月、Suica へ移す（10月1日）は 11 月から
+        $this->assertSame('2026-10-01', Recurring::query()->where('name', '給料')->sole()->start_month->toDateString());
+        $this->assertSame('2026-11-01', Recurring::query()->where('name', 'Suica へ移す')->sole()->start_month->toDateString());
     }
 
     public function test_月のはじめに動かしても_今日より先の記録はできない(): void

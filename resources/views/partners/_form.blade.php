@@ -17,7 +17,11 @@
             @checked(old('is_active', $partner->is_active))>
         <label for="is_active" class="form-check-label">使う</label>
         @error('is_active')
-            <div class="invalid-feedback">{{ $message }}</div>
+            <div class="invalid-feedback">{{ $message }}
+                @if ($message === \App\Models\Recurring::IN_USE_MESSAGE)
+                    @include('recurrings._used-by', ['recurrings' => $runningUsedBy])
+                @endif
+            </div>
         @enderror
     </div>
 @endif

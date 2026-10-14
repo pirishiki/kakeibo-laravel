@@ -84,7 +84,7 @@ class Partner extends Model
     }
 
     /**
-     * この相手の記録を、まとめ先の相手へ移して、この相手を削除する（画面設計書 5.9「ほかの相手にまとめる」）
+     * この相手の記録と定期的な記録を、まとめ先の相手へ移して、この相手を削除する（画面設計書 5.9「ほかの相手にまとめる」）
      * 全部やるか、何もしないか（トランザクション）。2 つの相手の行を押さえてから、まとめ先が「使う」で自分でないかを確かめ直す
      * （確かめたあと、別の画面でまとめ先を「使わない」にしたときなどに、まちがってまとめないため）
      *
@@ -101,6 +101,8 @@ class Partner extends Model
             }
 
             Record::query()->where('partner_id', $this->id)->update(['partner_id' => $target->id]);
+            // この相手を使っている定期的な記録も、まとめ先へ移す（要件定義書 10.2）
+            Recurring::query()->where('partner_id', $this->id)->update(['partner_id' => $target->id]);
             self::query()->whereKey($this->id)->delete();
 
             return true;

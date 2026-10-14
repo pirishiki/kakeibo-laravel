@@ -4,11 +4,13 @@ namespace App\Http\Requests;
 
 use App\Enums\CategoryKind;
 use App\Models\Category;
+use App\Models\Recurring;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use Illuminate\Validation\Rules\Unique;
+use Illuminate\Validation\Validator;
 
 /**
  * 分類の追加・変更の入力チェック（画面設計書 5.8）
@@ -51,6 +53,31 @@ class CategoryRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    /**
+     * ほかの欄のチェックが通ったあとに、「使わない」にしてよいかを確かめる。
+     * 「使う」で終わっていない定期的な記録が使っている分類は「使わない」にできない（画面設計書 4 章の 9）
+     *
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                /** @var Category|null $category */
+                $category = $this->route('category');
+
+                // もう「使わない」の分類を、そのまま保存するときは止めない
+                if ($category === null || ! $category->is_active || $this->boolean('is_active') || $validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                if (Recurring::usingCategory($category)->running()->exists()) {
+                    $validator->errors()->add('is_active', Recurring::IN_USE_MESSAGE);
+                }
+            },
+        ];
     }
 
     /** 追加のとき：小分類は親の用、大分類は選んだ用 */

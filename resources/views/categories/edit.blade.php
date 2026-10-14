@@ -7,7 +7,11 @@
     <h1 class="h4 mb-3">{{ $category->isParent() ? '大分類を直す' : '小分類を直す' }}</h1>
 
     @error('delete')
-        <div class="alert alert-danger" role="alert" style="max-width: 560px">{{ $message }}</div>
+        <div class="alert alert-danger" role="alert" style="max-width: 560px">{{ $message }}
+            @if ($message === \App\Models\Recurring::DELETE_BLOCKED_MESSAGE)
+                @include('recurrings._used-by', ['recurrings' => $usedBy])
+            @endif
+        </div>
     @enderror
 
     <div class="card" style="max-width: 560px">
@@ -24,30 +28,40 @@
         </div>
     </div>
 
-    {{-- 削除の小窓（口座の管理と同じ形）。小分類がある大分類は、先に小分類をどうにかしてもらう --}}
+    {{-- 削除の小窓（口座の管理と同じ形）。小分類がある大分類は、先に小分類をどうにかしてもらう。
+         記録がなくても、定期的な記録が使っている分類は削除できない。「使う」で終わっていない定期的な記録が使っているときは「使わない」にもできない（4 章の 9） --}}
+    @php
+        $canDelete = $recordCount === 0 && $usedBy->isEmpty();
+        $reason = $recordCount > 0 ? '記録があるので削除できません。' : \App\Models\Recurring::DELETE_BLOCKED_MESSAGE.'。';
+    @endphp
     <div class="modal fade" id="delete-dialog" tabindex="-1" aria-labelledby="delete-dialog-title" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-body">
                     @if ($hasChildren)
                         <p id="delete-dialog-title" class="mb-0">小分類があるので削除できません。先に小分類を削除するか、別の大分類へ移してください</p>
-                    @elseif ($recordCount === 0)
+                    @elseif ($canDelete)
                         <p id="delete-dialog-title" class="mb-0">「{{ $category->name }}」を削除しますか？</p>
                     @elseif (! $category->is_active)
-                        <p id="delete-dialog-title" class="mb-0">記録があるので削除できません。この分類は、もう「使わない」になっています。</p>
+                        <p id="delete-dialog-title" class="mb-0">{{ $reason }}この分類は、もう「使わない」になっています。</p>
+                    @elseif ($runningUsedBy->isNotEmpty())
+                        <p id="delete-dialog-title" class="mb-0">{{ $reason }}{{ \App\Models\Recurring::IN_USE_MESSAGE }}</p>
                     @else
-                        <p id="delete-dialog-title" class="mb-0">記録があるので削除できません。『使わない』にしますか？</p>
+                        <p id="delete-dialog-title" class="mb-0">{{ $reason }}『使わない』にしますか？</p>
+                    @endif
+                    @if (! $hasChildren && $usedBy->isNotEmpty())
+                        @include('recurrings._used-by', ['recurrings' => $usedBy])
                     @endif
                 </div>
                 <div class="modal-footer">
-                    @if (! $hasChildren && $recordCount === 0)
+                    @if (! $hasChildren && $canDelete)
                         <form method="POST" action="{{ route('categories.destroy', $category) }}">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-danger">削除する</button>
                         </form>
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">やめる</button>
-                    @elseif (! $hasChildren && $category->is_active)
+                    @elseif (! $hasChildren && $category->is_active && $runningUsedBy->isEmpty())
                         <form method="POST" action="{{ route('categories.deactivate', $category) }}">
                             @csrf
                             @method('PATCH')

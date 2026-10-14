@@ -6,12 +6,13 @@ use App\Enums\CategoryKind;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
+use App\Models\Recurring;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * 設定（画面設計書 5.12）の第 1 段階の項目を確かめる
+ * 設定（画面設計書 5.12）の第 1・第 2 段階の項目を確かめる
  */
 class SettingsTest extends TestCase
 {
@@ -75,14 +76,26 @@ class SettingsTest extends TestCase
             ->assertSee('name="_token"', false);
     }
 
-    public function test_第2段階と第3段階の画面はまだ出さない(): void
+    public function test_第3段階の画面はまだ出さない(): void
     {
         $this->actingAs(User::factory()->create());
 
         $this->get('/settings')
-            ->assertDontSee('毎月の予定と目標')
-            ->assertDontSee('定期的な記録')
             ->assertDontSee('予算')
             ->assertDontSee('貯金の目標');
+    }
+
+    public function test_定期的な記録は毎月の予定と目標に出て_使うで終わっていないものだけ数える(): void
+    {
+        $this->actingAs(User::factory()->create());
+        Recurring::factory()->count(2)->create();
+        Recurring::factory()->create(['is_active' => false]);
+        // 先月で終わったもの
+        Recurring::factory()->create(['start_month' => today()->subMonths(3)->startOfMonth(), 'end_month' => today()->subMonth()->startOfMonth()]);
+
+        $this->get('/settings')
+            ->assertSeeInOrder(['お金の入れ物と分け方', '相手', '毎月の予定と目標', '定期的な記録', 'ログイン'])
+            ->assertSee('給料・家賃・ローンなど（2 件）')
+            ->assertSee(route('recurrings.index'), false);
     }
 }

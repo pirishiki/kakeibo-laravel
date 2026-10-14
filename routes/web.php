@@ -5,6 +5,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\RecordController;
+use App\Http\Controllers\RecurringController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SummaryController;
 use Illuminate\Support\Facades\Route;
@@ -50,6 +51,12 @@ Route::middleware('auth')->group(function () {
 
     // 月のまとめ（画面設計書 5.5）。見る月は記録の一覧と同じく ?month=2026-09
     Route::get('/summary', [SummaryController::class, 'index'])->name('summary.index');
+
+    // 定期的な記録（画面設計書 5.10）。登録・変更の入力欄は Livewire の部品（app/Livewire/RecurringForm.php）
+    // 月ごとの金額（一覧の上半分）は、次のかたまりで足す
+    Route::get('/recurrings', [RecurringController::class, 'index'])->name('recurrings.index');
+    Route::view('/recurrings/create', 'recurrings.create')->name('recurrings.create');
+    Route::get('/recurrings/{recurring}/edit', [RecurringController::class, 'edit'])->name('recurrings.edit');
 
     // 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');

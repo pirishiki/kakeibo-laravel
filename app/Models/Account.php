@@ -78,6 +78,11 @@ class Account extends Model
      */
     public function deactivationBlocker(?int $initialBalance = null): ?string
     {
+        // 「使う」で終わっていない定期的な記録が使っている口座は、残高にかかわらず「使わない」にできない（4 章の 9）
+        if (Recurring::usingAccount($this->id)->running()->exists()) {
+            return Recurring::IN_USE_MESSAGE;
+        }
+
         // 先の日付の記録があるときは、先にこちらを伝える（今日の残高の文だと、もう記録してある移動を「つけて」と言ってしまうため）
         $hasFutureRecords = Record::query()
             ->where(fn ($q) => $q->where('account_id', $this->id)->orWhere('to_account_id', $this->id))

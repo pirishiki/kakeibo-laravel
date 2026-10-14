@@ -51,6 +51,15 @@ class LoginTest extends TestCase
         $this->assertMatchesRegularExpression('/name="remember"[^>]*\schecked>/', $response->getContent());
     }
 
+    public function test_パスワードの欄に見せる隠すを切りかえるボタンがある(): void
+    {
+        // 押したときの動きは JavaScript（resources/js/app.js）なので、ここではボタンが欄とつながっていることを確かめる
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('data-password-toggle="password"', false)
+            ->assertSee('aria-label="パスワードを表示する"', false);
+    }
+
     public function test_ユーザー登録とパスワードリセットの画面はない(): void
     {
         $this->get('/register')->assertNotFound();
