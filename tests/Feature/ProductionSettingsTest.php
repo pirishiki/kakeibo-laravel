@@ -34,4 +34,15 @@ class ProductionSettingsTest extends TestCase
             ->get('/_test/ip')
             ->assertSeeText('203.0.113.5');
     }
+
+    public function test_ブラウザが送ったほかの見出しは信じず_urlに使わない(): void
+    {
+        Route::get('/_test/url', fn () => url('/records'));
+
+        // CloudFront はブラウザが送った見出しをそのまま渡す。X-Forwarded-Host を信じると、ブラウザが書いた住所で URL が作られてしまう
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.23'])
+            ->withHeader('X-Forwarded-Host', 'evil.example.com')
+            ->get('/_test/url')
+            ->assertDontSeeText('evil.example.com');
+    }
 }

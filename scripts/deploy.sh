@@ -43,6 +43,8 @@ main() {
     write_env "$app_url"
 
     echo "== 5. データベースの表を作る"
+    # 前の回にまとめた設定（bootstrap/cache）を消してから動かす（新しいコードで設定の項目が変わっていても、古いまとめを読まないように）
+    as_app php artisan optimize:clear
     as_app php artisan migrate --force
 
     echo "== 6. 設定・URL・画面をまとめて、速く読めるようにする"
@@ -80,16 +82,16 @@ as_app() {
 # .env を作る。DB のパスワードは RDS が作った金庫から取り、ほかの場所には書かない（全体構成設計書 4 章）
 write_env() {
     local app_url="$1"
-    local secret db_username db_password app_key=""
+    local secret db_username db_password app_key="" bs="\\"
 
     secret="$(aws secretsmanager get-secret-value --region "$AWS_REGION" --secret-id "$DB_SECRET_ARN" --query SecretString --output text)"
     db_username="$(jq -r .username <<<"$secret")"
     db_password="$(jq -r .password <<<"$secret")"
-    # .env では、一重引用符の中はそのままの文字になる。パスワードに一重引用符があると書けないので止める
-    if [[ "$db_password" == *"'"* ]]; then
-        echo "DB のパスワードに ' が入っていて、.env に書けません" >&2
-        exit 1
-    fi
+    # .env では二重引用符で囲む。その中で特別な意味をもつ \ " $ の前に \ をつけ、パスワードの記号をそのままの文字として読ませる
+    # （$ をそのままにすると、${...} がほかの値に置きかわってしまうため）
+    db_password="${db_password//"$bs"/"$bs$bs"}"
+    db_password="${db_password//'"'/"$bs\""}"
+    db_password="${db_password//'$'/"$bs\$"}"
 
     # APP_KEY（ログインの状態を守る鍵）は、前の .env にあればそのまま使う（デプロイし直しても、ログインし直しにならないように）
     if [ -f .env ]; then
@@ -117,7 +119,9 @@ DB_HOST=${DB_HOST}
 DB_PORT=${DB_PORT}
 DB_DATABASE=${DB_DATABASE}
 DB_USERNAME=${db_username}
-DB_PASSWORD='${db_password}'
+DB_PASSWORD="${db_password}"
+# RDS とは暗号化（TLS）してつなぐ。RDS の証明書の元（EC2 の準備で取ってきたもの）で、つなぐ先が本物の RDS かを確かめる
+MYSQL_ATTR_SSL_CA=/etc/kakeibo/rds-ca.pem
 
 SESSION_DRIVER=database
 SESSION_LIFETIME=120

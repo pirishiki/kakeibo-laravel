@@ -12,8 +12,9 @@ mkswap /swapfile
 swapon /swapfile
 echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
 
-# 2. 部品：PHP 8.5（手元と同じ。Laravel が使う拡張だけ）・nginx・Node.js 24（画面のファイルのビルド用。手元と同じ）・git・jq
-dnf install -y php8.5-cli php8.5-fpm php8.5-mysqlnd php8.5-mbstring php8.5-xml nginx nodejs24 nodejs24-npm git jq
+# 2. 部品：PHP 8.5（手元と同じ。Laravel が使う拡張だけ）・nginx・Node.js 24（画面のファイルのビルド用。手元と同じ）・git・jq・unzip
+#    （unzip がないと、Composer が部品の圧縮ファイルを開けず、部品を 1 つずつ git で取ってくる遅い形になる）
+dnf install -y php8.5-cli php8.5-fpm php8.5-mysqlnd php8.5-mbstring php8.5-xml nginx nodejs24 nodejs24-npm git jq unzip
 alternatives --set node /usr/bin/node-24
 
 # 3. Composer（PHP の部品を入れる道具）。配り元の署名と照らしてから入れる
@@ -41,6 +42,11 @@ AWS_REGION=ap-southeast-2
 ENV
 chown root:kakeibo /etc/kakeibo/deploy.env
 chmod 640 /etc/kakeibo/deploy.env
+
+# RDS の証明書の元（AWS が公開しているもの）。アプリが RDS と暗号化（TLS）してつなぐときに、つなぐ先が本物の RDS かを確かめるのに使う
+curl -fsSL https://truststore.pki.rds.amazonaws.com/ap-southeast-2/ap-southeast-2-bundle.pem -o /etc/kakeibo/rds-ca.pem
+chown root:kakeibo /etc/kakeibo/rds-ca.pem
+chmod 640 /etc/kakeibo/rds-ca.pem
 
 # 6. アプリのコード：GitHub から master を取ってくる（2 回目からは、scripts/deploy.sh が新しくする）
 install -d -m 755 -o kakeibo -g kakeibo /var/www/kakeibo

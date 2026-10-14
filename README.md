@@ -258,12 +258,18 @@ AWS に置いて動くことを確かめ、証拠を残したら destroy する�
 
 予算アラート（AWS Budgets）は、アプリの Terraform とは別に作り、destroy のあとも残しておく（消し忘れにメールで気づくため。全体構成設計書 6.3）。1 か月 5 ドル、クレジットを引く前の金額で、50%・100% をこえたときと、月末までに 100% をこえそうなときにメールが来る。`<メールアドレス>` は AWS にログインしているメールアドレスにする。
 
+設定（JSON）はファイルに書いて渡す。Windows PowerShell 5.1 は、コマンドに渡す文字の中の `"` を消してしまい、そのまま渡すと AWS CLI が読めないため。ファイルは BOM なしの UTF-8 で書く。
+
 ```powershell
 aws login --profile dothething
 $account = aws sts get-caller-identity --profile dothething --query Account --output text
 $budget = '{"BudgetName":"monthly-5usd","BudgetLimit":{"Amount":"5","Unit":"USD"},"TimeUnit":"MONTHLY","BudgetType":"COST","CostTypes":{"IncludeCredit":false,"IncludeRefund":false}}'
 $notify = '[{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":50,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"FORECASTED","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]}]'
-aws budgets create-budget --profile dothething --account-id $account --budget $budget --notifications-with-subscribers $notify
+[IO.File]::WriteAllText("$PWD\budget.json", $budget)
+[IO.File]::WriteAllText("$PWD
+otify.json", $notify)
+aws budgets create-budget --profile dothething --account-id $account --budget file://budget.json --notifications-with-subscribers file://notify.json
+Remove-Item budget.json, notify.json
 ```
 
 ### 3. AWS に作る
@@ -290,8 +296,8 @@ aws ssm start-session --profile dothething --target (terraform output -raw ec2_i
 EC2 の中で：
 
 ```bash
-# 準備が終わったか（「準備ができました」と出ていれば終わり）
-sudo tail -n 3 /var/log/cloud-init-output.log
+# 準備が終わるまで待つ（status: done なら終わり。error のときは sudo less /var/log/cloud-init-output.log で記録を見る）
+cloud-init status --wait
 
 # アプリを置いて動かす（コードを新しくするときも、これをもう一度動かす）
 sudo bash /var/www/kakeibo/scripts/deploy.sh https://〇〇〇.cloudfront.net
@@ -333,6 +339,12 @@ aws ec2 describe-vpcs --profile dothething --region ap-southeast-2 --filters Nam
 aws ec2 describe-addresses --profile dothething --region ap-southeast-2 --query "Addresses[].PublicIp"
 aws secretsmanager list-secrets --profile dothething --region ap-southeast-2 --query "SecretList[?starts_with(Name, 'rds!')].Name"
 aws iam list-roles --profile dothething --query "Roles[?starts_with(RoleName, 'kakeibo')].RoleName"
+
+# 3. VPC の中のもの（VPC が消えていれば、中のものも一緒に消えている。念のため、CloudFront が VPC の中に作るものも見る）
+aws cloudfront list-functions --profile dothething --query "FunctionList.Items[].Name"
+aws ec2 describe-security-groups --profile dothething --region ap-southeast-2 --filters Name=group-name,Values=CloudFront-VPCOrigins-Service-SG,kakeibo-ec2-sg,kakeibo-rds-sg --query "SecurityGroups[].GroupId"
+aws ec2 describe-subnets --profile dothething --region ap-southeast-2 --filters Name=tag:Project,Values=kakeibo --query "Subnets[].SubnetId"
+aws ec2 describe-network-interfaces --profile dothething --region ap-southeast-2 --filters Name=group-name,Values=CloudFront-VPCOrigins-Service-SG,kakeibo-ec2-sg,kakeibo-rds-sg --query "NetworkInterfaces[].NetworkInterfaceId"
 ```
 
 - 残すのは、料金の見張り（予算アラート）と、自分の PC の台帳（中身は空になる）だけ。
