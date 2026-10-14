@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\RecordController;
 use App\Http\Controllers\SettingsController;
@@ -19,7 +20,8 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->midd
 
 // ここから下は、ログインしないと見られない。ログインしていなければ /login へ移る
 Route::middleware('auth')->group(function () {
-    Route::view('/', 'home')->name('home');
+    // ホーム（画面設計書 5.2）
+    Route::get('/', [HomeController::class, 'index'])->name('home');
 
     // 口座の管理（画面設計書 5.6）。1 つの口座だけを見る画面（show）はない。行を押すと変更の画面へ行く
     Route::resource('accounts', AccountController::class)->except(['show']);

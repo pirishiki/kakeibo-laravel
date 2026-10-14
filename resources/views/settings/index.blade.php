@@ -27,10 +27,11 @@
         ])
     </div>
 
-    {{-- 設定の中にログアウトがあると思う人が多いため、画面の上に加えてここにも置く（設計書ではスマホのときだけ。パソコンの左メニューを作るときに見直す）。
+    {{-- 設定の中にログアウトがあると思う人が多いため、スマホでは画面の上に加えてここにも置く。
+         パソコンでは設定の画面をメニューから開かない（左のメニューに全部出る）ので、出さない。
          ログアウトは状態を変える操作なので、リンクではなく、合言葉（@csrf）つきのフォームで送る --}}
-    <h2 class="h6 text-secondary">ログイン</h2>
-    <form method="POST" action="{{ route('logout') }}" class="list-group">
+    <h2 class="h6 text-secondary d-lg-none">ログイン</h2>
+    <form method="POST" action="{{ route('logout') }}" class="list-group d-lg-none">
         @csrf
         <button type="submit" class="list-group-item list-group-item-action d-flex align-items-center gap-2 text-start">
             <span class="flex-grow-1 min-w-0">

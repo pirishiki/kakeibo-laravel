@@ -23,6 +23,183 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+// メニュー（画面設計書 3.1）。パソコン（lg：幅 992px 以上）は左、スマホとタブレットは下
+$bottom-menu-height: 64px;
+
+// パソコンの左のメニュー。選んでいる画面は、うすい青緑に青緑の字（ぬりつぶしは大事なボタンのためにとっておく）
+.side-menu {
+    flex: 0 0 200px;
+    min-height: calc(100vh - 57px);
+    background: $white;
+    border-right: $border-width solid $border-color;
+    padding-top: 0.5rem;
+
+    .list-group-item {
+        border: 0;
+        padding-left: 1.5rem;
+
+        &.active {
+            background: $primary-soft;
+            color: $primary;
+            font-weight: $font-weight-bold;
+        }
+    }
+}
+
+.side-menu-heading {
+    padding: 1rem 1.5rem 0.25rem;
+    font-size: $font-size-sm;
+    color: $secondary;
+}
+
+.app-main {
+    min-width: 0;
+}
+
+// パソコンの「＋ 記録する」：画面の右下に浮かべる
+.record-fab {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    z-index: $zindex-fixed;
+}
+
+// スマホの下のメニュー。画面の下にはりつけ、中身がメニューの下にかくれないように、そのぶん下を空ける
+.bottom-menu {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: $zindex-fixed;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    height: $bottom-menu-height;
+    // iPhone の画面の下のバーにかからないように
+    padding-bottom: env(safe-area-inset-bottom);
+    background: $white;
+    border-top: $border-width solid $border-color;
+}
+
+.bottom-menu-item {
+    padding: 0.5rem 0.125rem;
+    font-size: $font-size-sm;
+    line-height: 1.3;
+    text-align: center;
+    color: $secondary;
+    text-decoration: none;
+
+    &.active {
+        color: $primary;
+        font-weight: $font-weight-bold;
+    }
+}
+
+// まん中の「＋」：青緑の丸いボタン
+.bottom-menu-plus {
+    justify-self: center;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: $primary;
+    color: $white;
+    font-size: 1.5rem;
+    text-decoration: none;
+
+    &:hover,
+    &:focus-visible {
+        background: shade-color($primary, 15%);
+        color: $white;
+    }
+}
+
+@include media-breakpoint-down(lg) {
+    body:has(.bottom-menu) {
+        padding-bottom: calc(#{$bottom-menu-height} + env(safe-area-inset-bottom));
+    }
+}
+
+// ホーム（画面設計書 5.2）のカード：角を丸くして、線のかわりに薄い影
+.home-card {
+    border: 0;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+
+    .list-group-item:last-child {
+        border-bottom-right-radius: 14px;
+        border-bottom-left-radius: 14px;
+    }
+}
+
+// カードの見出し：小さな灰色の字
+.home-label {
+    margin-bottom: 0.25rem;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-normal;
+    color: $secondary;
+}
+
+// カードの大きな数字
+.home-value {
+    font-size: 1.35rem;
+    font-weight: $font-weight-bold;
+}
+
+// ホームのカレンダー：7 列のマス目。マスの中の金額だけは小さな字でよい（画面設計書 6.4）
+.home-cal {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+    text-align: center;
+}
+
+.home-cal-dow {
+    padding: 2px 0;
+    font-size: $font-size-sm;
+    color: $secondary;
+}
+
+.home-cal-day {
+    display: grid;
+    align-content: start;
+    min-width: 0;
+    min-height: 3.2em;
+    padding: 2px;
+    border: $border-width solid $border-color;
+    border-radius: 4px;
+    color: $body-color;
+    text-decoration: none;
+    // 金額が長くても、マスの外にはみ出さずにマスの中で切る
+    overflow: hidden;
+
+    &:hover {
+        background: $primary-soft;
+    }
+
+    // 今日のマスは、基本の色の太い枠
+    &.is-today {
+        border: 2px solid $primary;
+    }
+}
+
+.home-cal-num {
+    font-size: 0.75rem;
+    color: $secondary;
+}
+
+.home-cal-amount {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+
+    @include media-breakpoint-up(lg) {
+        font-size: 0.8rem;
+    }
+}
+
 // ログアウト：カーソルを合わせたとき・押したときは、青緑でぬりつぶさず、うすい青緑にする
 // （ぬりつぶしは「保存」「＋ 記録する」など大事なボタンのためにとっておく）
 .btn-logout {
