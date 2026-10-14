@@ -235,3 +235,105 @@ powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\ka
 ### 9. 部品の更新
 
 部品の新しい版が出ると、Dependabot が更新の PR を毎週月曜 9 時に作る（`.github/dependabot.yml`、N-17）。イシューは作らない。CI の 3 つが通ったのを見てマージする。あぶない穴が見つかったときの PR は、曜日に関係なくすぐ来る。
+
+## AWS へのデプロイ
+
+AWS に置いて動くことを確かめ、証拠を残したら destroy する（要件定義書 N-14・N-15）。何を・どこに・どうつなぐかと、そう決めた理由は [全体構成設計書](全体構成設計書.md) に書いている。
+
+```
+自分の PC ──terraform apply──→ AWS（CloudFront・EC2・RDS・NAT ゲートウェイができる）
+自分 ──Session Manager──→ EC2 で scripts/deploy.sh を動かす（GitHub から master を取る）
+```
+
+- リージョンはプロジェクトのリージョン（ap-southeast-2）。CloudFront は世界共通のサービスで、us-east-1 の扱いになる。
+- **作った時点から、NAT ゲートウェイ・EC2・RDS に 1 時間ごとにお金がかかる**（1 回のデプロイで 1 ドル前後）。確かめたら、その日のうちに destroy する。
+- デプロイするのは master だけ（PR でマージして、CI が通ったもの）。
+
+### 1. 使うものを入れる（最初の 1 回だけ）
+
+- Terraform（`winget install Hashicorp.Terraform`）
+- AWS CLI と Session Manager プラグイン（`winget install Amazon.AWSCLI Amazon.SessionManagerPlugin`）
+
+### 2. 料金の見張りを作る（最初の 1 回だけ）
+
+予算アラート（AWS Budgets）は、アプリの Terraform とは別に作り、destroy のあとも残しておく（消し忘れにメールで気づくため。全体構成設計書 6.3）。1 か月 5 ドル、クレジットを引く前の金額で、50%・100% をこえたときと、月末までに 100% をこえそうなときにメールが来る。`<メールアドレス>` は AWS にログインしているメールアドレスにする。
+
+```powershell
+aws login --profile dothething
+$account = aws sts get-caller-identity --profile dothething --query Account --output text
+$budget = '{"BudgetName":"monthly-5usd","BudgetLimit":{"Amount":"5","Unit":"USD"},"TimeUnit":"MONTHLY","BudgetType":"COST","CostTypes":{"IncludeCredit":false,"IncludeRefund":false}}'
+$notify = '[{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":50,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"FORECASTED","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]}]'
+aws budgets create-budget --profile dothething --account-id $account --budget $budget --notifications-with-subscribers $notify
+```
+
+### 3. AWS に作る
+
+```powershell
+aws login --profile dothething
+cd infra
+terraform init      # 最初の 1 回だけ（部品を取ってくる）
+terraform apply     # 作るものの一覧が出るので、確かめて yes。CloudFront ができるまで 10〜20 分かかる
+terraform output    # アプリのアドレス（app_url）と、EC2 の名前（ec2_instance_id）が出る
+```
+
+- 台帳（`infra/terraform.tfstate`）は自分の PC にだけ置き、Git には入れない（`.gitignore`）。**destroy が終わるまで消さない**（消すと destroy で何も消せなくなる）。
+- EC2 は、できてから 5 分ほど準備（PHP などを入れる）をする。準備の記録は、EC2 の中の `/var/log/cloud-init-output.log`。
+
+### 4. アプリを置く
+
+Session Manager で EC2 に入り（SSH は使わない）、デプロイ用のスクリプトを動かす。アドレスは `terraform output app_url` のもの。
+
+```powershell
+aws ssm start-session --profile dothething --target (terraform output -raw ec2_instance_id)
+```
+
+EC2 の中で：
+
+```bash
+# 準備が終わったか（「準備ができました」と出ていれば終わり）
+sudo tail -n 3 /var/log/cloud-init-output.log
+
+# アプリを置いて動かす（コードを新しくするときも、これをもう一度動かす）
+sudo bash /var/www/kakeibo/scripts/deploy.sh https://〇〇〇.cloudfront.net
+
+# 最初の 1 回だけ：ログインする人を作る（パスワードは画面に出ない）
+sudo -u kakeibo php /var/www/kakeibo/artisan user:create
+
+# 最初の 1 回だけ：テスト用のデータ（口座 5・分類 20・相手 50・記録 1 万件）を入れる。本物の記録は入れない
+sudo -u kakeibo php /var/www/kakeibo/artisan db:seed --class=TestDataSeeder --force
+```
+
+### 5. 確かめて、証拠を残す
+
+- スマホとパソコンのブラウザで、アドレスを開いて受け入れ基準（要件定義書 10 章）を確かめ、操作の動画を撮る。
+- 「動いているところ」に、動画・日付・段階・アドレスを書いて、**手元でコミットだけする**（push は destroy のあと。動いているあいだに、公開のリポジトリにアドレスを出さないため）。
+
+### 6. destroy して、残っていないことを確かめる
+
+```powershell
+cd infra
+terraform destroy   # 消すものの一覧が出るので、確かめて yes。CloudFront を消すのに 10〜20 分かかる
+```
+
+- VPC やサブネットを消すところで止まったときは、CloudFront が VPC の中に作ったものが消えるのを待っている。しばらく待ってから、もう一度 `terraform destroy` する。
+- 終わったら、何も残っていないことを確かめる（全体構成設計書 6.3）。どれも空（`[]` か何も出ない）ならよい。AWS のコンソールでも同じものを見る。
+
+```powershell
+# 1. このアプリの名札（Project=kakeibo）がついたもの。消したばかりのものが少しのあいだ出ることがある
+aws resourcegroupstaggingapi get-resources --profile dothething --region ap-southeast-2 --tag-filters Key=Project,Values=kakeibo --query "ResourceTagMappingList[].ResourceARN"
+aws resourcegroupstaggingapi get-resources --profile dothething --region us-east-1 --tag-filters Key=Project,Values=kakeibo --query "ResourceTagMappingList[].ResourceARN"
+
+# 2. 名札がつかないものもあるので、種類ごとに見る
+aws cloudfront list-distributions --profile dothething --query "DistributionList.Items[?Comment=='kakeibo app'].Id"
+aws cloudfront list-vpc-origins --profile dothething --query "VpcOriginList.Items[].Name"
+aws ec2 describe-nat-gateways --profile dothething --region ap-southeast-2 --filter Name=state,Values=pending,available --query "NatGateways[].NatGatewayId"
+aws ec2 describe-instances --profile dothething --region ap-southeast-2 --filters Name=instance-state-name,Values=pending,running,stopping,stopped --query "Reservations[].Instances[].InstanceId"
+aws rds describe-db-instances --profile dothething --region ap-southeast-2 --query "DBInstances[].DBInstanceIdentifier"
+aws ec2 describe-vpcs --profile dothething --region ap-southeast-2 --filters Name=tag:Project,Values=kakeibo --query "Vpcs[].VpcId"
+aws ec2 describe-addresses --profile dothething --region ap-southeast-2 --query "Addresses[].PublicIp"
+aws secretsmanager list-secrets --profile dothething --region ap-southeast-2 --query "SecretList[?starts_with(Name, 'rds!')].Name"
+aws iam list-roles --profile dothething --query "Roles[?starts_with(RoleName, 'kakeibo')].RoleName"
+```
+
+- 残すのは、料金の見張り（予算アラート）と、自分の PC の台帳（中身は空になる）だけ。
+- 確かめたら、5 のコミットを push する。
