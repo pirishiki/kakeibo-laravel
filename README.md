@@ -61,6 +61,8 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 | EC2 から RDS へ暗号化（TLS）してつながる | つながった |
 | CloudFront から EC2 へ、決めた入口（CloudFront の住所の一覧）で届く（全体構成設計書 3 章） | 届いた |
 
+destroy のあと：種類ごとの一覧（CloudFront・NAT ゲートウェイ・EC2・RDS・VPC・サブネット・セキュリティグループ・ネットワークインターフェース・出口の IP・金庫・IAM ロール）で、このアプリのものが 0 件なことを確かめた。名札で探すと、消したばかりの 9 件が出たが、1 つずつ見るとすべて消えていた。残したのは予算アラートと、手元の台帳（中身は空）だけ。
+
 1 回目のデプロイで見つかったこと（直してある）：EC2 の最初の準備で Composer が止まった（HOME が空のため）、デプロイ用のスクリプトの最初の回だけ止まる手順（optimize:clear）、セッションの Cookie の名前、nginx の注意。
 
 ### 2 回目（完成後）
@@ -346,9 +348,9 @@ terraform destroy   # 消すものの一覧が出るので、確かめて yes。
 - 終わったら、何も残っていないことを確かめる（全体構成設計書 6.3）。どれも空（`[]` か何も出ない）ならよい。AWS のコンソールでも同じものを見る。
 
 ```powershell
-# 1. このアプリの名札（Project=kakeibo）がついたもの。消したばかりのものが少しのあいだ出ることがある
+# 1. このアプリの名札（Project=kakeibo）がついたもの。消したばかりのものが少しのあいだ出ることがある（出たら、2 の種類ごとの一覧で、本当に残っているかを見る）
+#    us-east-1（CloudFront）では、プロジェクトの決まり（サービスコントロールポリシー）でこの操作がことわられるので、2 の CloudFront の一覧で確かめる
 aws resourcegroupstaggingapi get-resources --profile dothething --region ap-southeast-2 --tag-filters Key=Project,Values=kakeibo --query "ResourceTagMappingList[].ResourceARN"
-aws resourcegroupstaggingapi get-resources --profile dothething --region us-east-1 --tag-filters Key=Project,Values=kakeibo --query "ResourceTagMappingList[].ResourceARN"
 
 # 2. 名札がつかないものもあるので、種類ごとに見る
 aws cloudfront list-distributions --profile dothething --query "DistributionList.Items[?Comment=='kakeibo app'].Id"
