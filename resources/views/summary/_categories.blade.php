@@ -1,17 +1,22 @@
 {{-- 月のまとめの分類の表（支出・収入で同じ形）。$rows は MonthlySummary::categoryTotals()、$prefix は開く場所の id の頭
-     小分類がある大分類は、押すとその下に小分類と「小分類なし」が開く（もう一度押すと閉じる。Bootstrap の collapse） --}}
+     小分類がある大分類は、名前の横に「小分類 ○」の札と右に矢印を出し、押すとその下に小分類と「小分類なし」が開く
+     （もう一度押すと閉じる。Bootstrap の collapse）。札で、押すと何が出るかと、開けない行とのちがいがわかるようにする --}}
 @if ($rows->isEmpty())
     <p class="card-body text-secondary small mb-0">{{ $empty }}</p>
 @else
     <div class="list-group list-group-flush">
         @foreach ($rows as $row)
             @php($target = $prefix.'-'.$row['category']->id)
-            @if ($row['children']->contains(fn ($child) => $child['category'] !== null))
+            @php($subCount = $row['children']->filter(fn ($child) => $child['category'] !== null)->count())
+            @if ($subCount > 0)
                 <button type="button" class="list-group-item list-group-item-action d-flex align-items-center gap-2"
                     data-bs-toggle="collapse" data-bs-target="#{{ $target }}" aria-expanded="false" aria-controls="{{ $target }}">
-                    <span class="flex-grow-1 text-truncate">{{ $row['category']->name }}</span>
+                    <span class="flex-grow-1 d-flex align-items-center gap-2 min-w-0">
+                        <span class="text-truncate">{{ $row['category']->name }}</span>
+                        <span class="badge rounded-pill text-primary bg-primary-subtle fw-normal">小分類 {{ $subCount }}</span>
+                    </span>
                     <x-money :amount="$row['amount']" class="text-nowrap" />
-                    <span class="summary-caret text-secondary" aria-hidden="true">▸</span>
+                    <x-chevron class="text-primary" />
                 </button>
                 <div class="collapse" id="{{ $target }}">
                     @foreach ($row['children'] as $child)

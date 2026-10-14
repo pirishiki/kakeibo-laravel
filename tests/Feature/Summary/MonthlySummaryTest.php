@@ -115,8 +115,8 @@ class MonthlySummaryTest extends TestCase
 
         $response = $this->get('/summary');
 
-        // 食費 ＝ 29,500 ＋ 12,800 ＋ 1,000
-        $response->assertSeeInOrder(['支出の分類', '食費', '43,300', '食料品', '29,500', '外食', '12,800', '小分類なし', '1,000']);
+        // 食費 ＝ 29,500 ＋ 12,800 ＋ 1,000。名前の横の札には、小分類の数（「小分類なし」は数えない）
+        $response->assertSeeInOrder(['支出の分類', '食費', '小分類 2', '43,300', '食料品', '29,500', '外食', '12,800', '小分類なし', '1,000']);
         // 小分類は最初は閉じていて、大分類の行で開く
         $response->assertSee('data-bs-target="#expense-'.$food->id.'"', false);
         $response->assertSee('class="collapse" id="expense-'.$food->id.'"', false);
@@ -163,7 +163,9 @@ class MonthlySummaryTest extends TestCase
         $home = $this->parent('住まい');
         $this->record(RecordType::Expense, '2026-10-01', 70000, $home);
 
-        $this->get('/summary')->assertSee('住まい')->assertDontSee('data-bs-target="#expense-'.$home->id.'"', false);
+        $this->get('/summary')->assertSee('住まい')
+            ->assertDontSee('data-bs-target="#expense-'.$home->id.'"', false)
+            ->assertDontSee('小分類 1');
     }
 
     public function test_分類は金額の多い順で_同じ金額なら分類の並び順_0円の分類は出ない(): void

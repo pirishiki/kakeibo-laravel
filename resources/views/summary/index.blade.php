@@ -73,7 +73,7 @@
                                 </div>
                                 <button type="button" class="list-group-item list-group-item-action text-center text-primary small"
                                     data-bs-toggle="collapse" data-bs-target="#more-partners" aria-expanded="false" aria-controls="more-partners">
-                                    ほかの相手も見る（{{ $partners->count() - 5 }} 件） <span class="summary-caret" aria-hidden="true">▸</span>
+                                    ほかの相手も見る（{{ $partners->count() - 5 }} 件） <x-chevron class="align-text-bottom" />
                                 </button>
                             @endif
                         </div>
