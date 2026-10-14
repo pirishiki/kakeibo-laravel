@@ -18,6 +18,32 @@ document.querySelectorAll('[data-show-when-changed]').forEach((note) => {
     update();
 });
 
+// Livewire の部品から小窓を開く（定期的な記録の保存の前の確認など）。PHP で $this->dispatch('open-modal', id: '小窓の id') と書く
+window.addEventListener('open-modal', (event) => {
+    const dialog = document.getElementById(event.detail.id);
+    if (dialog) {
+        Modal.getOrCreateInstance(dialog).show();
+    }
+});
+
+// パスワードを見せる・隠すボタン（ログイン。要件定義書 No.22）。data-password-toggle に欄の id を書く
+// 欄の type を password ↔ text に入れかえるだけで、パスワードはどこにも送らない
+document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+    const field = document.getElementById(button.dataset.passwordToggle);
+    button.addEventListener('click', () => {
+        const show = field.type === 'password';
+        field.type = show ? 'text' : 'password';
+        // 読み上げでは「パスワードを表示する、押されている／押されていない」と伝わる（ラベルは変えず、押されているかだけを切りかえる）
+        button.setAttribute('aria-pressed', String(show));
+        button.querySelector('.eye-open').hidden = show;
+        button.querySelector('.eye-closed').hidden = !show;
+    });
+    // ログインを押して送るときは、隠した形に戻す（ブラウザのパスワードを覚える機能が、パスワードの欄だと気づけるように）
+    field.form?.addEventListener('submit', () => {
+        field.type = 'password';
+    });
+});
+
 // つまみ（.sort-handle）を押さえたまま動かすと並べかえられる一覧。data-sortable に、並べた順番の送り先を書く
 // 動かせるのは、その一覧のすぐ下の data-id のついたものだけ（大分類どうし・同じ大分類の中の小分類どうし）
 // data-fixed のついたもの（「使わない」分類）は、いつも下に置くので、動かせず、そのあいだや下にも置けない
