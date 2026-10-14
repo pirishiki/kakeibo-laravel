@@ -18,7 +18,7 @@ return new class extends Migration
             // 名前の同じ・ちがうは、日本語用の決まり（照合順序）で決める（データベース設計書 1 章）
             $table->string('name', 50)->collation('utf8mb4_ja_0900_as_cs_ks')->unique();
             $table->boolean('is_active')->default(true);
-            $table->timestamps();
+            $table->datetimes();
         });
 
         // 記録の相手を、相手の表につなぐ。記録がある相手は削除できない

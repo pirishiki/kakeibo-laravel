@@ -26,7 +26,7 @@ return new class extends Migration
             $table->text('memo')->nullable();
             $table->unsignedBigInteger('recurring_id')->nullable();
             $table->date('recurring_month')->nullable();
-            $table->timestamps();
+            $table->datetimes();
 
             // 同じ予定の同じ月の分を 2 回記録しない（データベース設計書 3.5）
             $table->unique(['recurring_id', 'recurring_month']);

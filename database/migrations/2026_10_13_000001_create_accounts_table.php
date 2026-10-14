@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('reserve_type', 20)->default('none');
             $table->integer('reserve_amount')->nullable();
             $table->boolean('is_active')->default(true);
-            $table->timestamps();
+            $table->datetimes();
         });
     }
 
