@@ -18,6 +18,9 @@ dnf install -y php8.5-cli php8.5-fpm php8.5-mysqlnd php8.5-mbstring php8.5-xml n
 alternatives --set node /usr/bin/node-24
 
 # 3. Composer（PHP の部品を入れる道具）。配り元の署名と照らしてから入れる
+#    最初の準備は HOME（利用者の部屋の場所）が空のまま動き、Composer は HOME がないと止まるので、root の部屋を渡す
+#    （1 回目のデプロイで、ここで止まった）
+export HOME=/root
 EXPECTED="$(curl -fsSL https://composer.github.io/installer.sig)"
 curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php
 ACTUAL="$(php -r "echo hash_file('sha384', '/tmp/composer-setup.php');")"

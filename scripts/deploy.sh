@@ -43,8 +43,12 @@ main() {
     write_env "$app_url"
 
     echo "== 5. データベースの表を作る"
-    # 前の回にまとめた設定（bootstrap/cache）を消してから動かす（新しいコードで設定の項目が変わっていても、古いまとめを読まないように）
-    as_app php artisan optimize:clear
+    # 前の回にまとめた設定・URL・画面（bootstrap/cache など）を消してから動かす（新しいコードで設定の項目が変わっていても、古いまとめを読まないように）。
+    # optimize:clear は使わない。キャッシュの表も空にしようとするので、表がまだない最初の回に止まるため（1 回目のデプロイで、ここで止まった）
+    as_app php artisan config:clear
+    as_app php artisan route:clear
+    as_app php artisan view:clear
+    as_app php artisan event:clear
     as_app php artisan migrate --force
 
     echo "== 6. 設定・URL・画面をまとめて、速く読めるようにする"
@@ -124,6 +128,8 @@ DB_PASSWORD="${db_password}"
 MYSQL_ATTR_SSL_CA=/etc/kakeibo/rds-ca.pem
 
 SESSION_DRIVER=database
+# Cookie の名前。決めないとアプリの名前（家計簿）から作られ、日本語が消えて「-session」になるため（1 回目のデプロイで気づいた）
+SESSION_COOKIE=kakeibo_session
 SESSION_LIFETIME=120
 SESSION_ENCRYPT=false
 # ログインの状態の Cookie は、https のときだけ送る（全体構成設計書 2 章）
