@@ -13,9 +13,10 @@
         {{-- 今月のカレンダー：今月だけ（ホームでは月を切りかえない）。マスには、その日の支出（ふつうの字）と収入（緑の太字に「+」）。移動と調整は出さない --}}
         <div class="col-12">
             <section class="card home-card">
-                <div class="card-body">
+                {{-- スマホではマスを広くするため、カードの余白を小さくする --}}
+                <div class="card-body p-2 p-lg-3">
                     <h2 class="home-label mb-2">今月（{{ $month->format('n月') }}）のカレンダー</h2>
-                    <div class="home-cal" role="list">
+                    <div class="home-cal">
                         @foreach (['日', '月', '火', '水', '木', '金', '土'] as $dow)
                             <div class="home-cal-dow" aria-hidden="true">{{ $dow }}</div>
                         @endforeach
@@ -31,10 +32,12 @@
                                         $jump = HomeCalendar::jumpDate($day, $recordDates);
                                     @endphp
                                     {{-- 押すと、記録の一覧の今月のその日の見出しへ（その日に記録がないときは、その日より前でいちばん近い記録のある日） --}}
-                                    <a href="{{ route('records.index').($jump === null ? '' : '#day-'.$jump) }}" role="listitem"
+                                    {{-- 読み上げでは「10月9日（金） 支出 1,200」のように、月と曜日もつけて読む --}}
+                                    <a href="{{ route('records.index').($jump === null ? '' : '#day-'.$jump) }}"
                                         @class(['home-cal-day', 'is-today' => $day->isToday()])
                                         @if ($day->isToday()) aria-current="date" @endif>
-                                        <span class="home-cal-num">{{ $day->day }}<span class="visually-hidden">日</span></span>
+                                        <span class="home-cal-num" aria-hidden="true">{{ $day->day }}</span>
+                                        <x-date :date="$day" class="visually-hidden" />
                                         @if ($dayExpense > 0)
                                             <span class="home-cal-amount">
                                                 <span class="visually-hidden">支出</span>

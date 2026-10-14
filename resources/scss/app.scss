@@ -54,6 +54,11 @@ $bottom-menu-height: 64px;
 
 .app-main {
     min-width: 0;
+
+    // パソコンでは、右下に浮かべた「＋ 記録する」に、いちばん下の中身がかくれないように下を空ける
+    @include media-breakpoint-up(lg) {
+        padding-bottom: 6rem !important;
+    }
 }
 
 // パソコンの「＋ 記録する」：画面の右下に浮かべる
@@ -75,8 +80,6 @@ $bottom-menu-height: 64px;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     align-items: center;
     height: $bottom-menu-height;
-    // iPhone の画面の下のバーにかからないように
-    padding-bottom: env(safe-area-inset-bottom);
     background: $white;
     border-top: $border-width solid $border-color;
 }
@@ -117,7 +120,7 @@ $bottom-menu-height: 64px;
 
 @include media-breakpoint-down(lg) {
     body:has(.bottom-menu) {
-        padding-bottom: calc(#{$bottom-menu-height} + env(safe-area-inset-bottom));
+        padding-bottom: $bottom-menu-height;
     }
 }
 
@@ -151,8 +154,13 @@ $bottom-menu-height: 64px;
 .home-cal {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 2px;
+    // スマホではマスを広くするため、すき間を小さくする
+    gap: 1px;
     text-align: center;
+
+    @include media-breakpoint-up(lg) {
+        gap: 2px;
+    }
 }
 
 .home-cal-dow {
@@ -166,13 +174,17 @@ $bottom-menu-height: 64px;
     align-content: start;
     min-width: 0;
     min-height: 3.2em;
-    padding: 2px;
+    padding: 1px;
     border: $border-width solid $border-color;
     border-radius: 4px;
     color: $body-color;
     text-decoration: none;
     // 金額が長くても、マスの外にはみ出さずにマスの中で切る
     overflow: hidden;
+
+    @include media-breakpoint-up(lg) {
+        padding: 2px;
+    }
 
     &:hover {
         background: $primary-soft;
@@ -185,12 +197,13 @@ $bottom-menu-height: 64px;
 }
 
 .home-cal-num {
-    font-size: 0.75rem;
+    font-size: $font-size-sm;
     color: $secondary;
 }
 
 .home-cal-amount {
-    font-size: 0.7rem;
+    // スマホでは「+12.2万」が幅 375px の機械のマスに収まる大きさ
+    font-size: 0.65rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: clip;

@@ -174,6 +174,34 @@ class HomeTest extends TestCase
         $response->assertSeeInOrder(['今月の収支', '-51,000']);
     }
 
+    public function test_先月末と来月はじめの記録は今月のカレンダー_収支_多く使った分類に入れない(): void
+    {
+        $this->record(RecordType::Expense, '2026-09-30', 3333, $this->parent('日用品'));
+        $this->record(RecordType::Expense, '2026-11-01', 4444, $this->parent('交通費'));
+        $this->record(RecordType::Expense, '2026-10-31', 1111, $this->parent('食費'));
+
+        $calendar = $this->calendarHtml();
+        $this->assertStringNotContainsString('3,333', $calendar);
+        $this->assertStringNotContainsString('4,444', $calendar);
+        $this->assertStringContainsString('1,111', $calendar);
+        $this->assertStringNotContainsString('#day-2026-09-30', $calendar);
+
+        $response = $this->get('/');
+        $response->assertSeeInOrder(['今月の収支', '-1,111', '収入', '0', '支出', '1,111', '多く使った分類', '食費', '1,111', '最近の記録']);
+    }
+
+    public function test_残高がマイナスの口座は_合計にも口座ごとにも赤い字のマイナスで出す(): void
+    {
+        $card = Account::factory()->create(['name' => 'クレジットカード', 'type' => AccountType::CreditCard, 'initial_balance' => 0]);
+        $this->record(RecordType::Expense, '2026-10-10', 250000, $this->parent('趣味・娯楽'), $card);
+
+        // 合計 ＝ 10,000 ＋ 200,000 − 250,000
+        $this->get('/')->assertSeeInOrder([
+            '今の残高の合計', 'text-danger', '-40,000',
+            'クレジットカード', 'text-danger', '-250,000',
+        ], false);
+    }
+
     public function test_口座がまだないときは口座を追加するへ案内する(): void
     {
         Record::query()->delete();
