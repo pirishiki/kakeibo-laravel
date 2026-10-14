@@ -1,4 +1,6 @@
-// Bootstrap の動き（確認の小窓・「保存しました」の表示など）を使えるようにする
+// Bootstrap の動き（確認の小窓・「保存しました」の表示・月のまとめの開く／閉じるなど）を使えるようにする
+// Collapse は読みこむだけで、data-bs-toggle="collapse" のボタンが動くようになる
+import 'bootstrap/js/dist/collapse';
 import { Modal, Toast } from 'bootstrap';
 // ドラッグで並べかえる部品（分類の管理。画面設計書 5.8）
 import Sortable from 'sortablejs';

@@ -67,6 +67,29 @@ body {
     flex: 0 0 32px;
 }
 
+// 開く・閉じるの印（月のまとめ。画面設計書 5.5）。閉じているときは「▸」、開いているときは下向きに回す
+.summary-caret {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    transition: transform 0.15s;
+}
+
+[aria-expanded='true'] > .summary-caret {
+    transform: rotate(90deg);
+}
+
+// 開けない行で、印のかわりに空ける幅（金額の右はしをそろえるため）
+.summary-caret-space {
+    flex: 0 0 1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .summary-caret {
+        transition: none;
+    }
+}
+
 // 保存したばかりの行：うすい青緑から、3 秒かけてもとの色にもどる（resources/js/app.js）
 .just-saved {
     animation: just-saved 3s ease-out;
