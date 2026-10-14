@@ -86,7 +86,8 @@ class TestDataSeeder extends Seeder
                 $month = $first->addMonthsNoOverflow($m);
                 foreach ([
                     [25, RecordType::Income, 250000, $bank, null, $salary],
-                    [10, RecordType::Income, in_array($month->month, [6, 12], true) ? 300000 : 0, $bank, null, $bonus],
+                    // 賞与は 6 月と 12 月だけ
+                    ...(in_array($month->month, [6, 12], true) ? [[10, RecordType::Income, 300000, $bank, null, $bonus]] : []),
                     [27, RecordType::Expense, 72000, $bank, null, $housing],
                     [20, RecordType::Expense, intdiv(mt_rand(6000, 14000), 10) * 10, $bank, null, $utility],
                     [15, RecordType::Expense, 4800, $bank, null, $phone],
@@ -96,8 +97,8 @@ class TestDataSeeder extends Seeder
                     [10, RecordType::Transfer, 0, $bank, $card, null],
                 ] as [$d, $type, $amount, $account, $toAccount, $category]) {
                     $date = $month->setDay($d);
-                    // 賞与のない月・まだ来ていない日・最初の月のカードの引き落とし（前の月がない）は入れない
-                    if (($category?->is($bonus) && $amount === 0) || $date->greaterThan($today) || ($m === 0 && $toAccount?->is($card))) {
+                    // まだ来ていない日と、最初の月のカードの引き落とし（前の月がない）は入れない
+                    if ($date->greaterThan($today) || ($m === 0 && $toAccount?->is($card))) {
                         continue;
                     }
                     $fixed[] = [$date, $type, $amount, $account, $toAccount, $category, null];
