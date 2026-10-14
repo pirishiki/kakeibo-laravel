@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\RecordController;
+use App\Http\Controllers\SummaryController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 
@@ -43,4 +44,7 @@ Route::middleware('auth')->group(function () {
 
     // 記録の登録（画面設計書 5.4）。入力欄は Livewire の部品なので、画面を出すだけでよい
     Route::view('/records/create', 'records.create')->name('records.create');
+
+    // 月のまとめ（画面設計書 5.5）。見る月は記録の一覧と同じく ?month=2026-09
+    Route::get('/summary', [SummaryController::class, 'index'])->name('summary.index');
 });

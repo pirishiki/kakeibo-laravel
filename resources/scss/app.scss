@@ -67,6 +67,37 @@ body {
     flex: 0 0 32px;
 }
 
+// 開く・閉じるの矢印（月のまとめ。画面設計書 5.5。resources/views/components/chevron.blade.php）。閉じているときは下向き、開いているときは上向きに回す
+.chevron {
+    flex: 0 0 auto;
+    transition: transform 0.15s;
+}
+
+[aria-expanded='true'] > .chevron {
+    transform: rotate(180deg);
+}
+
+// 名前と札を入れる場所が、長い名前のときに金額を押し出さないように（中の名前を「…」で省く）
+.min-w-0 {
+    min-width: 0;
+}
+
+// 開いた中の行も、ほかの行と同じく下の線だけにする（.list-group-flush の決まりは、すぐ下の行にしか効かず、線が二重になるため）
+.list-group-flush .collapse > .list-group-item {
+    border-width: 0 0 var(--bs-list-group-border-width);
+}
+
+// 開けない行で、印のかわりに空ける幅（金額の右はしをそろえるため）
+.summary-caret-space {
+    flex: 0 0 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chevron {
+        transition: none;
+    }
+}
+
 // 保存したばかりの行：うすい青緑から、3 秒かけてもとの色にもどる（resources/js/app.js）
 .just-saved {
     animation: just-saved 3s ease-out;
