@@ -49,6 +49,7 @@ main() {
     as_app php artisan route:clear
     as_app php artisan view:clear
     as_app php artisan event:clear
+    as_app php artisan clear-compiled
     as_app php artisan migrate --force
 
     echo "== 6. 設定・URL・画面をまとめて、速く読めるようにする"
