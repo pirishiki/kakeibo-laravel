@@ -6,6 +6,7 @@ use App\Enums\CategoryKind;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
+use App\Models\Recurring;
 use Illuminate\View\View;
 
 /**
@@ -27,6 +28,8 @@ class SettingsController extends Controller
             'expenseCategoryCount' => (clone $activeCategories)->where('kind', CategoryKind::Expense)->count(),
             'incomeCategoryCount' => (clone $activeCategories)->where('kind', CategoryKind::Income)->count(),
             'partnerCount' => Partner::query()->where('is_active', true)->count(),
+            // 定期的な記録は、「使う」でまだ終わっていないものだけ数える
+            'recurringCount' => Recurring::query()->running()->count(),
         ]);
     }
 }

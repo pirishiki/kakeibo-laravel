@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\PartnerRequest;
 use App\Models\Partner;
+use App\Models\Recurring;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -42,6 +43,9 @@ class PartnerController extends Controller
         return view('partners.edit', [
             'partner' => $partner,
             'recordCount' => $partner->records()->count(),
+            // この相手を使っている定期的な記録。削除・「使わない」にできない理由として、リンクつきで出す
+            'usedBy' => Recurring::usingPartner($partner->id)->orderBy('day')->orderBy('id')->get(),
+            'runningUsedBy' => Recurring::usingPartner($partner->id)->running()->orderBy('day')->orderBy('id')->get(),
             // まとめ先の候補：自分と「使わない」相手は選べない
             'mergeTargets' => Partner::query()->where('is_active', true)->whereKeyNot($partner->id)->orderBy('name')->pluck('name'),
         ]);
@@ -64,6 +68,9 @@ class PartnerController extends Controller
         if ($partner->records()->exists()) {
             return to_route('partners.edit', $partner)->withErrors(['delete' => '記録があるので削除できません']);
         }
+        if (Recurring::usingPartner($partner->id)->exists()) {
+            return to_route('partners.edit', $partner)->withErrors(['delete' => Recurring::DELETE_BLOCKED_MESSAGE]);
+        }
 
         // 確かめてから削除するまでのあいだに記録ができたときも、データベースが止めるので、同じ文で戻す
         // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
@@ -79,6 +86,10 @@ class PartnerController extends Controller
     /** 削除の小窓から「使わない」にする（4 章の 9） */
     public function deactivate(Partner $partner): RedirectResponse
     {
+        if (Recurring::usingPartner($partner->id)->running()->exists()) {
+            return to_route('partners.edit', $partner)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
+        }
+
         $partner->update(['is_active' => false]);
 
         return to_route('partners.index')->with('status', '「使わない」にしました');

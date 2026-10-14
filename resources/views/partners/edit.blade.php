@@ -7,7 +7,11 @@
     <h1 class="h4 mb-3">相手を直す</h1>
 
     @error('delete')
-        <div class="alert alert-danger" role="alert" style="max-width: 560px">{{ $message }}</div>
+        <div class="alert alert-danger" role="alert" style="max-width: 560px">{{ $message }}
+            @if ($message === \App\Models\Recurring::DELETE_BLOCKED_MESSAGE)
+                @include('recurrings._used-by', ['recurrings' => $usedBy])
+            @endif
+        </div>
     @enderror
 
     <div class="card mb-4" style="max-width: 560px">
@@ -60,7 +64,7 @@
             <div class="modal-content">
                 <div class="modal-body">
                     <p id="merge-dialog-title" class="mb-0">
-                        {{ $partner->name }}の記録 {{ number_format($recordCount) }} 件を<span data-merge-target-name></span>に移し、{{ $partner->name }}を削除します。元に戻せません
+                        {{ $partner->name }}の記録 {{ number_format($recordCount) }} 件@if ($usedBy->isNotEmpty())と定期的な記録 {{ $usedBy->count() }} 件@endifを<span data-merge-target-name></span>に移し、{{ $partner->name }}を削除します。元に戻せません
                     </p>
                 </div>
                 <div class="modal-footer">
@@ -71,28 +75,38 @@
         </div>
     </div>
 
-    {{-- 削除の小窓（口座の管理と同じ形） --}}
+    {{-- 削除の小窓（口座の管理と同じ形）。記録がなくても、定期的な記録が使っている相手は削除できない。
+         「使う」で終わっていない定期的な記録が使っているときは「使わない」にもできない（4 章の 9） --}}
+    @php
+        $canDelete = $recordCount === 0 && $usedBy->isEmpty();
+        $reason = $recordCount > 0 ? '記録があるので削除できません。' : \App\Models\Recurring::DELETE_BLOCKED_MESSAGE.'。';
+    @endphp
     <div class="modal fade" id="delete-dialog" tabindex="-1" aria-labelledby="delete-dialog-title" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-body">
-                    @if ($recordCount === 0)
+                    @if ($canDelete)
                         <p id="delete-dialog-title" class="mb-0">「{{ $partner->name }}」を削除しますか？</p>
                     @elseif (! $partner->is_active)
-                        <p id="delete-dialog-title" class="mb-0">記録があるので削除できません。この相手は、もう「使わない」になっています。</p>
+                        <p id="delete-dialog-title" class="mb-0">{{ $reason }}この相手は、もう「使わない」になっています。</p>
+                    @elseif ($runningUsedBy->isNotEmpty())
+                        <p id="delete-dialog-title" class="mb-0">{{ $reason }}{{ \App\Models\Recurring::IN_USE_MESSAGE }}</p>
                     @else
-                        <p id="delete-dialog-title" class="mb-0">記録があるので削除できません。『使わない』にしますか？</p>
+                        <p id="delete-dialog-title" class="mb-0">{{ $reason }}『使わない』にしますか？</p>
+                    @endif
+                    @if ($usedBy->isNotEmpty())
+                        @include('recurrings._used-by', ['recurrings' => $usedBy])
                     @endif
                 </div>
                 <div class="modal-footer">
-                    @if ($recordCount === 0)
+                    @if ($canDelete)
                         <form method="POST" action="{{ route('partners.destroy', $partner) }}">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-danger">削除する</button>
                         </form>
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">やめる</button>
-                    @elseif ($partner->is_active)
+                    @elseif ($partner->is_active && $runningUsedBy->isEmpty())
                         <form method="POST" action="{{ route('partners.deactivate', $partner) }}">
                             @csrf
                             @method('PATCH')

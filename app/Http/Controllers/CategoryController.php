@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\CategoryKind;
 use App\Http\Requests\CategoryRequest;
 use App\Models\Category;
+use App\Models\Recurring;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -75,6 +76,9 @@ class CategoryController extends Controller
             'parentOptions' => $category->isParent() ? collect() : $this->parentOptions($category->kind),
             'recordCount' => $category->records()->count(),
             'hasChildren' => $category->isParent() && $category->children()->exists(),
+            // この分類（大分類なら、その下の小分類も）を使っている定期的な記録。削除・「使わない」にできない理由として、リンクつきで出す
+            'usedBy' => Recurring::usingCategory($category)->orderBy('day')->orderBy('id')->get(),
+            'runningUsedBy' => Recurring::usingCategory($category)->running()->orderBy('day')->orderBy('id')->get(),
         ]);
     }
 
@@ -107,6 +111,9 @@ class CategoryController extends Controller
         if ($category->records()->exists()) {
             return to_route('categories.edit', $category)->withErrors(['delete' => '記録があるので削除できません']);
         }
+        if (Recurring::usingCategory($category)->exists()) {
+            return to_route('categories.edit', $category)->withErrors(['delete' => Recurring::DELETE_BLOCKED_MESSAGE]);
+        }
 
         // 確かめてから削除するまでのあいだに記録ができたときも、データベースが止めるので、同じ文で戻す
         // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
@@ -122,6 +129,10 @@ class CategoryController extends Controller
     /** 削除の小窓から「使わない」にする（4 章の 9） */
     public function deactivate(Category $category): RedirectResponse
     {
+        if (Recurring::usingCategory($category)->running()->exists()) {
+            return to_route('categories.edit', $category)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
+        }
+
         $category->update(['is_active' => false]);
 
         return $this->toRow($category)->with('status', '「使わない」にしました');

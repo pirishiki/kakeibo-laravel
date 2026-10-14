@@ -3,7 +3,7 @@
 @section('title', '設定')
 
 {{-- 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる。
-     定期的な記録・予算・貯金の目標（第 2・第 3 段階）は、その段階になってから「毎月の予定と目標」として足す --}}
+     予算・貯金の目標（第 3 段階）は、その段階になってから「毎月の予定と目標」に足す --}}
 @section('content')
     <h1 class="h4 mb-3">設定</h1>
 
@@ -24,6 +24,15 @@
             'href' => route('partners.index'),
             'label' => '相手',
             'detail' => 'お店・会社など（'.$partnerCount.' 件）',
+        ])
+    </div>
+
+    <h2 class="h6 text-secondary">毎月の予定と目標</h2>
+    <div class="list-group mb-4">
+        @include('settings._row', [
+            'href' => route('recurrings.index'),
+            'label' => '定期的な記録',
+            'detail' => '給料・家賃・ローンなど（'.$recurringCount.' 件）',
         ])
     </div>
 

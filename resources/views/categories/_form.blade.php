@@ -67,7 +67,11 @@
             <div class="form-text">外すと、この下の小分類も記録で選べなくなります</div>
         @endif
         @error('is_active')
-            <div class="invalid-feedback">{{ $message }}</div>
+            <div class="invalid-feedback">{{ $message }}
+                @if ($message === \App\Models\Recurring::IN_USE_MESSAGE)
+                    @include('recurrings._used-by', ['recurrings' => $runningUsedBy])
+                @endif
+            </div>
         @enderror
     </div>
 @endif

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AccountRequest;
 use App\Models\Account;
+use App\Models\Recurring;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -48,6 +49,8 @@ class AccountController extends Controller
             'hasRecords' => $account->hasRecords(),
             // 削除を押したときの小窓で、「使わない」にできるかを先に伝えるため
             'blocker' => $account->is_active ? $account->deactivationBlocker() : null,
+            // この口座を使っている定期的な記録（削除できない理由として、リンクつきで出す）
+            'usedBy' => Recurring::usingAccount($account->id)->orderBy('day')->orderBy('id')->get(),
         ]);
     }
 
@@ -67,6 +70,9 @@ class AccountController extends Controller
     {
         if ($account->hasRecords()) {
             return to_route('accounts.edit', $account)->withErrors(['delete' => '記録があるので削除できません']);
+        }
+        if (Recurring::usingAccount($account->id)->exists()) {
+            return to_route('accounts.edit', $account)->withErrors(['delete' => Recurring::DELETE_BLOCKED_MESSAGE]);
         }
 
         // 確かめてから削除するまでのあいだに記録ができたときも、データベースが止めるので、同じ文で戻す
