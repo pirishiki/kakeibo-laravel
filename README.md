@@ -40,7 +40,30 @@
 
 ### 1 回目（第 1 段階）
 
-（デプロイ後に書く）
+- 日付：2026年10月15日
+- 段階：第 1 段階（ログイン・口座・分類・相手・記録の登録と一覧・残高を合わせる・月のまとめ・設定・ホーム）
+- URL：https://dbzl8cqvinyro.cloudfront.net （destroy したので、今は開けない）
+- 入れたデータ：テスト用のデータだけ（口座 5・分類 20・相手 50・記録 1 万件。`TestDataSeeder`）。ログインの人は `testing@example.com`
+
+https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
+
+動画の中身：アドレス（https）→ ログイン → ホーム → 記録する → 記録の一覧・月のまとめ → 口座・分類・相手 → ブラウザの幅を細くしてスマホの形（下のメニュー）→ ログアウト。ブラウザのツールバーとパスワードマネージャーの小窓は、ぼかしてある。
+
+確かめたこと（要件定義書 10 章・全体構成設計書）：
+
+| 確かめたこと | 結果 |
+|---|---|
+| http で開くと https に移る（N-03） | 301 で https へ移った |
+| ログインしないと中が見えない（N-01） | ログイン画面へ移った（移り先も https） |
+| パスワードは元に戻せない形で保存される（N-02） | `$2y$12$…`（bcrypt）で保存されていた |
+| 記録 1 万件でも 1 秒以内に開く（N-12） | EC2 の中で画面を作る時間は 0.03〜0.11 秒（ホーム 108ms・記録の一覧 67ms・月のまとめ 82ms）。10.4 で決めた「ブラウザの開発者ツールではかる」方法では、はかっていない（2 回目のデプロイではかる） |
+| スマホとパソコンで使える（N-11・N-13） | パソコンの Chrome で、動画の画面を使えた。スマホの並べ方は、パソコンのブラウザの幅を細くして確かめた。実物のスマホでは、ログインだけ確かめた。スマホの Safari・Chrome での操作と、パソコンの Edge は、まだ確かめていない（2 回目のデプロイで確かめる） |
+| EC2 から RDS へ暗号化（TLS）してつながる | RDS の証明書の元を指定した設定で、マイグレーションとテスト用のデータの書きこみができた |
+| CloudFront から EC2 へ、決めた入口（CloudFront の住所の一覧）で届く（全体構成設計書 3 章） | 届いた |
+
+destroy のあと：コマンドの種類ごとの一覧（CloudFront の配信・VPC オリジン・CloudFront Functions・NAT ゲートウェイ・EC2・RDS・VPC・サブネット・セキュリティグループ・ネットワークインターフェース・出口の IP・金庫・IAM ロール）で、このアプリのものが 0 件なことを確かめた。名札で探すと、消したばかりの 9 件が出たが、1 つずつ見るとすべて消えていた。AWS のコンソールでも、EC2・NAT ゲートウェイ・VPC・RDS（DB インスタンスとスナップショット）・CloudFront が残っていないことを見た。残したのは予算アラート（コンソールでも monthly-5usd があることを見た）と、手元の台帳（中身は空）だけ。
+
+1 回目のデプロイで見つかったこと（直してある）：EC2 の最初の準備で Composer が止まった（HOME が空のため）、デプロイ用のスクリプトの最初の回だけ止まる手順（optimize:clear）、セッションの Cookie の名前、nginx の注意。
 
 ### 2 回目（完成後）
 
@@ -325,9 +348,9 @@ terraform destroy   # 消すものの一覧が出るので、確かめて yes。
 - 終わったら、何も残っていないことを確かめる（全体構成設計書 6.3）。どれも空（`[]` か何も出ない）ならよい。AWS のコンソールでも同じものを見る。
 
 ```powershell
-# 1. このアプリの名札（Project=kakeibo）がついたもの。消したばかりのものが少しのあいだ出ることがある
+# 1. このアプリの名札（Project=kakeibo）がついたもの。消したばかりのものが少しのあいだ出ることがある（出たら、2 の種類ごとの一覧で、本当に残っているかを見る）
+#    us-east-1（CloudFront）では、プロジェクトの決まり（サービスコントロールポリシー）でこの操作がことわられるので、2 の CloudFront の一覧で確かめる
 aws resourcegroupstaggingapi get-resources --profile dothething --region ap-southeast-2 --tag-filters Key=Project,Values=kakeibo --query "ResourceTagMappingList[].ResourceARN"
-aws resourcegroupstaggingapi get-resources --profile dothething --region us-east-1 --tag-filters Key=Project,Values=kakeibo --query "ResourceTagMappingList[].ResourceARN"
 
 # 2. 名札がつかないものもあるので、種類ごとに見る
 aws cloudfront list-distributions --profile dothething --query "DistributionList.Items[?Comment=='kakeibo app'].Id"
