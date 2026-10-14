@@ -79,6 +79,11 @@ body {
     transform: rotate(90deg);
 }
 
+// 開いた中の行も、ほかの行と同じく下の線だけにする（.list-group-flush の決まりは、すぐ下の行にしか効かず、線が二重になるため）
+.list-group-flush .collapse > .list-group-item {
+    border-width: 0 0 var(--bs-list-group-border-width);
+}
+
 // 開けない行で、印のかわりに空ける幅（金額の右はしをそろえるため）
 .summary-caret-space {
     flex: 0 0 1em;

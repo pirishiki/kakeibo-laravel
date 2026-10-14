@@ -36,6 +36,8 @@ class Category extends Model
     {
         return [
             'kind' => CategoryKind::class,
+            // 数として読む（月のまとめで、小分類の親が同じかを === でくらべるため）
+            'parent_id' => 'integer',
             'sort_order' => 'integer',
             'is_active' => 'boolean',
         ];

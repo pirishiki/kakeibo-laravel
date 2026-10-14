@@ -103,7 +103,7 @@ class MonthlySummary
     }
 
     /**
-     * その月の、相手ごとの支出の合計。金額の多い順で、同じ金額なら名前の順。「使わない」相手も、その月に記録があれば入れる
+     * その月の、相手ごとの支出の合計。金額の多い順で、同じ金額なら追加した順。「使わない」相手も、その月に記録があれば入れる
      *
      * @return Collection<int, array{partner: Partner, amount: non-negative-int}>
      */
@@ -120,7 +120,7 @@ class MonthlySummary
 
         return Partner::query()->findMany($totals->keys())
             ->map(fn (Partner $partner) => ['partner' => $partner, 'amount' => $totals->get($partner->id, 0)])
-            ->sort(fn (array $a, array $b) => $b['amount'] <=> $a['amount'] ?: strcmp($a['partner']->name, $b['partner']->name))
+            ->sort(fn (array $a, array $b) => $b['amount'] <=> $a['amount'] ?: $a['partner']->id <=> $b['partner']->id)
             ->values();
     }
 

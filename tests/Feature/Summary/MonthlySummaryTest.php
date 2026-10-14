@@ -122,6 +122,42 @@ class MonthlySummaryTest extends TestCase
         $response->assertSee('class="collapse" id="expense-'.$food->id.'"', false);
     }
 
+    public function test_月の初めと終わりの日の記録は入り_となりの月の記録は入らない(): void
+    {
+        $food = $this->parent('食費');
+        $this->record(RecordType::Expense, '2026-09-30', 1, $food);
+        $this->record(RecordType::Expense, '2026-10-01', 20, $food);
+        $this->record(RecordType::Expense, '2026-10-31', 300, $food);
+        $this->record(RecordType::Expense, '2026-11-01', 4000, $food);
+
+        // 10 月 1 日と 31 日だけ：20 ＋ 300
+        $this->get('/summary')->assertSeeInOrder(['支出', '320', '支出の分類', '食費', '320']);
+    }
+
+    public function test_小分類が同じ金額なら分類の並び順で_小分類なしはいちばん下(): void
+    {
+        $food = $this->parent('食費');
+        $groceries = $this->child($food, '食料品');
+        $eatingOut = $this->child($food, '外食');
+        $this->record(RecordType::Expense, '2026-10-01', 500, $food);
+        $this->record(RecordType::Expense, '2026-10-01', 500, $eatingOut);
+        $this->record(RecordType::Expense, '2026-10-01', 500, $groceries);
+
+        $this->get('/summary')->assertSeeInOrder(['食費', '1,500', '食料品', '外食', '小分類なし']);
+    }
+
+    public function test_収入の分類も押すと小分類が開き_使わないにした小分類も出る(): void
+    {
+        $salary = $this->parent('給与', CategoryKind::Income);
+        $side = $this->child($salary, '副業');
+        $this->record(RecordType::Income, '2026-10-25', 30000, $side);
+        $side->update(['is_active' => false]);
+
+        $this->get('/summary')
+            ->assertSeeInOrder(['収入の分類', '給与', '30,000', '副業', '30,000'])
+            ->assertSee('data-bs-target="#income-'.$salary->id.'"', false);
+    }
+
     public function test_小分類を使っていない大分類は開く印を出さない(): void
     {
         $home = $this->parent('住まい');
