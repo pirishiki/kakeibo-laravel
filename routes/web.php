@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\RecordController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SummaryController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
@@ -47,4 +48,7 @@ Route::middleware('auth')->group(function () {
 
     // 月のまとめ（画面設計書 5.5）。見る月は記録の一覧と同じく ?month=2026-09
     Route::get('/summary', [SummaryController::class, 'index'])->name('summary.index');
+
+    // 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
 });
