@@ -150,6 +150,34 @@ $bottom-menu-height: 64px;
     font-weight: $font-weight-bold;
 }
 
+// 使える額（画面設計書 5.2）：いちばん大きな、色つきのカード。うすい青緑の地に、いちばん大きな数字
+.home-available {
+    background: $primary-soft;
+}
+
+.home-available-value {
+    font-size: 2rem;
+    font-weight: $font-weight-bold;
+    line-height: 1.2;
+}
+
+// 内訳の 3 行：名前を左、金額を右にそろえる
+.home-available-rows > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+
+    dt {
+        font-weight: $font-weight-normal;
+    }
+
+    dd {
+        margin: 0;
+        white-space: nowrap;
+    }
+}
+
 // ホームのカレンダー：7 列のマス目。マスの中の金額だけは小さな字でよい（画面設計書 6.4）
 .home-cal {
     display: grid;

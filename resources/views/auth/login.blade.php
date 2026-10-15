@@ -9,6 +9,11 @@
             <div class="card-body p-4">
                 <h1 class="h4 text-center fw-bold text-primary mb-4">{{ config('app.name') }}</h1>
 
+                {{-- 時間がたって、操作やログインができなかったときの知らせ（bootstrap/app.php） --}}
+                @if (session('warning'))
+                    <div class="alert alert-warning small" role="alert">{{ session('warning') }}</div>
+                @endif
+
                 {{-- novalidate：ブラウザの吹き出しではなく、アプリのまちがいの文を欄の下に出す（4 章の 2） --}}
                 <form method="POST" action="{{ route('login') }}" novalidate>
                     @csrf

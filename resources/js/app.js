@@ -18,6 +18,43 @@ document.querySelectorAll('[data-show-when-changed]').forEach((note) => {
     update();
 });
 
+// 選ぶ欄が決まった値のときだけ隠すまとまり（例：口座の種類がクレジットカードなら、取っておく額を隠す。画面設計書 5.6）
+// data-hide-when に欄の id、data-hide-value に隠すときの値を書く
+document.querySelectorAll('[data-hide-when]').forEach((block) => {
+    const field = document.getElementById(block.dataset.hideWhen);
+    if (!field) {
+        return;
+    }
+    const update = () => {
+        block.hidden = field.value === block.dataset.hideValue;
+    };
+    field.addEventListener('change', update);
+    update();
+});
+
+// 欄に打ったら、となりの選ぶ丸を選んだことにする（例：取っておく額の金額の欄に打つと「金額」。
+// 「なし」のまま金額を打って保存し、打った金額が使われないことがないように）。data-select-radio に丸の id を書く
+// 人が打ったときだけ（isTrusted）。欄に入る・出るときのカンマのつけ外しでも input の合図が出るので、それでは選び直さない
+// （「全部取っておく」を選び直したあと、Tab で金額の欄を通っただけで「金額」に戻らないように）
+document.addEventListener('input', (event) => {
+    if (!event.isTrusted) {
+        return;
+    }
+    const radio = event.target instanceof HTMLElement && event.target.dataset.selectRadio
+        ? document.getElementById(event.target.dataset.selectRadio)
+        : null;
+    if (radio instanceof HTMLInputElement && event.target.value.trim() !== '') {
+        radio.checked = true;
+    }
+});
+
+// 「今回はなし」のあとに出し直したホームの URL の札（?draft=…）は、使い終わったので外す（読みこみ直したときに残らないように）
+if (new URLSearchParams(window.location.search).has('draft')) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('draft');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
+
 // Livewire の部品から小窓を開く（定期的な記録の保存の前の確認など）。PHP で $this->dispatch('open-modal', id: '小窓の id') と書く
 window.addEventListener('open-modal', (event) => {
     const dialog = document.getElementById(event.detail.id);
@@ -225,10 +262,133 @@ document.addEventListener('submit', (event) => {
         });
     }, 0);
 });
-// ブラウザの「戻る」で、前の画面をそのまま出したとき（ブラウザがとっておいた画面）は、読みこみ直す。
-// とっておいた画面は、残高などが古いままで、送ったあとの押せないボタンもそのままなので、いまの中身で出し直す
-window.addEventListener('pageshow', (event) => {
-    if (event.persisted) {
-        window.location.reload();
+// ブラウザの「戻る」で、前の画面をそのまま出したとき（ブラウザがとっておいた画面）の扱い。
+// とっておいた画面は、残高などが古いままで、送ったあとの押せないボタンもそのままなので、ふつうは読みこみ直して、いまの中身で出し直す。
+// ただし、まだ送っていない打ちかけの入力があるときは、読みこみ直すと入力が消えるので、そのまま出して、上に知らせと［読みこみ直す］を出す。
+// 打ったあとに送って保存できたときは、入力はもう届いているので、今までどおり読みこみ直す（古い画面から 2 回目を送らないように）。
+// Livewire のフォームは、送っても画面に残ることがある（入力のまちがいがあったときなど）ので、保存して別の画面へ移ったとき（redirect）だけ数える
+let typedSinceSubmit = false;
+let submitted = false;
+// 人が打った・選んだときだけ数える（カンマのつけ外しなど、プログラムが出す合図は数えない）
+const markTyped = (event) => {
+    if (!event.isTrusted) {
+        return;
+    }
+    typedSinceSubmit = true;
+    submitted = false;
+};
+const markSubmitted = () => {
+    submitted = true;
+    typedSinceSubmit = false;
+};
+document.addEventListener('input', markTyped);
+document.addEventListener('change', markTyped);
+document.addEventListener('submit', (event) => {
+    // 確認の小窓を出すために止めた送信（相手をまとめる）は、まだ送っていない
+    if (!event.defaultPrevented && !(event.target instanceof HTMLFormElement && event.target.hasAttribute('wire:submit'))) {
+        markSubmitted();
     }
 });
+document.addEventListener('livewire:init', () => {
+    window.Livewire.hook('effect', ({ effects }) => {
+        if (effects?.redirect) {
+            markSubmitted();
+        }
+    });
+    // Livewire の画面（記録の登録など）で、時間がたって保存できなかったとき（419）。
+    // Livewire は英語の小窓を出し、「OK」で読みこみ直して入力を消すので、それを止めて、入力を画面に残したまま日本語で知らせる（画面設計書 4 章の 12）
+    window.Livewire.hook('request', ({ fail }) => {
+        fail(({ status, preventDefault }) => {
+            if (status === 419) {
+                preventDefault();
+                keepFieldsForReload();
+                showPageAlert('画面を開いてから時間がたっていたので、操作できませんでした。［読みこみ直す］を押すと、入れた内容を欄に戻します（ログインが切れていたら、ログインし直したあとに戻します）。');
+            }
+        });
+    });
+});
+
+// 保存できなかった画面の入力を、このタブのあいだだけブラウザに取っておき（sessionStorage）、同じ画面を開き直したときに欄へ戻す。
+// パスワードの欄は取っておかない。1 日より古いものは戻さない
+const KEPT_FIELDS = 'kakeibo-kept-fields';
+function keepFieldsForReload() {
+    const fields = [...document.querySelectorAll('main input[id], main select[id], main textarea[id]')]
+        .filter((el) => !['password', 'hidden', 'file', 'submit', 'button'].includes(el.type))
+        .map((el) => ({ id: el.id, value: el.value, checked: el.checked ?? false, type: el.type }));
+    try {
+        sessionStorage.setItem(KEPT_FIELDS, JSON.stringify({ path: location.pathname + location.search, at: Date.now(), fields }));
+    } catch {
+        // 取っておけないブラウザの設定のときは、知らせの文のとおり画面に残っている内容を使ってもらう
+    }
+}
+document.addEventListener('livewire:initialized', () => {
+    let kept = null;
+    try {
+        kept = JSON.parse(sessionStorage.getItem(KEPT_FIELDS) ?? 'null');
+    } catch {
+        kept = null;
+    }
+    if (!kept || kept.path !== location.pathname + location.search) {
+        return;
+    }
+    try {
+        sessionStorage.removeItem(KEPT_FIELDS);
+    } catch {
+        // 消せなくても、1 日たてば使わない
+    }
+    if (Date.now() - kept.at > 86400000) {
+        return;
+    }
+    kept.fields.forEach(({ id, value, checked, type }) => {
+        const el = document.getElementById(id);
+        if (!el) {
+            return;
+        }
+        if (type === 'checkbox' || type === 'radio') {
+            el.checked = checked;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+            el.value = value;
+            // Livewire に新しい値を知らせる（wire:model は input の合図で値を受けとる）
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+    // 戻した内容は、まだ保存していない打ちかけの入力として数える（「戻る」で読みこみ直して消さないように）
+    typedSinceSubmit = true;
+    submitted = false;
+    showPageAlert('前に入れた内容を、欄に戻しました。確かめてから、もう一度保存してください。', false);
+});
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) {
+        return;
+    }
+    if (submitted || !typedSinceSubmit) {
+        window.location.reload();
+        return;
+    }
+    showPageAlert('前の画面を出しています。残高などが古いかもしれません');
+});
+
+// 画面の上に知らせを出す。withReload のときは［読みこみ直す］もつける。
+// 知らせはいつも 1 つにして、もう出ているときは、新しい知らせに入れかえる（あとの知らせが黙って出ないことがないように）
+function showPageAlert(message, withReload = true) {
+    document.getElementById('page-alert')?.remove();
+    const alert = document.createElement('div');
+    alert.id = 'page-alert';
+    alert.className = 'alert alert-warning d-flex justify-content-between align-items-center gap-2 flex-wrap';
+    alert.setAttribute('role', 'alert');
+    const text = document.createElement('span');
+    text.textContent = message;
+    alert.append(text);
+    if (withReload) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-sm btn-outline-secondary';
+        button.textContent = '読みこみ直す';
+        button.addEventListener('click', () => window.location.reload());
+        alert.append(button);
+    }
+    document.querySelector('main')?.prepend(alert);
+    alert.scrollIntoView({ block: 'nearest' });
+}

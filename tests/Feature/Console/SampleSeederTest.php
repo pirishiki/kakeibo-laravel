@@ -26,7 +26,10 @@ class SampleSeederTest extends TestCase
 
         $this->seed(SampleSeeder::class);
 
-        $this->assertSame(4, Account::query()->count());
+        $this->assertSame(5, Account::query()->count());
+        // 取っておく額（第 2 段階）：金額の口座と、全部取っておく口座がある
+        $this->assertTrue(Account::query()->where('reserve_type', 'amount')->exists());
+        $this->assertTrue(Account::query()->where('reserve_type', 'all')->exists());
         $old = Account::query()->where('name', '古い財布')->sole();
         $this->assertFalse($old->is_active, '「使わない」口座もある');
         $this->assertSame(0, $old->balance(), '「使わない」にできるのは残高 0 円の口座だけ');

@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use App\Enums\CategoryKind;
 use App\Enums\RecordType;
 use App\Enums\RecurringShift;
+use App\Enums\ReserveType;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
@@ -36,9 +37,14 @@ class SampleSeeder extends Seeder
         }
 
         DB::transaction(function () {
-            $bank = Account::create(['name' => 'みずほ銀行', 'type' => AccountType::Bank, 'initial_balance' => 300000]);
+            // 取っておく額（第 2 段階）：銀行口座は金額、Suica は残高より多くして「下回っています」のお知らせが出るようにする
+            $bank = Account::create(['name' => 'みずほ銀行', 'type' => AccountType::Bank, 'initial_balance' => 300000,
+                'reserve_type' => ReserveType::Amount, 'reserve_amount' => 100000]);
             $cash = Account::create(['name' => '財布', 'type' => AccountType::Cash, 'initial_balance' => 20000]);
-            $ic = Account::create(['name' => 'Suica', 'type' => AccountType::TransitIc, 'initial_balance' => 2000]);
+            $ic = Account::create(['name' => 'Suica', 'type' => AccountType::TransitIc, 'initial_balance' => 2000,
+                'reserve_type' => ReserveType::Amount, 'reserve_amount' => 6000]);
+            // 貯金用の口座は「全部取っておく」
+            Account::create(['name' => '貯金', 'type' => AccountType::Bank, 'initial_balance' => 150000, 'reserve_type' => ReserveType::All]);
             // 「使わない」にできるのは残高 0 円の口座だけなので、1,200 円の支出でちょうど 0 円になるようにする
             $old = Account::create(['name' => '古い財布', 'type' => AccountType::Cash, 'initial_balance' => 1200]);
 
