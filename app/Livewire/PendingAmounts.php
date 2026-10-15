@@ -172,7 +172,15 @@ class PendingAmounts extends Component
     {
         // 次のホームだけが使う札をつけて入れておく（flash だと、ほかのタブの通信が先に来たときに、そちらで使われて消えるため）
         $draft = Str::random(32);
+        // 使われなかった古い札（2 回押しや、出し直しの途中でタブを閉じたとき）は、10 分たったら片づける
+        $drafts = session('pending.draft');
+        foreach (is_array($drafts) ? $drafts : [] as $old => $value) {
+            if (! is_array($value) || ($value['at'] ?? 0) < now()->timestamp - 600) {
+                session()->forget('pending.draft.'.$old);
+            }
+        }
         session()->put('pending.draft.'.$draft, [
+            'at' => now()->timestamp,
             'amounts' => array_filter($this->amounts, fn ($text) => is_string($text) && trim($text) !== ''),
             'notice' => $this->notice,
         ]);

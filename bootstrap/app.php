@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RestoreExpiredInput;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // 信じる見出しは X-Forwarded-For（IP アドレス）だけにする。CloudFront はブラウザが送った見出しをそのまま渡すので、
         // ほかの見出し（X-Forwarded-Host など）まで信じると、ブラウザが書いた値で URL が作られてしまうため
         $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_FOR);
+        // ログインが切れて保存できなかった入力を、ログインし直したあとに欄へ戻す（画面設計書 4 章の 12）
+        $middleware->web(append: RestoreExpiredInput::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -28,7 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // 画面を開いたまま時間がたって、送ったフォームの合言葉（CSRF トークン）が古くなったとき（419）。
         // 英語のエラーの画面を出して入力を消すかわりに、前の画面に戻して、入れた内容を欄に戻し、保存できなかったことを知らせる。
-        // ログインも切れているときは、ログインの画面で知らせる（入れた内容は戻せない）
+        // ログインも切れているときは、入れた内容をセッションに取っておき、ログインの画面で知らせる。
+        // ログインし直すと、その画面に戻り、取っておいた内容を欄に戻す（app/Http/Middleware/RestoreExpiredInput.php）
         $exceptions->render(function (HttpException $e, Request $request) {
             if (! $e->getPrevious() instanceof TokenMismatchException) {
                 return null;
@@ -37,15 +41,31 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
             $input = $request->except(['_token', '_method', 'password', 'password_confirmation']);
+            // 戻り先は、このアプリの中の画面だけ（ほかのサイトの URL が Referer に入っていても、そこへは移さない）
+            $previous = url()->previous();
+            $back = parse_url($previous, PHP_URL_HOST) === $request->getHost() ? $previous : route('home');
             if ($request->is('login')) {
+                // ほかのタブでもうログインしていたときは、ログインの画面ではなくホームで知らせる（ログインの画面はホームへ移すため、知らせが消える）
+                if (auth()->check()) {
+                    return redirect()->route('home')->with('warning', 'もうログインしています。');
+                }
+
                 return redirect()->route('login')->withInput($input)
                     ->with('warning', '画面を開いてから時間がたっていたので、ログインできませんでした。もう一度ログインしてください。');
             }
             if (! auth()->check()) {
-                return redirect()->route('login')->with('warning', 'ログインが切れていたので、操作できませんでした。ログインしてから、もう一度入れてください。');
+                // ログアウトを押したときは、もうログインが切れているので、そのままログインの画面へ
+                if ($request->is('logout')) {
+                    return redirect()->route('login');
+                }
+                $request->session()->put('expired_input', ['url' => $back, 'input' => $input, 'at' => now()->timestamp]);
+                redirect()->setIntendedUrl($back);
+
+                return redirect()->route('login')
+                    ->with('warning', 'ログインが切れていたので、操作できませんでした。ログインし直すと、入れた内容を欄に戻します。');
             }
 
-            return redirect()->back()->withInput($input)
+            return redirect()->to($back)->withInput($input)
                 ->with('warning', '画面を開いてから時間がたっていたので、操作できませんでした。入れた内容は残してあるので、もう一度押してください。');
         });
     })->create();

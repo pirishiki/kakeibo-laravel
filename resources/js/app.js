@@ -301,10 +301,63 @@ document.addEventListener('livewire:init', () => {
         fail(({ status, preventDefault }) => {
             if (status === 419) {
                 preventDefault();
-                showPageAlert('画面を開いてから時間がたっていたので、保存できませんでした。入れた内容は画面に残っています。控えてから［読みこみ直す］を押し、もう一度入れてください。');
+                keepFieldsForReload();
+                showPageAlert('画面を開いてから時間がたっていたので、操作できませんでした。［読みこみ直す］を押すと、入れた内容を欄に戻します（ログインが切れていたら、ログインし直したあとに戻します）。');
             }
         });
     });
+});
+
+// 保存できなかった画面の入力を、このタブのあいだだけブラウザに取っておき（sessionStorage）、同じ画面を開き直したときに欄へ戻す。
+// パスワードの欄は取っておかない。1 日より古いものは戻さない
+const KEPT_FIELDS = 'kakeibo-kept-fields';
+function keepFieldsForReload() {
+    const fields = [...document.querySelectorAll('main input[id], main select[id], main textarea[id]')]
+        .filter((el) => !['password', 'hidden', 'file', 'submit', 'button'].includes(el.type))
+        .map((el) => ({ id: el.id, value: el.value, checked: el.checked ?? false, type: el.type }));
+    try {
+        sessionStorage.setItem(KEPT_FIELDS, JSON.stringify({ path: location.pathname + location.search, at: Date.now(), fields }));
+    } catch {
+        // 取っておけないブラウザの設定のときは、知らせの文のとおり画面に残っている内容を使ってもらう
+    }
+}
+document.addEventListener('livewire:initialized', () => {
+    let kept = null;
+    try {
+        kept = JSON.parse(sessionStorage.getItem(KEPT_FIELDS) ?? 'null');
+    } catch {
+        kept = null;
+    }
+    if (!kept || kept.path !== location.pathname + location.search) {
+        return;
+    }
+    try {
+        sessionStorage.removeItem(KEPT_FIELDS);
+    } catch {
+        // 消せなくても、1 日たてば使わない
+    }
+    if (Date.now() - kept.at > 86400000) {
+        return;
+    }
+    kept.fields.forEach(({ id, value, checked, type }) => {
+        const el = document.getElementById(id);
+        if (!el) {
+            return;
+        }
+        if (type === 'checkbox' || type === 'radio') {
+            el.checked = checked;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+            el.value = value;
+            // Livewire に新しい値を知らせる（wire:model は input の合図で値を受けとる）
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+    // 戻した内容は、まだ保存していない打ちかけの入力として数える（「戻る」で読みこみ直して消さないように）
+    typedSinceSubmit = true;
+    submitted = false;
+    showPageAlert('前に入れた内容を、欄に戻しました。確かめてから、もう一度保存してください。', false);
 });
 window.addEventListener('pageshow', (event) => {
     if (!event.persisted) {
@@ -317,23 +370,25 @@ window.addEventListener('pageshow', (event) => {
     showPageAlert('前の画面を出しています。残高などが古いかもしれません');
 });
 
-// 画面の上に、知らせと［読みこみ直す］を出す（同じ知らせは 1 つだけ）
-function showPageAlert(message) {
-    if (document.getElementById('page-alert')) {
-        return;
-    }
+// 画面の上に知らせを出す。withReload のときは［読みこみ直す］もつける。
+// 知らせはいつも 1 つにして、もう出ているときは、新しい知らせに入れかえる（あとの知らせが黙って出ないことがないように）
+function showPageAlert(message, withReload = true) {
+    document.getElementById('page-alert')?.remove();
     const alert = document.createElement('div');
     alert.id = 'page-alert';
     alert.className = 'alert alert-warning d-flex justify-content-between align-items-center gap-2 flex-wrap';
     alert.setAttribute('role', 'alert');
     const text = document.createElement('span');
     text.textContent = message;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn btn-sm btn-outline-secondary';
-    button.textContent = '読みこみ直す';
-    button.addEventListener('click', () => window.location.reload());
-    alert.append(text, button);
+    alert.append(text);
+    if (withReload) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-sm btn-outline-secondary';
+        button.textContent = '読みこみ直す';
+        button.addEventListener('click', () => window.location.reload());
+        alert.append(button);
+    }
     document.querySelector('main')?.prepend(alert);
     alert.scrollIntoView({ block: 'nearest' });
 }
