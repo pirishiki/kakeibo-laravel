@@ -9,6 +9,7 @@ use App\Models\Partner;
 use App\Models\Record;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 
 /**
@@ -249,6 +250,27 @@ trait ChoosesPartnerCategoryAccount
      */
     protected function partnerIdToSave(bool $editing): int
     {
+        // 候補から選んだ・もともと入っていた相手（名前を打ち直していない）は、名前ではなく id で決める。
+        // 開いたあとに、ほかの画面でその相手の名前を変えたり、ほかの相手にまとめたりしても、元の名前の相手を作り直さないため
+        if ($this->partnerId !== null) {
+            $partner = Partner::query()->find($this->partnerId);
+            if ($partner !== null) {
+                $original = $this->original()['partner'];
+                if (! $partner->is_active && $original?->id !== $partner->id) {
+                    $partner->update(['is_active' => true]);
+                }
+
+                return $partner->id;
+            }
+            // ほかの相手にまとめられて消えた：変更なら、いまの記録・予定の相手（まとめ先）のまま
+            $saved = $this->savedPartnerId();
+            if ($editing && $saved !== null) {
+                return $saved;
+            }
+
+            throw ValidationException::withMessages(['partnerName' => Partner::UNAVAILABLE_MESSAGE]);
+        }
+
         $original = $this->original()['partner'];
         if ($editing && $original !== null && $original->name === $this->partnerName) {
             return $original->id;
@@ -257,11 +279,15 @@ trait ChoosesPartnerCategoryAccount
         return $this->resolvePartner()->id;
     }
 
+    /** いま保存してある記録・予定の相手（変更のとき）。登録のときは null */
+    abstract protected function savedPartnerId(): ?int;
+
     /** 打った名前の相手を返す。ないときは新しく作り、「使わない」相手なら「使う」に戻す（画面設計書 5.4 の相手の欄） */
     protected function resolvePartner(): Partner
     {
+        // 2 つの画面から同じ新しい名前をほぼ同時に保存しても、ユニーク制約のエラーにならないように、作るか、あれば読む（createOrFirst）
         $partner = Partner::query()->where('name', $this->partnerName)->lockForUpdate()->first()
-            ?? Partner::create(['name' => $this->partnerName]);
+            ?? Partner::query()->createOrFirst(['name' => $this->partnerName]);
 
         if (! $partner->is_active) {
             $partner->update(['is_active' => true]);

@@ -59,13 +59,16 @@ class PendingAmounts extends Component
         }
 
         $saved = 0;
+        $problems = [];
         foreach ($this->items as $item) {
             $text = $values[self::key($item['recurring'], $item['month'])];
             if ($text !== '') {
                 RecurringMonthly::saveAmount($item['recurring'], $item['month'], (int) $text);
+                $problems[] = RecurringMonthly::recordProblem($item['recurring'], $item['month'], (int) $text);
                 $saved++;
             }
         }
+        $problems = array_values(array_filter($problems));
 
         // 開いたあとに、ほかの画面で記録されたか「今回はなし」になってお知らせから消えた予定に入れた金額は、使えない。黙らずに名前をつけて知らせる
         $unused = [];
@@ -76,8 +79,11 @@ class PendingAmounts extends Component
                 $unused[] = (string) Recurring::query()->whereKey((int) $m[1])->value('name');
             }
         }
-        if ($unused !== []) {
-            $this->notice = MonthlyAmounts::unusedNotice(array_values(array_filter($unused))).'金額は、定期的な記録の画面の「月ごとの金額」で確かめてください。';
+        if ($unused !== [] || $problems !== []) {
+            $this->notice = implode(' ', [
+                ...($unused === [] ? [] : [MonthlyAmounts::unusedNotice(array_values(array_filter($unused))).'金額は、定期的な記録の画面の「月ごとの金額」で確かめてください。']),
+                ...$problems,
+            ]);
             $this->amounts = array_intersect_key($this->amounts, $values);
             unset($this->items);
 

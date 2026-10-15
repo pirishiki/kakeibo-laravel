@@ -147,8 +147,15 @@ class AccountManageTest extends TestCase
 
         $this->get("/accounts/{$bank->id}/edit")->assertOk()->assertSee('記録があるので変えられません');
 
-        // 画面の欄は押せないが、送られてきても受けとらない。名前などのほかの欄は直せる
-        $this->put("/accounts/{$bank->id}", $this->form(['name' => 'みずほ', 'initial_balance' => '1']))
+        // 画面の欄は押せない。開いたあとに記録ができて、ちがう最初の残高が送られてきたら、黙って捨てずに知らせる
+        $this->from("/accounts/{$bank->id}/edit")
+            ->put("/accounts/{$bank->id}", $this->form(['name' => 'みずほ', 'initial_balance' => '1']))
+            ->assertRedirect("/accounts/{$bank->id}/edit")
+            ->assertSessionHasErrors('initial_balance');
+        $this->assertSame(350_000, $bank->refresh()->initial_balance);
+
+        // 同じ最初の残高のまま（欄が押せない画面から送ったとき）なら、名前などのほかの欄は直せる
+        $this->put("/accounts/{$bank->id}", $this->form(['name' => 'みずほ', 'initial_balance' => '350,000']))
             ->assertRedirect('/accounts');
 
         $bank->refresh();

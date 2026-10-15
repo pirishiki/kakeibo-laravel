@@ -201,3 +201,38 @@ document.addEventListener('focusin', (event) => {
         setAmount(input, input.value.replace(/,/g, ''));
     }
 });
+
+// ふつうのフォーム（口座・分類・相手の追加・変更・削除・まとめる、ログアウトなど。Livewire でないもの）の 2 回押しを止める。
+// 2 回目が「その名前はもう使われています」や「見つかりません」になって、失敗したように見えないようにするため。
+// 送るまえに確認の小窓を出すフォーム（相手をまとめる）は、先に送るのを止める（defaultPrevented）ので、そのときは何もしない。
+// Livewire のフォーム（wire:submit）は、Livewire が送るのを止めて、ボタンを押せなくする（wire:loading.attr）
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (event.defaultPrevented || !(form instanceof HTMLFormElement) || form.hasAttribute('wire:submit')) {
+        return;
+    }
+    if (form.dataset.submitting) {
+        event.preventDefault();
+        return;
+    }
+    form.dataset.submitting = '1';
+    // 送る中身が決まってから押せなくする（押したボタンを先に押せなくすると、そのボタンの値が送られなくなるため）
+    setTimeout(() => {
+        document.querySelectorAll('[type=submit]').forEach((button) => {
+            if (button.form === form) {
+                button.disabled = true;
+            }
+        });
+    }, 0);
+});
+// ブラウザの「戻る」で、送ったあとの画面に戻ってきたとき（前の画面をそのまま出すとき）は、また押せるようにする
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        document.querySelectorAll('form[data-submitting]').forEach((form) => {
+            delete form.dataset.submitting;
+        });
+        document.querySelectorAll('[type=submit]:disabled').forEach((button) => {
+            button.disabled = false;
+        });
+    }
+});

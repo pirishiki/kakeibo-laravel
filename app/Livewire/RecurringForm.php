@@ -12,6 +12,7 @@ use App\Support\FormInput;
 use App\Support\RecurringDate;
 use App\Support\RecurringRecorder;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -33,6 +34,14 @@ class RecurringForm extends Component
     /** 変更している予定の id。登録のときは null。画面の側から書きかえられないようにする */
     #[Locked]
     public ?int $recurringId = null;
+
+    /** 変更の画面を開いたときの、予定の最後に変えた日時。保存のときにちがえば、ほかの画面で直されている */
+    #[Locked]
+    public ?string $openedAt = null;
+
+    /** @var list<string> 確認の小窓で知らせた月（「今回はなし」にする月・日付が過ぎた月）。押したときに変わっていたら、小窓を出し直す */
+    #[Locked]
+    public array $noticedMonths = [];
 
     /** 種類：expense（支出）・income（収入）・transfer（移動） */
     public string $type = 'expense';
@@ -102,6 +111,7 @@ class RecurringForm extends Component
         if ($recurring !== null) {
             $this->fillFrom($recurring);
             $this->recurringId = $recurring->id;
+            $this->openedAt = $recurring->updated_at?->toDateTimeString();
             $this->rememberOpenedYears();
 
             return;
@@ -214,13 +224,28 @@ class RecurringForm extends Component
         $this->partnerName = Partner::normalizeName($this->partnerName);
         $data = $this->validate($this->rules(), $this->messages(), $this->fieldNames());
 
-        $before = $this->recurringId === null ? null : Recurring::query()->findOrFail($this->recurringId);
+        $before = $this->recurringId === null ? null : $this->findOrNotice('save');
+        if ($this->recurringId !== null && $before === null) {
+            return null;
+        }
+        if ($before !== null && $this->openedAt !== null && $before->updated_at?->toDateTimeString() !== $this->openedAt) {
+            $this->addError('save', 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
+
+            return null;
+        }
         $after = $before === null ? new Recurring : $before->replicate();
         $after->fill($this->valuesToSave($data));
 
         $skips = $after->monthsToSkipOnSave($before);
         $passedMonths = $before === null ? [] : $after->monthsPassedOnSave($before);
+        // 小窓を出したあとに日付が変わるなどして、知らせた月と、いま計算した月がちがうときは、小窓を出し直す（知らせていない月を黙って今回はなしにしない）
+        $months = array_map(fn (CarbonImmutable $m) => $m->toDateString(), [...$skips, ...$passedMonths]);
+        if ($confirmed && $months !== $this->noticedMonths) {
+            $confirmed = false;
+            $passed = '';
+        }
         if (($skips !== [] && ! $confirmed) || ($passedMonths !== [] && ! in_array($passed, ['skip', 'record'], true))) {
+            $this->noticedMonths = $months;
             $this->skipNotice = $skips === [] ? '' : self::monthsLabel($skips).'の分は記録せず、『今回はなし』にします';
             $this->passedNotice = implode('', array_map(
                 fn (CarbonImmutable $month) => $month->month.'月の分（'.self::dateLabel($after->scheduledDate($month)).'）は、日付がもう過ぎています。',
@@ -274,7 +299,10 @@ class RecurringForm extends Component
      */
     public function continueWithNewAmount(): mixed
     {
-        $recurring = Recurring::query()->findOrFail($this->recurringId);
+        $recurring = $this->findOrNotice('continue');
+        if ($recurring === null) {
+            return null;
+        }
 
         if ($recurring->end_month === null) {
             $this->addError('continue', '先に最後の月を入れて保存してください');
@@ -288,7 +316,12 @@ class RecurringForm extends Component
     /** 削除（確認の小窓で「削除する」を押したとき）。記録がある予定は削除できない（4 章の 9） */
     public function delete(): mixed
     {
-        $recurring = Recurring::query()->findOrFail($this->recurringId);
+        $recurring = Recurring::query()->find($this->recurringId);
+        if ($recurring === null) {
+            session()->flash('status', 'この定期的な記録は、もう削除されていました');
+
+            return $this->redirect(route('recurrings.index'));
+        }
 
         // 小窓を開いたあとに記録ができたときなど。データベースも止めるが（restrictOnDelete）、ここで理由を出す
         if ($recurring->records()->exists()) {
@@ -297,8 +330,15 @@ class RecurringForm extends Component
             return null;
         }
 
-        // 月ごとの金額と今回はなしも、データベースがいっしょに消す（cascadeOnDelete）
-        $recurring->delete();
+        // 月ごとの金額と今回はなしも、データベースがいっしょに消す（cascadeOnDelete）。
+        // 確かめたあと、消すまでのあいだに 0 時 5 分の自動の記録ができると、データベースが止める。エラー画面にせず、理由を出す
+        try {
+            Recurring::query()->whereKey($recurring->id)->delete();
+        } catch (QueryException) {
+            $this->addError('delete', '記録があるので削除できません');
+
+            return null;
+        }
         session()->flash('status', '削除しました');
 
         return $this->redirect(route('recurrings.index'));
@@ -307,7 +347,11 @@ class RecurringForm extends Component
     /** 削除の小窓から「使わない」にする（記録がある予定のとき。4 章の 9） */
     public function deactivate(): mixed
     {
-        Recurring::query()->findOrFail($this->recurringId)->update(['is_active' => false]);
+        $recurring = $this->findOrNotice('delete');
+        if ($recurring === null) {
+            return null;
+        }
+        $recurring->update(['is_active' => false]);
         session()->flash('status', '「使わない」にしました');
 
         return $this->redirect(route('recurrings.index'));
@@ -478,6 +522,22 @@ class RecurringForm extends Component
             'end_month' => $this->monthFrom($this->endYear, $this->endMonth),
             'is_active' => $this->isActive,
         ];
+    }
+
+    /** 保存してある予定。ほかの画面で削除されていたら、その欄の下に理由を出して null */
+    private function findOrNotice(string $field): ?Recurring
+    {
+        $recurring = Recurring::query()->find($this->recurringId);
+        if ($recurring === null) {
+            $this->addError($field, 'この定期的な記録は、ほかの画面で削除されました。一覧から開き直してください');
+        }
+
+        return $recurring;
+    }
+
+    protected function savedPartnerId(): ?int
+    {
+        return $this->recurringId === null ? null : Recurring::query()->whereKey($this->recurringId)->value('partner_id');
     }
 
     /** 予定の値を、欄に入れる */

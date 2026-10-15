@@ -142,11 +142,16 @@ class RecurringMonthly
     {
         $month = $month->startOfMonth();
         $key = $month->toDateString();
-        if ($recurring->is_fixed || $recurring->records()->where('recurring_month', $key)->exists()) {
+        if ($recurring->is_fixed) {
             return false;
         }
 
         return DB::transaction(function () use ($recurring, $month, $key, $amount, $today) {
+            // 0 時 5 分の自動の記録と重なっても食いちがわないように、予定の行を押さえてから、記録済みかを確かめ直す
+            Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
+            if ($recurring->records()->where('recurring_month', $key)->exists()) {
+                return false;
+            }
             if ($amount === null) {
                 $recurring->amounts()->where('month', $key)->delete();
 
@@ -168,11 +173,44 @@ class RecurringMonthly
     public static function skip(Recurring $recurring, CarbonImmutable $month): void
     {
         $key = $month->startOfMonth()->toDateString();
-        if ($recurring->records()->where('recurring_month', $key)->exists()) {
-            return;
+        DB::transaction(function () use ($recurring, $key) {
+            // 自動の記録と重なって「記録もあるのに今回はなし」にならないように、予定の行を押さえてから確かめる
+            Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
+            if ($recurring->records()->where('recurring_month', $key)->exists()) {
+                return;
+            }
+
+            RecurringSkip::query()->firstOrCreate(['recurring_id' => $recurring->id, 'month' => $key]);
+        });
+    }
+
+    /**
+     * 保存・もどすのあとに、記録できているはずなのに記録されていないときの理由。問題がないときは null
+     * （日付が今日か過ぎていて、金額があるのに、その月の記録がない＝口座が「使わない」など。
+     *   記録はあるが、入れた金額とちがう＝開いたあとに、前の金額で自動で記録された）
+     *
+     * @param  int|null  $entered  入れた金額（金額が変わる予定のとき）。決まった金額・もどすのときは null
+     */
+    public static function recordProblem(Recurring $recurring, CarbonImmutable $month, ?int $entered = null, ?CarbonImmutable $today = null): ?string
+    {
+        $today ??= today()->toImmutable();
+        $month = $month->startOfMonth();
+        if ($recurring->scheduledDate($month)->gt($today) || $recurring->skips()->where('month', $month->toDateString())->exists()) {
+            return null;
         }
 
-        RecurringSkip::query()->firstOrCreate(['recurring_id' => $recurring->id, 'month' => $key]);
+        $record = $recurring->records()->where('recurring_month', $month->toDateString())->first();
+        if ($record !== null) {
+            return $entered !== null && $record->amount !== $entered
+                ? '「'.$recurring->name.'」は、開いたあとに前の金額（'.number_format($record->amount).' 円）で記録されていたので、入れた金額は使っていません。記録済みの金額を押して記録を直してください。'
+                : null;
+        }
+
+        if (RecurringRecorder::amountFor($recurring, $month) === null) {
+            return null;
+        }
+
+        return RecurringRecorder::blocker($recurring) ?? '「'.$recurring->name.'」を記録できませんでした。画面を読みこみ直してから、もう一度ためしてください。';
     }
 
     /**

@@ -104,6 +104,8 @@ class RecurringAutoRecordTest extends TestCase
 
         Livewire::test(RecurringForm::class, ['recurring' => $rent])
             ->set('day', '5')
+            ->call('save')
+            ->assertDispatched('open-modal', id: 'skip-dialog')
             ->call('save', true, 'skip')
             ->assertRedirect(route('recurrings.index'));
 

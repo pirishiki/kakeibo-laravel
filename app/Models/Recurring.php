@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * 定期的な記録（データベース設計書 3.6）。給料・ローン・引き落としなど、毎月決まった日にある収入・支出・移動
@@ -33,6 +34,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $start_month
  * @property CarbonImmutable|null $end_month
  * @property bool $is_active
+ * @property Carbon|null $updated_at
  * @property-read Account $account
  * @property-read Account|null $toAccount
  */
@@ -179,6 +181,24 @@ class Recurring extends Model
     public function isEnded(): bool
     {
         return $this->end_month !== null && $this->end_month->lt(today()->startOfMonth());
+    }
+
+    /**
+     * 最後の月があって、もう終わった（最後の月が先月以前の）予定で、ずらした日がまだ来ていない、記録も今回はなしもしていない最後の月。ないときは null
+     */
+    public function lastMonthWaiting(?CarbonImmutable $today = null): ?CarbonImmutable
+    {
+        $today ??= today()->toImmutable();
+        if ($this->end_month === null || $this->end_month->gte($today->startOfMonth())) {
+            return null;
+        }
+
+        $key = $this->end_month->toDateString();
+        $waiting = $this->coversMonth($this->end_month) && $this->scheduledDate($this->end_month)->gte($today)
+            && ! $this->records()->where('recurring_month', $key)->exists()
+            && ! $this->skips()->where('month', $key)->exists();
+
+        return $waiting ? $this->end_month : null;
     }
 
     /** その月の分を記録する日（土日・祝日でずらしたあとの日） */

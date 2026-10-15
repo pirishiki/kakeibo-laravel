@@ -44,6 +44,13 @@ class RecordForm extends Component
     #[Locked]
     public ?int $recordId = null;
 
+    /** 編集の画面を開いたときの、記録の最後に変えた日時。保存のときにちがえば、ほかの画面で直されている */
+    #[Locked]
+    public ?string $openedAt = null;
+
+    /** ほかの画面で消された記録を、保存しようとしたときの文 */
+    public const GONE_MESSAGE = 'この記録は、ほかの画面で削除されたので、保存できません。記録の一覧から開き直してください';
+
     /** 種類：expense（支出）・income（収入）・transfer（移動）。adjustment（調整）は、調整の記録を編集するときだけ */
     public string $type = 'expense';
 
@@ -161,7 +168,18 @@ class RecordForm extends Component
         $this->partnerName = Partner::normalizeName($this->partnerName);
         $data = $this->validate($this->rules(), $this->messages(), $this->fieldNames());
 
-        $record = $this->recordId === null ? null : Record::query()->findOrFail($this->recordId);
+        $record = $this->recordId === null ? null : Record::query()->find($this->recordId);
+        if ($this->recordId !== null && $record === null) {
+            $this->addError('blocker', self::GONE_MESSAGE);
+
+            return null;
+        }
+        // 開いたあとに、ほかの画面でこの記録が直されていたら、上書きせずに知らせる（あとから保存したほうが黙って勝たないように）
+        if ($record !== null && $this->openedAt !== null && $record->updated_at?->toDateTimeString() !== $this->openedAt) {
+            $this->addError('blocker', 'この記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
+
+            return null;
+        }
         $hasCategory = in_array($this->type, ['expense', 'income'], true);
         $values = [
             'type' => $this->type,
@@ -215,7 +233,13 @@ class RecordForm extends Component
      */
     public function delete(): mixed
     {
-        $record = Record::query()->findOrFail($this->recordId);
+        $record = Record::query()->find($this->recordId);
+        if ($record === null) {
+            // ほかの画面で、もう削除されていた
+            session()->flash('status', 'この記録は、もう削除されていました');
+
+            return $this->redirect($this->backUrl);
+        }
 
         // 「使わない」口座の記録を消すと、その口座の残高が 0 円でなくなるので止める
         if ($this->deleteBlocker !== null) {
@@ -250,6 +274,11 @@ class RecordForm extends Component
         $record = $this->recordId === null ? null : Record::query()->find($this->recordId);
 
         return $record === null ? null : $this->inactiveAccountBlocker($record, null);
+    }
+
+    protected function savedPartnerId(): ?int
+    {
+        return $this->recordId === null ? null : Record::query()->whereKey($this->recordId)->value('partner_id');
     }
 
     /**
@@ -351,6 +380,7 @@ class RecordForm extends Component
     private function fillFrom(Record $record): void
     {
         $this->recordId = $record->id;
+        $this->openedAt = $record->updated_at?->toDateTimeString();
         $this->type = $record->type->value;
         $this->amount = number_format($record->amount);
         $this->date = $record->date->toDateString();

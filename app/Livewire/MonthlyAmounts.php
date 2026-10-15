@@ -77,12 +77,16 @@ class MonthlyAmounts extends Component
             $this->validate($rules, $messages);
         }
 
+        $problems = [];
         foreach ($variable as $row) {
             $text = $values[$row['recurring']->id];
             if ($text !== ($this->opened[$row['recurring']->id] ?? '')) {
-                RecurringMonthly::saveAmount($row['recurring'], $row['month'], $text === '' ? null : (int) $text);
+                $amount = $text === '' ? null : (int) $text;
+                RecurringMonthly::saveAmount($row['recurring'], $row['month'], $amount);
+                $problems[] = $amount === null ? null : RecurringMonthly::recordProblem($row['recurring'], $row['month'], $amount);
             }
         }
+        $problems = array_values(array_filter($problems));
 
         // 開いたあとに、ほかで記録されたか「今回はなし」になって欄がなくなった行で、金額を変えていたもの（例：0 時 5 分の自動の記録）。
         // 入れた金額は使えないので、黙って「保存しました」とせず、名前をつけて知らせる（残高が知らないうちにずれないように）
@@ -97,9 +101,15 @@ class MonthlyAmounts extends Component
                 unset($this->amounts[$id], $this->opened[$id]);
             }
         }
-        if ($unused !== []) {
-            $this->notice = self::unusedNotice($unused).'記録済みのものは、金額を押して記録を直してください。';
+        if ($unused !== [] || $problems !== []) {
+            $this->notice = implode(' ', [...($unused === [] ? [] : [self::unusedNotice($unused).'記録済みのものは、金額を押して記録を直してください。']), ...$problems]);
             unset($this->rows);
+            // 保存した欄は、開いたときの金額として覚え直す（もう一度「保存」を押しても、同じ金額を保存し直さないように）
+            foreach ($this->rows as $row) {
+                if ($row['status'] === RecurringMonthly::VARIABLE) {
+                    $this->fillAmount($row['recurring']->id, $row['amount']);
+                }
+            }
 
             return null;
         }
@@ -136,6 +146,7 @@ class MonthlyAmounts extends Component
         }
 
         RecurringMonthly::restore($row['recurring'], $row['month']);
+        $this->notice = (string) RecurringMonthly::recordProblem($row['recurring'], $row['month']);
         unset($this->rows);
         // 金額が変わる予定で、まだ記録されていなければ、入れてある金額を欄に出す
         foreach ($this->rows as $fresh) {
