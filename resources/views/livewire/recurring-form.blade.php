@@ -187,6 +187,11 @@
                     <label class="form-check-label" for="isActive">使う</label>
                 </div>
 
+                {{-- ほかの画面で直された・削除されたときの理由 --}}
+                @error('save')
+                    <div class="alert alert-danger" role="alert">{{ $message }}</div>
+                @enderror
+
                 <div class="d-grid gap-2">
                     {{-- 保存しているあいだは押せなくする（2 回押して、同じ予定が 2 つできないように） --}}
                     <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">保存</button>

@@ -77,6 +77,20 @@ class CategoryRequest extends FormRequest
                     $validator->errors()->add('is_active', Recurring::IN_USE_MESSAGE);
                 }
             },
+            function (Validator $validator) {
+                /** @var Category|null $category */
+                $category = $this->route('category');
+
+                // 小分類を、「使わない」の大分類の下へ移すと、その小分類も選べなくなる。動いている予定が使っているときは止める（画面設計書 4 章の 9）
+                if ($category === null || $category->isParent() || ! $this->filled('parent_id') || $validator->errors()->isNotEmpty()
+                    || $this->integer('parent_id') === $category->parent_id) {
+                    return;
+                }
+                $parent = Category::query()->find($this->integer('parent_id'));
+                if ($parent !== null && ! $parent->is_active && Recurring::usingCategory($category)->running()->exists()) {
+                    $validator->errors()->add('parent_id', '「使う」の定期的な記録が使っているので、『使わない』の大分類の下へは移せません。先に定期的な記録を直してください');
+                }
+            },
         ];
     }
 

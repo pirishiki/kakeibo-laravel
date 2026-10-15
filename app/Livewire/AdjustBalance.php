@@ -8,6 +8,7 @@ use App\Models\Record;
 use App\Support\FormInput;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -36,6 +37,16 @@ class AdjustBalance extends Component
     public string $date = '';
 
     public string $memo = '';
+
+    /**
+     * 画面に最後に出した「アプリの残高」と、その日付。保存のときに、いまの残高とくらべる
+     * （開いたあとに、ほかの画面でこの口座の記録が変わったら、画面で見た差とちがう額で黙って調整しないため）。画面の側から書きかえられないようにする
+     */
+    #[Locked]
+    public ?int $shownBalance = null;
+
+    #[Locked]
+    public string $shownDate = '';
 
     /** 保存したあとに戻る画面（記録の部品と同じく、書きかえられないようにする） */
     #[Locked]
@@ -105,8 +116,6 @@ class AdjustBalance extends Component
 
     public function save(): mixed
     {
-        // 画面を開いたあとに、ほかのタブで「使わない」にされていたら保存しない（「使わない」口座はいつも 0 円のまま）
-        abort_unless($this->account()->is_active, 404);
 
         $this->actual = FormInput::normalizeAmount($this->actual);
         $max = FormInput::MAX_AMOUNT;
@@ -142,13 +151,41 @@ class AdjustBalance extends Component
             return null;
         }
 
-        Record::create([
-            'date' => $this->date,
-            'type' => RecordType::Adjustment,
-            'amount' => $difference,
-            'account_id' => $this->accountId,
-            'memo' => $this->memo !== '' ? $this->memo : null,
-        ]);
+        $error = DB::transaction(function () {
+            // 口座を押さえてから、「使う」か・差をもう一度確かめる。
+            // 画面を開いたあとに、ほかのタブで「使わない」にされたときや、ほかのタブで先に合わせたとき（差が変わる）に、二重に調整しないため
+            $account = Account::query()->whereKey($this->accountId)->lockForUpdate()->firstOrFail();
+            if (! $account->is_active) {
+                return 'この口座は、ほかの画面で『使わない』にされたので、合わせられません。';
+            }
+            unset($this->appBalance, $this->difference);
+            $difference = $this->difference;
+            if ($difference === null || $difference === 0) {
+                return 'ずれはありません。（ほかの画面で、先に合わせてあります）';
+            }
+            if ($this->differenceTooLarge()) {
+                return self::TOO_LARGE;
+            }
+            // 画面に出した残高と変わった（開いたあとに、ほかの画面でこの口座の記録が変わった）ときは、黙ってちがう額で調整しない
+            if ($this->shownBalance !== null && $this->shownDate === $this->date && $this->appBalance !== $this->shownBalance) {
+                return 'ほかの画面でこの口座の記録が変わったので、差が '.number_format($difference).' 円になりました。差を確かめてから、もう一度保存してください。';
+            }
+
+            Record::create([
+                'date' => $this->date,
+                'type' => RecordType::Adjustment,
+                'amount' => $difference,
+                'account_id' => $this->accountId,
+                'memo' => $this->memo !== '' ? $this->memo : null,
+            ]);
+
+            return null;
+        }, 3);
+        if ($error !== null) {
+            $this->addError('actual', $error);
+
+            return null;
+        }
 
         session()->flash('status', '保存しました');
 
@@ -157,6 +194,10 @@ class AdjustBalance extends Component
 
     public function render(): View
     {
+        // 画面に出す残高を覚えておく（保存のときに、いまの残高とくらべる）
+        $this->shownBalance = $this->appBalance;
+        $this->shownDate = $this->date;
+
         return view('livewire.adjust-balance', ['account' => $this->account()]);
     }
 

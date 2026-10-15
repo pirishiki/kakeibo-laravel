@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Enums\RecordType;
 use App\Enums\RecurringShift;
 use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
+use App\Models\Account;
 use App\Models\Partner;
 use App\Models\Recurring;
 use App\Models\RecurringSkip;
@@ -12,8 +13,10 @@ use App\Support\FormInput;
 use App\Support\RecurringDate;
 use App\Support\RecurringRecorder;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -33,6 +36,14 @@ class RecurringForm extends Component
     /** 変更している予定の id。登録のときは null。画面の側から書きかえられないようにする */
     #[Locked]
     public ?int $recurringId = null;
+
+    /** 変更の画面を開いたときの、予定の最後に変えた日時。保存のときにちがえば、ほかの画面で直されている */
+    #[Locked]
+    public ?string $openedAt = null;
+
+    /** @var list<string> 確認の小窓で知らせた月（「今回はなし」にする月・日付が過ぎた月）。押したときに変わっていたら、小窓を出し直す */
+    #[Locked]
+    public array $noticedMonths = [];
 
     /** 種類：expense（支出）・income（収入）・transfer（移動） */
     public string $type = 'expense';
@@ -102,6 +113,7 @@ class RecurringForm extends Component
         if ($recurring !== null) {
             $this->fillFrom($recurring);
             $this->recurringId = $recurring->id;
+            $this->openedAt = $recurring->updated_at?->toDateTimeString();
             $this->rememberOpenedYears();
 
             return;
@@ -188,6 +200,9 @@ class RecurringForm extends Component
     {
         $partner = Partner::query()->where('is_active', true)->find($id);
         if ($partner === null) {
+            // 候補を出したあとに、ほかの画面で「使わない」にしたか削除した相手。黙って何もしないと、押しても選ばれない理由がわからないので知らせる
+            $this->addError('partnerName', Partner::UNAVAILABLE_MESSAGE);
+
             return;
         }
 
@@ -211,13 +226,28 @@ class RecurringForm extends Component
         $this->partnerName = Partner::normalizeName($this->partnerName);
         $data = $this->validate($this->rules(), $this->messages(), $this->fieldNames());
 
-        $before = $this->recurringId === null ? null : Recurring::query()->findOrFail($this->recurringId);
+        $before = $this->recurringId === null ? null : $this->findOrNotice('save');
+        if ($this->recurringId !== null && $before === null) {
+            return null;
+        }
+        if ($before !== null && $this->openedAt !== null && $before->updated_at?->toDateTimeString() !== $this->openedAt) {
+            $this->addError('save', 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
+
+            return null;
+        }
         $after = $before === null ? new Recurring : $before->replicate();
         $after->fill($this->valuesToSave($data));
 
         $skips = $after->monthsToSkipOnSave($before);
         $passedMonths = $before === null ? [] : $after->monthsPassedOnSave($before);
+        // 小窓を出したあとに日付が変わるなどして、知らせた月と、いま計算した月がちがうときは、小窓を出し直す（知らせていない月を黙って今回はなしにしない）
+        $months = array_map(fn (CarbonImmutable $m) => $m->toDateString(), [...$skips, ...$passedMonths]);
+        if ($confirmed && $months !== $this->noticedMonths) {
+            $confirmed = false;
+            $passed = '';
+        }
         if (($skips !== [] && ! $confirmed) || ($passedMonths !== [] && ! in_array($passed, ['skip', 'record'], true))) {
+            $this->noticedMonths = $months;
             $this->skipNotice = $skips === [] ? '' : self::monthsLabel($skips).'の分は記録せず、『今回はなし』にします';
             $this->passedNotice = implode('', array_map(
                 fn (CarbonImmutable $month) => $month->month.'月の分（'.self::dateLabel($after->scheduledDate($month)).'）は、日付がもう過ぎています。',
@@ -234,23 +264,41 @@ class RecurringForm extends Component
             $skips = [...$skips, ...$passedMonths];
         }
 
-        $recorded = DB::transaction(function () use ($before, $after, $skips) {
-            if ($this->hasCategory()) {
-                $after->partner_id = $this->partnerIdToSave($before !== null);
+        $values = $after->only($after->getFillable());
+        // 押さえあい（デッドロック）でやり直すときも、同じ結果になるように、毎回、押さえた行から作り直す（前の回の中身を使わない）
+        $recorded = DB::transaction(function () use ($before, $values, $skips) {
+            // 0 時 5 分の自動の記録と同じ順番（予定の行 → 口座 → 相手）で押さえる（逆の順番だと、押さえあいになることがあるため）
+            if ($before !== null) {
+                $recurring = Recurring::query()->lockForUpdate()->find($before->id);
+                if ($recurring === null) {
+                    throw ValidationException::withMessages(['save' => 'この定期的な記録は、ほかの画面で削除されました。一覧から開き直してください']);
+                }
+                if ($this->openedAt !== null && $recurring->updated_at?->toDateTimeString() !== $this->openedAt) {
+                    throw ValidationException::withMessages(['save' => 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください']);
+                }
+            } else {
+                $recurring = new Recurring;
             }
 
-            if ($before === null) {
-                $after->save();
-                $recurring = $after;
-            } else {
-                $before->fill($after->only($after->getFillable()))->save();
-                $recurring = $before;
-                // 「毎月変わる」から「決まっている」に変えたら、まだ記録されていない月に入れておいた金額を消す（「今回はなし」は残す）
-                if ($recurring->is_fixed && $recurring->wasChanged('is_fixed')) {
-                    $recurring->amounts()
-                        ->whereNotIn('month', $recurring->records()->whereNotNull('recurring_month')->select('recurring_month'))
-                        ->delete();
-                }
+            // 口座を押さえてから「使う」かを確かめ直す。動いている予定（使うで、最後の月が今月か先）は、「使わない」口座を使えない（4 章の 9）
+            $accounts = Account::query()->whereIn('id', array_filter([$values['account_id'], $values['to_account_id']]))->sharedLock()->get();
+            $end = $values['end_month'];
+            $willRun = $values['is_active'] && ($end === null || CarbonImmutable::parse($end)->gte(today()->startOfMonth()));
+            $inactive = $accounts->first(fn (Account $a) => ! $a->is_active);
+            if ($willRun && $inactive !== null) {
+                throw ValidationException::withMessages(['save' => '口座「'.$inactive->name.'」は、ほかの画面で『使わない』にされたので、選べません。口座を選び直してください']);
+            }
+
+            if ($this->hasCategory()) {
+                $values['partner_id'] = $this->partnerIdToSave($before !== null);
+            }
+            $wasFixed = $recurring->exists ? $recurring->is_fixed : null;
+            $recurring->fill($values)->save();
+            // 「毎月変わる」から「決まっている」に変えたら、まだ記録されていない月に入れておいた金額を消す（「今回はなし」は残す）
+            if ($recurring->is_fixed && $wasFixed === false) {
+                $recurring->amounts()
+                    ->whereNotIn('month', $recurring->records()->whereNotNull('recurring_month')->select('recurring_month'))
+                    ->delete();
             }
 
             foreach ($skips as $month) {
@@ -259,7 +307,7 @@ class RecurringForm extends Component
 
             // 日付が今日か過ぎていて金額がある月は、次の 0 時 5 分を待たずに記録する（今日を最初の月にした・小窓で「記録する」を選んだ など）
             return RecurringRecorder::recordDue($recurring);
-        });
+        }, 3);
 
         session()->flash('status', $recorded === 0 ? '保存しました' : '保存しました。日付が来ている分を記録しました');
 
@@ -271,7 +319,10 @@ class RecurringForm extends Component
      */
     public function continueWithNewAmount(): mixed
     {
-        $recurring = Recurring::query()->findOrFail($this->recurringId);
+        $recurring = $this->findOrNotice('continue');
+        if ($recurring === null) {
+            return null;
+        }
 
         if ($recurring->end_month === null) {
             $this->addError('continue', '先に最後の月を入れて保存してください');
@@ -285,7 +336,12 @@ class RecurringForm extends Component
     /** 削除（確認の小窓で「削除する」を押したとき）。記録がある予定は削除できない（4 章の 9） */
     public function delete(): mixed
     {
-        $recurring = Recurring::query()->findOrFail($this->recurringId);
+        $recurring = Recurring::query()->find($this->recurringId);
+        if ($recurring === null) {
+            session()->flash('status', 'この定期的な記録は、もう削除されていました');
+
+            return $this->redirect(route('recurrings.index'));
+        }
 
         // 小窓を開いたあとに記録ができたときなど。データベースも止めるが（restrictOnDelete）、ここで理由を出す
         if ($recurring->records()->exists()) {
@@ -294,8 +350,19 @@ class RecurringForm extends Component
             return null;
         }
 
-        // 月ごとの金額と今回はなしも、データベースがいっしょに消す（cascadeOnDelete）
-        $recurring->delete();
+        // 月ごとの金額と今回はなしも、データベースがいっしょに消す（cascadeOnDelete）。
+        // 確かめたあと、消すまでのあいだに 0 時 5 分の自動の記録ができると、データベースが止める。エラー画面にせず、理由を出す
+        try {
+            Recurring::query()->whereKey($recurring->id)->delete();
+        } catch (QueryException $e) {
+            // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
+            $this->addError('delete', '記録があるので削除できません');
+
+            return null;
+        }
         session()->flash('status', '削除しました');
 
         return $this->redirect(route('recurrings.index'));
@@ -304,7 +371,11 @@ class RecurringForm extends Component
     /** 削除の小窓から「使わない」にする（記録がある予定のとき。4 章の 9） */
     public function deactivate(): mixed
     {
-        Recurring::query()->findOrFail($this->recurringId)->update(['is_active' => false]);
+        $recurring = $this->findOrNotice('delete');
+        if ($recurring === null) {
+            return null;
+        }
+        $recurring->update(['is_active' => false]);
         session()->flash('status', '「使わない」にしました');
 
         return $this->redirect(route('recurrings.index'));
@@ -475,6 +546,22 @@ class RecurringForm extends Component
             'end_month' => $this->monthFrom($this->endYear, $this->endMonth),
             'is_active' => $this->isActive,
         ];
+    }
+
+    /** 保存してある予定。ほかの画面で削除されていたら、その欄の下に理由を出して null */
+    private function findOrNotice(string $field): ?Recurring
+    {
+        $recurring = Recurring::query()->find($this->recurringId);
+        if ($recurring === null) {
+            $this->addError($field, 'この定期的な記録は、ほかの画面で削除されました。一覧から開き直してください');
+        }
+
+        return $recurring;
+    }
+
+    protected function savedPartnerId(): ?int
+    {
+        return $this->recurringId === null ? null : Recurring::query()->whereKey($this->recurringId)->value('partner_id');
     }
 
     /** 予定の値を、欄に入れる */

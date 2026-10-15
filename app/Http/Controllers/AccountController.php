@@ -8,6 +8,7 @@ use App\Models\Recurring;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -56,10 +57,30 @@ class AccountController extends Controller
 
     public function update(AccountRequest $request, Account $account): RedirectResponse
     {
+        $data = $request->validated();
         try {
-            $account->update($request->validated());
+            $blocker = DB::transaction(function () use ($account, $data) {
+                // 「使わない」にするときは、口座を押さえてから確かめ直す（チェックのあと、保存するまでに記録ができても、残高のある口座を「使わない」にしないように）
+                $locked = Account::query()->whereKey($account->id)->lockForUpdate()->firstOrFail();
+                // チェックのあと、押さえるまでに記録ができていたら、最初の残高は変えない（黙って書きかえないで知らせる）
+                if (isset($data['initial_balance']) && (int) $data['initial_balance'] !== $locked->initial_balance && $locked->hasRecords()) {
+                    return ['initial_balance', '開いたあとにこの口座の記録ができたので、最初の残高は変えられません。今の残高を直すときは「残高を合わせる」を使ってください。'];
+                }
+                if ($locked->is_active && ! ($data['is_active'] ?? true)) {
+                    $blocker = $locked->deactivationBlocker(isset($data['initial_balance']) ? (int) $data['initial_balance'] : null);
+                    if ($blocker !== null) {
+                        return ['is_active', $blocker];
+                    }
+                }
+                $locked->update($data);
+
+                return null;
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
+        }
+        if ($blocker !== null) {
+            return back()->withInput()->withErrors([$blocker[0] => $blocker[1]]);
         }
 
         return to_route('accounts.index')->with('status', '保存しました');
@@ -79,7 +100,10 @@ class AccountController extends Controller
         // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
         try {
             Account::query()->whereKey($account->id)->delete();
-        } catch (QueryException) {
+        } catch (QueryException $e) {
+            // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
+            throw_if($e->getCode() !== '23000', $e);
+
             return to_route('accounts.edit', $account)->withErrors(['delete' => '記録があるので削除できません']);
         }
 
@@ -95,13 +119,20 @@ class AccountController extends Controller
     /** 削除の小窓から「使わない」にする（4 章の 9）。残高が 0 円の口座だけ */
     public function deactivate(Account $account): RedirectResponse
     {
-        $blocker = $account->deactivationBlocker();
+        // 口座を押さえてから確かめて「使わない」にする（確かめたあと、変えるまでに記録ができても、残高のある口座を「使わない」にしないように）
+        $blocker = DB::transaction(function () use ($account) {
+            $locked = Account::query()->whereKey($account->id)->lockForUpdate()->firstOrFail();
+            $blocker = $locked->deactivationBlocker();
+            if ($blocker === null) {
+                $locked->update(['is_active' => false]);
+            }
+
+            return $blocker;
+        }, 3);
 
         if ($blocker !== null) {
             return to_route('accounts.edit', $account)->withErrors(['is_active' => $blocker]);
         }
-
-        $account->update(['is_active' => false]);
 
         return to_route('accounts.index')->with('status', '「使わない」にしました');
     }

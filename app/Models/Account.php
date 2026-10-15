@@ -83,6 +83,16 @@ class Account extends Model
             return Recurring::IN_USE_MESSAGE;
         }
 
+        // 最後の月が先月以前でも、土日・祝日でずらした最後の月の分が、まだこれから記録される予定（例：10月31日（土）→ 11月2日）。
+        // 「使わない」にすると、その記録が「使わない」口座に入れず、記録されないままになるため
+        $waiting = Recurring::usingAccount($this->id)->where('is_active', true)->whereNotNull('end_month')->get()
+            ->first(fn (Recurring $r) => $r->lastMonthWaiting() !== null);
+        if ($waiting !== null) {
+            $date = $waiting->scheduledDate($waiting->lastMonthWaiting());
+
+            return '定期的な記録「'.$waiting->name.'」の最後の月の分（'.$date->month.'月'.$date->day.'日）が、まだ記録されていないので、『使わない』にできません。その日が過ぎてから『使わない』にしてください';
+        }
+
         // 先の日付の記録があるときは、先にこちらを伝える（今日の残高の文だと、もう記録してある移動を「つけて」と言ってしまうため）
         $hasFutureRecords = Record::query()
             ->where(fn ($q) => $q->where('account_id', $this->id)->orWhere('to_account_id', $this->id))

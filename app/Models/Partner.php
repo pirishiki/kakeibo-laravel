@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\DB;
 #[Fillable(['name', 'is_active'])]
 class Partner extends Model
 {
+    /** 候補を押したときに、その相手がもう選べなかったときの文（ほかの画面で「使わない」にしたか削除したとき） */
+    public const UNAVAILABLE_MESSAGE = 'この相手は、ほかの画面で『使わない』にしたか削除したので、選べません。相手の名前を入れ直してください';
+
     /** @use HasFactory<PartnerFactory> */
     use HasFactory;
 
@@ -106,6 +109,6 @@ class Partner extends Model
             self::query()->whereKey($this->id)->delete();
 
             return true;
-        });
+        }, 3);
     }
 }

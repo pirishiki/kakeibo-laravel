@@ -28,7 +28,7 @@
         {{-- 記録の金額の欄と同じ形：文字の欄で、欄を離れたらカンマをつける（data-amount。resources/js/app.js）。
              マイナスも入れられる（クレジットカードなど）ので、「-」のあるキーボードにする --}}
         <input type="text" id="initial_balance" name="initial_balance" inputmode="text" autocomplete="off" data-amount
-            value="{{ old('initial_balance', number_format((int) $account->initial_balance)) }}"
+            value="{{ $hasRecords ? number_format((int) $account->initial_balance) : old('initial_balance', number_format((int) $account->initial_balance)) }}"
             class="form-control text-end @error('initial_balance') is-invalid @enderror"
             aria-describedby="initial_balance-help"
             @disabled($hasRecords) required>
