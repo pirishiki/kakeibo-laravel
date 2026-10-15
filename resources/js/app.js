@@ -18,6 +18,31 @@ document.querySelectorAll('[data-show-when-changed]').forEach((note) => {
     update();
 });
 
+// 選ぶ欄が決まった値のときだけ隠すまとまり（例：口座の種類がクレジットカードなら、取っておく額を隠す。画面設計書 5.6）
+// data-hide-when に欄の id、data-hide-value に隠すときの値を書く
+document.querySelectorAll('[data-hide-when]').forEach((block) => {
+    const field = document.getElementById(block.dataset.hideWhen);
+    if (!field) {
+        return;
+    }
+    const update = () => {
+        block.hidden = field.value === block.dataset.hideValue;
+    };
+    field.addEventListener('change', update);
+    update();
+});
+
+// 欄に打ったら、となりの選ぶ丸を選んだことにする（例：取っておく額の金額の欄に打つと「金額」。
+// 「なし」のまま金額を打って保存し、打った金額が使われないことがないように）。data-select-radio に丸の id を書く
+document.addEventListener('input', (event) => {
+    const radio = event.target instanceof HTMLElement && event.target.dataset.selectRadio
+        ? document.getElementById(event.target.dataset.selectRadio)
+        : null;
+    if (radio instanceof HTMLInputElement && event.target.value.trim() !== '') {
+        radio.checked = true;
+    }
+});
+
 // Livewire の部品から小窓を開く（定期的な記録の保存の前の確認など）。PHP で $this->dispatch('open-modal', id: '小窓の id') と書く
 window.addEventListener('open-modal', (event) => {
     const dialog = document.getElementById(event.detail.id);
@@ -225,10 +250,54 @@ document.addEventListener('submit', (event) => {
         });
     }, 0);
 });
-// ブラウザの「戻る」で、前の画面をそのまま出したとき（ブラウザがとっておいた画面）は、読みこみ直す。
-// とっておいた画面は、残高などが古いままで、送ったあとの押せないボタンもそのままなので、いまの中身で出し直す
-window.addEventListener('pageshow', (event) => {
-    if (event.persisted) {
-        window.location.reload();
+// ブラウザの「戻る」で、前の画面をそのまま出したとき（ブラウザがとっておいた画面）の扱い。
+// とっておいた画面は、残高などが古いままで、送ったあとの押せないボタンもそのままなので、ふつうは読みこみ直して、いまの中身で出し直す。
+// ただし、まだ送っていない打ちかけの入力があるときは、読みこみ直すと入力が消えるので、そのまま出して、上に知らせと［読みこみ直す］を出す。
+// 打ったあとに送って保存できたときは、入力はもう届いているので、今までどおり読みこみ直す（古い画面から 2 回目を送らないように）。
+// Livewire のフォームは、送っても画面に残ることがある（入力のまちがいがあったときなど）ので、保存して別の画面へ移ったとき（redirect）だけ数える
+let typedSinceSubmit = false;
+let submitted = false;
+const markTyped = () => {
+    typedSinceSubmit = true;
+    submitted = false;
+};
+const markSubmitted = () => {
+    submitted = true;
+    typedSinceSubmit = false;
+};
+document.addEventListener('input', markTyped);
+document.addEventListener('change', markTyped);
+document.addEventListener('submit', (event) => {
+    // 確認の小窓を出すために止めた送信（相手をまとめる）は、まだ送っていない
+    if (!event.defaultPrevented && !(event.target instanceof HTMLFormElement && event.target.hasAttribute('wire:submit'))) {
+        markSubmitted();
     }
+});
+document.addEventListener('livewire:init', () => {
+    window.Livewire.hook('effect', ({ effects }) => {
+        if (effects?.redirect) {
+            markSubmitted();
+        }
+    });
+});
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) {
+        return;
+    }
+    if (submitted || !typedSinceSubmit) {
+        window.location.reload();
+        return;
+    }
+    if (document.getElementById('stale-page-alert')) {
+        return;
+    }
+    const alert = document.createElement('div');
+    alert.id = 'stale-page-alert';
+    alert.className = 'alert alert-warning d-flex justify-content-between align-items-center gap-2 flex-wrap';
+    alert.setAttribute('role', 'alert');
+    alert.innerHTML =
+        '<span>前の画面を出しています。残高などが古いかもしれません</span>' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary">読みこみ直す</button>';
+    alert.querySelector('button').addEventListener('click', () => window.location.reload());
+    document.querySelector('main')?.prepend(alert);
 });

@@ -8,6 +8,7 @@ use App\Support\RecurringMonthly;
 use Carbon\CarbonImmutable;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -24,6 +25,28 @@ class PendingAmounts extends Component
 
     /** 入れた金額を使えなかったときの知らせ。ないときは空 */
     public string $notice = '';
+
+    /** 取っておく額を下回っている口座（画面設計書 5.2 のお知らせ）：id → 名前。ホームから渡す */
+    #[Locked]
+    public array $shortages = [];
+
+    /** 入力欄を開いたまま出すか（「今回はなし」のあと、ホームを出し直したとき） */
+    public bool $open = false;
+
+    /**
+     * 「今回はなし」などのあとにホームを出し直したときは、打ちかけの金額・知らせ・開いていたことを戻す
+     *
+     * @param  array<int, string>  $shortages
+     */
+    public function mount(array $shortages = []): void
+    {
+        $this->shortages = $shortages;
+        $draft = session('pending.amounts');
+        $this->amounts = is_array($draft) ? $draft : [];
+        $notice = session('pending.notice');
+        $this->notice = is_string($notice) ? $notice : '';
+        $this->open = session('pending.open') === true;
+    }
 
     /**
      * 金額がまだのもの。1 回の通信で 1 回だけ読む
@@ -93,7 +116,8 @@ class PendingAmounts extends Component
             $keys = array_map(fn (array $item) => self::key($item['recurring'], $item['month']), $this->items);
             $this->amounts = array_intersect_key($this->amounts, array_flip($keys));
 
-            return null;
+            // 保存できたものがあれば、使える額・カレンダーも変わるので、ホームを出し直す（知らせと残りの欄は持っていく）
+            return $saved > 0 ? $this->reloadHome() : null;
         }
 
         if ($saved > 0) {
@@ -103,15 +127,18 @@ class PendingAmounts extends Component
         return $this->redirect(route('home'));
     }
 
-    /** その月は記録しないことにして、お知らせから消す */
-    public function skip(string $key): void
+    /**
+     * その月は記録しないことにして、お知らせから消す。
+     * 使える額・カレンダーの予定も変わるので、ホームを出し直す（ほかの欄に打ちかけの金額は消さずに持っていき、欄も開いたままにする）
+     */
+    public function skip(string $key): mixed
     {
         $this->notice = '';
         foreach ($this->items as $item) {
             if (self::key($item['recurring'], $item['month']) === $key && RecurringMonthly::skip($item['recurring'], $item['month'])) {
-                unset($this->items, $this->amounts[$key]);
+                unset($this->amounts[$key]);
 
-                return;
+                return $this->reloadHome();
             }
         }
 
@@ -120,7 +147,19 @@ class PendingAmounts extends Component
         if ($name !== null) {
             $this->notice = '「'.$name.'」は、開いたあとに記録されたか『今回はなし』になっていたので、今回はなしにはしていません。記録されていたら、定期的な記録の画面の「月ごとの金額」で確かめてください。';
         }
-        unset($this->items, $this->amounts[$key]);
+        unset($this->amounts[$key]);
+
+        return $this->reloadHome();
+    }
+
+    /** ホームを出し直す。打ちかけの金額・知らせ・開いていたことは、次の画面に持っていく */
+    private function reloadHome(): mixed
+    {
+        session()->flash('pending.amounts', array_filter($this->amounts, fn ($text) => is_string($text) && trim($text) !== ''));
+        session()->flash('pending.notice', $this->notice);
+        session()->flash('pending.open', true);
+
+        return $this->redirect(route('home'));
     }
 
     public function render(): View

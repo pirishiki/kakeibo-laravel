@@ -11,7 +11,62 @@
 
     <div class="row g-3">
         {{-- お知らせ：金額がまだの定期的な記録（第 2 段階）。あるときだけ、いちばん上に出す --}}
-        <livewire:pending-amounts />
+        <livewire:pending-amounts :shortages="$shortages" />
+
+        {{-- 使える額（第 2 段階）：いちばん大きな、色つきのカード。1 日あたり・1 週間あたりと、押すと開く内訳 3 行 --}}
+        @if ($accounts->isNotEmpty())
+            <div class="col-12">
+                <section class="card home-card home-available">
+                    <div class="card-body">
+                        <h2 class="home-label">使える額</h2>
+                        <p class="home-available-value mb-1"><x-money :amount="$available['available']" /></p>
+                        <p class="small mb-2">
+                            1日あたり <x-money :amount="$available['perDay']" class="fw-bold" />
+                            ／ {{ min(7, $available['daysLeft']) === 7 ? '1週間' : 'あと'.$available['daysLeft'].'日' }} <x-money :amount="$available['perWeek']" class="fw-bold" />
+                        </p>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-inline-flex align-items-center gap-1"
+                            data-bs-toggle="collapse" data-bs-target="#home-available-detail" aria-expanded="false" aria-controls="home-available-detail">
+                            内訳 <x-chevron />
+                        </button>
+                        <div class="collapse" id="home-available-detail">
+                            <dl class="home-available-rows small mt-2 mb-0">
+                                <div><dt>今の合計</dt><dd><x-money :amount="$available['total']" /></dd></div>
+                                <div><dt>− 取っておく額</dt><dd><x-money :amount="$available['reserved']" /></dd></div>
+                                <div>
+                                    <dt>
+                                        @if ($available['plans'] === [])
+                                            − 今月末までの予定
+                                        @else
+                                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-inline-flex align-items-center gap-1 text-start"
+                                                data-bs-toggle="collapse" data-bs-target="#home-available-plans" aria-expanded="false" aria-controls="home-available-plans">
+                                                − 今月末までの予定（{{ count($available['plans']) }} 件） <x-chevron />
+                                            </button>
+                                        @endif
+                                    </dt>
+                                    <dd><x-money :amount="$available['planned']" /></dd>
+                                </div>
+                            </dl>
+                            @if ($available['plans'] !== [])
+                                {{-- 予定の 1 件ずつ。金額がまだのものは「概算」の印 --}}
+                                <ul class="collapse list-unstyled small text-secondary border-top mt-2 pt-2 mb-0" id="home-available-plans">
+                                    @foreach ($available['plans'] as $plan)
+                                        <li class="d-flex justify-content-between align-items-baseline gap-2">
+                                            <span class="text-break">
+                                                <x-date :date="$plan['date']" /> {{ $plan['name'] }}
+                                                @if ($plan['estimated'])
+                                                    <span class="badge rounded-pill text-secondary bg-secondary-subtle fw-normal">概算</span>
+                                                @endif
+                                            </span>
+                                            <x-money :amount="$plan['amount']" class="text-nowrap" />
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    </div>
+                </section>
+            </div>
+        @endif
 
         {{-- 今月のカレンダー：今月だけ（ホームでは月を切りかえない）。マスには、その日の支出（ふつうの字）と収入（緑の太字に「+」）。移動と調整は出さない --}}
         <div class="col-12">
@@ -32,6 +87,8 @@
                                         $date = $day->toDateString();
                                         $dayIncome = $days[$date]['income'] ?? 0;
                                         $dayExpense = $days[$date]['expense'] ?? 0;
+                                        $planExpense = $plans[$date]['expense'] ?? 0;
+                                        $planIncome = $plans[$date]['income'] ?? 0;
                                         $jump = HomeCalendar::jumpDate($day, $recordDates);
                                     @endphp
                                     {{-- 押すと、記録の一覧の今月のその日の見出しへ（その日に記録がないときは、その日より前でいちばん近い記録のある日） --}}
@@ -54,13 +111,26 @@
                                                 <span class="d-none d-lg-inline">+{{ number_format($dayIncome) }}</span><span class="d-lg-none">+{{ HomeCalendar::shortAmount($dayIncome) }}</span>
                                             </span>
                                         @endif
+                                        {{-- まだ記録されていない定期的な記録（灰色）。収入の予定は「+」をつける --}}
+                                        @if ($planExpense > 0)
+                                            <span class="home-cal-amount text-secondary">
+                                                <span class="visually-hidden">支出の予定</span>
+                                                <span class="d-none d-lg-inline">{{ number_format($planExpense) }}</span><span class="d-lg-none">{{ HomeCalendar::shortAmount($planExpense) }}</span>
+                                            </span>
+                                        @endif
+                                        @if ($planIncome > 0)
+                                            <span class="home-cal-amount text-secondary">
+                                                <span class="visually-hidden">収入の予定</span>
+                                                <span class="d-none d-lg-inline">+{{ number_format($planIncome) }}</span><span class="d-lg-none">+{{ HomeCalendar::shortAmount($planIncome) }}</span>
+                                            </span>
+                                        @endif
                                     </a>
                                 @endif
                             @endforeach
                         @endforeach
                     </div>
                     <p class="small text-secondary mb-0 mt-2">
-                        ふつうの字＝支出　<span class="fw-bold text-success">緑の太字（+）</span>＝収入　日を押すと、その日の記録へ
+                        ふつうの字＝支出　<span class="fw-bold text-success">緑の太字（+）</span>＝収入　灰色＝これからの予定　日を押すと、その日の記録へ
                     </p>
                 </div>
             </section>
@@ -89,7 +159,10 @@
                             @foreach ($accounts as $account)
                                 <a href="{{ route('accounts.adjust', $account) }}"
                                     class="list-group-item list-group-item-action d-flex justify-content-between align-items-baseline gap-2 small">
-                                    <span class="text-break">{{ $account->name }}</span>
+                                    <span class="text-break">
+                                        {{ $account->name }}
+                                        @include('accounts._reserve')
+                                    </span>
                                     <x-money :amount="$balances[$account->id]" class="text-nowrap" />
                                 </a>
                             @endforeach

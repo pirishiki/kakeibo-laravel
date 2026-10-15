@@ -35,7 +35,7 @@ class AccountController extends Controller
     public function store(AccountRequest $request): RedirectResponse
     {
         try {
-            Account::create($request->validated());
+            Account::create($request->accountData());
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
         }
@@ -57,7 +57,7 @@ class AccountController extends Controller
 
     public function update(AccountRequest $request, Account $account): RedirectResponse
     {
-        $data = $request->validated();
+        $data = $request->accountData();
         try {
             $blocker = DB::transaction(function () use ($account, $data) {
                 // 「使わない」にするときは、口座を押さえてから確かめ直す（チェックのあと、保存するまでに記録ができても、残高のある口座を「使わない」にしないように）

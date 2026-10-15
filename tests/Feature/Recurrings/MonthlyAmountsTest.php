@@ -218,10 +218,30 @@ class MonthlyAmountsTest extends TestCase
     {
         $component = Livewire::test(PendingAmounts::class)->assertSee('金額がまだのものが 1 件あります');
 
+        // 使える額・カレンダーも変わるので、ホームを出し直す
         $component->call('skip', PendingAmounts::key($this->power, $this->october()))
-            ->assertDontSee('金額がまだ');
+            ->assertRedirect(route('home'));
         $this->assertSame(1, $this->power->skips()->count());
         $this->get(route('home'))->assertDontSee('お知らせ');
+    }
+
+    public function test_お知らせの今回はなしのあとも_ほかの欄に打ちかけた金額は消えず_開いたまま出る(): void
+    {
+        $gas = Recurring::factory()->create([
+            'name' => 'ガス代', 'day' => 15, 'is_fixed' => false, 'amount' => null, 'estimated_amount' => 4000, 'start_month' => '2026-10-01',
+        ]);
+        $gasKey = PendingAmounts::key($gas, $this->october());
+
+        Livewire::test(PendingAmounts::class)
+            ->set('amounts.'.$gasKey, '4,100')
+            ->call('skip', PendingAmounts::key($this->power, $this->october()))
+            ->assertRedirect(route('home'));
+
+        // 次に開いたホームでは、ガス代の欄に 4,100 が残り、欄は開いたまま
+        Livewire::test(PendingAmounts::class)
+            ->assertSet('amounts.'.$gasKey, '4,100')
+            ->assertSet('open', true)
+            ->assertSee('金額がまだのものが 1 件あります');
     }
 
     public function test_開いたあとに自動で記録された行の金額を直して保存すると_使わなかったことを知らせる(): void
@@ -257,7 +277,9 @@ class MonthlyAmountsTest extends TestCase
         RecurringAmount::query()->create(['recurring_id' => $this->power->id, 'month' => '2026-10-01', 'amount' => 9200]);
         RecurringRecorder::recordDue($this->power);
 
-        $component->call('skip', PendingAmounts::key($this->power, $this->october()))
+        $component->call('skip', PendingAmounts::key($this->power, $this->october()))->assertRedirect(route('home'));
+        // 出し直したホームで知らせる
+        Livewire::test(PendingAmounts::class)
             ->assertSee('「電気代」は、開いたあとに記録されたか『今回はなし』になっていたので、今回はなしにはしていません。');
         $this->assertSame(0, $this->power->skips()->count());
         $this->assertSame(1, Record::query()->count());

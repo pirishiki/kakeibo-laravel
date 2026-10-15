@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\AccountType;
+use App\Enums\ReserveType;
 use App\Models\Account;
 use App\Support\FormInput;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -28,6 +29,31 @@ class AccountRequest extends FormRequest
         if (is_string($this->input('initial_balance'))) {
             $this->merge(['initial_balance' => FormInput::normalizeAmount($this->input('initial_balance'))]);
         }
+        if (is_string($this->input('reserve_amount'))) {
+            $this->merge(['reserve_amount' => FormInput::normalizeAmount($this->input('reserve_amount'))]);
+        }
+    }
+
+    /**
+     * 保存する中身。取っておく額は、クレジットカードと「金額」以外では金額を持たない（画面設計書 5.6）。
+     * クレジットカードは取っておく額を持たないので、種類をカードに変えたら「なし」に戻す
+     *
+     * @return array<string, mixed>
+     */
+    public function accountData(): array
+    {
+        $data = $this->validated();
+        $isCard = $data['type'] === AccountType::CreditCard->value;
+        if (! $isCard && ! array_key_exists('reserve_type', $data)) {
+            unset($data['reserve_amount']);
+
+            return $data;
+        }
+        $type = $isCard ? ReserveType::None->value : $data['reserve_type'];
+        $data['reserve_type'] = $type;
+        $data['reserve_amount'] = $type === ReserveType::Amount->value ? (int) $data['reserve_amount'] : null;
+
+        return $data;
     }
 
     /**
@@ -41,6 +67,12 @@ class AccountRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:50', Rule::unique('accounts', 'name')->ignore($account)],
             'type' => ['required', Rule::enum(AccountType::class)],
+            // 欄がない画面（この欄を足す前に開いたままの画面など）から送られたときは、今の値のまま変えない（accountData）
+            'reserve_type' => ['sometimes', 'required', Rule::enum(ReserveType::class)],
+            // 「金額」を選んだときだけ、1 円以上の整数がいる（クレジットカードのときは、欄が隠れていて使わないので見ない）
+            'reserve_amount' => $this->input('type') === AccountType::CreditCard->value
+                ? ['nullable']
+                : ['nullable', 'required_if:reserve_type,'.ReserveType::Amount->value, 'integer', 'between:1,'.self::MAX_AMOUNT],
         ];
 
         // 最初の残高は、記録がまだない口座だけ直せる。記録があるときは、送られてきても受けとらない

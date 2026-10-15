@@ -1,23 +1,31 @@
 {{-- ホームのお知らせ（画面設計書 5.2）。app/Livewire/PendingAmounts.php とつながっている
-     いまは「金額がまだ」だけ。ふだんは 1 行で、押すとその場で入力欄が開く。お知らせが 1 つもないときは、カードごと出さない --}}
+     「金額がまだ」は、ふだんは 1 行で、押すとその場で入力欄が開く。「取っておく額を下回っています」は押すと口座の管理へ。
+     お知らせが 1 つもないときは、カードごと出さない --}}
 {{-- ホームの横並び（row）の 1 つとして、横いっぱいに出す。お知らせがないときは、すき間もできないように隠す --}}
-<div @class(['col-12', 'd-none' => $this->items === [] && $notice === ''])>
+<div @class(['col-12', 'd-none' => $this->items === [] && $shortages === [] && $notice === ''])>
     {{-- 入れた金額を使えなかったときは、黙らずに知らせる（お知らせが全部なくなったときも出す） --}}
     @if ($notice !== '')
         <div class="alert alert-warning" role="alert">{{ $notice }}</div>
     @endif
 
-    @if ($this->items !== [])
+    @if ($this->items !== [] || $shortages !== [])
         <section class="card home-card border-primary">
             <div class="card-body">
                 <h2 class="home-label">お知らせ</h2>
+                {{-- 取っておく額を下回っている口座（「金額」の口座で、今月末の見込みの残高が足りないとき） --}}
+                @foreach ($shortages as $name)
+                    <a href="{{ route('accounts.index') }}" class="d-block text-decoration-none mb-1">{{ $name }} が取っておく額を下回っています <span aria-hidden="true">›</span></a>
+                @endforeach
+
+                @if ($this->items !== [])
                 <button type="button" class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1 text-start"
-                    data-bs-toggle="collapse" data-bs-target="#home-pending" aria-expanded="false" aria-controls="home-pending" wire:ignore.self>
+                    data-bs-toggle="collapse" data-bs-target="#home-pending" aria-expanded="{{ $open ? 'true' : 'false' }}" aria-controls="home-pending" wire:ignore.self>
                     金額がまだのものが {{ count($this->items) }} 件あります <x-chevron />
                 </button>
 
-                {{-- 開いたあと「今回はなし」で描き直しても、開いたままにする（wire:ignore.self。上のボタンの「開いている」と矢印の向きも同じ） --}}
-                <div class="collapse" id="home-pending" wire:ignore.self>
+                {{-- 開いたあと描き直しても、開いたままにする（wire:ignore.self。上のボタンの「開いている」と矢印の向きも同じ）。
+                     「今回はなし」でホームを出し直したときは、開いたまま出す（$open） --}}
+                <div @class(['collapse', 'show' => $open]) id="home-pending" wire:ignore.self>
                     <form wire:submit="save" novalidate class="mt-2">
                         <div class="list-group list-group-flush mb-2">
                             @foreach ($this->items as $item)
@@ -61,6 +69,7 @@
                         </div>
                     </form>
                 </div>
+                @endif
             </div>
         </section>
     @endif

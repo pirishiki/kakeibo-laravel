@@ -29,6 +29,10 @@ return [
         'merge_target' => [
             'exists' => 'まとめ先は、出てくる相手から選んでください。',
         ],
+        'reserve_amount' => [
+            'required_if' => '「金額」を選んだときは、取っておく金額を入れてください。',
+            'between' => '取っておく金額は 1〜99,999,999 円で入れてください。',
+        ],
     ],
 
     // 欄の名前（:attribute に入る）
@@ -41,6 +45,8 @@ return [
         'name' => '名前',
         'parent_id' => '親の大分類',
         'password' => 'パスワード',
+        'reserve_amount' => '取っておく金額',
+        'reserve_type' => '取っておく額',
         'type' => '種類',
     ],
 

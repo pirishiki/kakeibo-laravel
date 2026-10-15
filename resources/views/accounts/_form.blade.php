@@ -49,6 +49,34 @@
     @endif
 </div>
 
+{{-- 取っておく額（第 2 段階）：クレジットカードのときは出さない（種類を選び直すと、その場で出す・隠す。data-hide-when）。
+     金額の欄に打つと「金額」を選んだことにする（打った金額が「なし」のまま使われないことがないように。resources/js/app.js） --}}
+@php($reserveType = old('reserve_type', ($account->reserve_type ?? \App\Enums\ReserveType::None)->value))
+<fieldset class="mb-4" data-hide-when="type" data-hide-value="{{ \App\Enums\AccountType::CreditCard->value }}">
+    <legend class="form-label fs-6">取っておく額</legend>
+    @foreach ([\App\Enums\ReserveType::None, \App\Enums\ReserveType::Amount, \App\Enums\ReserveType::All] as $option)
+        <div class="form-check {{ $option === \App\Enums\ReserveType::Amount ? 'd-flex align-items-center gap-2 flex-wrap' : '' }}">
+            <input type="radio" id="reserve_type_{{ $option->value }}" name="reserve_type" value="{{ $option->value }}"
+                class="form-check-input @error('reserve_type') is-invalid @enderror" @checked($reserveType === $option->value)>
+            <label for="reserve_type_{{ $option->value }}" class="form-check-label">{{ $option->label() }}</label>
+            @if ($option === \App\Enums\ReserveType::Amount)
+                <div class="input-group input-group-sm has-validation" style="width: 11rem">
+                    <input type="text" id="reserve_amount" name="reserve_amount" inputmode="numeric" autocomplete="off" data-amount
+                        data-select-radio="reserve_type_{{ $option->value }}"
+                        value="{{ old('reserve_amount', $account->reserve_amount !== null ? number_format($account->reserve_amount) : '') }}"
+                        aria-label="取っておく金額"
+                        class="form-control text-end @error('reserve_amount') is-invalid @enderror">
+                    <span class="input-group-text">円</span>
+                    @error('reserve_amount')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+            @endif
+        </div>
+    @endforeach
+    <div class="form-text">使うつもりのないお金（貯金など）を、ホームの「使える額」に数えないようにします。貯金用の口座は「全部取っておく」</div>
+</fieldset>
+
 @if ($account->exists)
     {{-- 「使う」は変更の画面にだけ出す。外すと「使わない」になる（残高が 0 円のときだけ） --}}
     <div class="form-check mb-4">

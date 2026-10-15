@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $reserve_amount
  * @property bool $is_active
  */
-#[Fillable(['name', 'type', 'initial_balance', 'is_active'])]
+#[Fillable(['name', 'type', 'initial_balance', 'reserve_type', 'reserve_amount', 'is_active'])]
 class Account extends Model
 {
     /** @use HasFactory<AccountFactory> */
