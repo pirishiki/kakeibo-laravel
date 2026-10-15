@@ -119,6 +119,10 @@
                     <div class="modal-body">
                         @if ($this->deleteBlocker === null)
                             <p id="delete-dialog-title" class="mb-0">この記録を削除しますか？</p>
+                            {{-- 自動で作られた記録は、その月が「今回はなし」になることを知らせる（画面設計書 5.4） --}}
+                            @if ($this->skipOnDeleteNotice !== null)
+                                <p class="small text-secondary mt-2 mb-0">{{ $this->skipOnDeleteNotice }}</p>
+                            @endif
                         @else
                             <p id="delete-dialog-title" class="mb-0">{{ $this->deleteBlocker }}</p>
                         @endif

@@ -21,6 +21,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $to_account_id
  * @property int|null $category_id
  * @property int|null $partner_id
+ * @property int|null $recurring_id どの定期的な記録から自動で作られたか。手で入れた記録は空
+ * @property CarbonImmutable|null $recurring_month 何月の予定の分か（その月の 1 日）
+ * @property-read Recurring|null $recurring
  */
 #[Fillable(['date', 'type', 'amount', 'account_id', 'to_account_id', 'category_id', 'partner_id', 'item', 'memo'])]
 class Record extends Model
@@ -69,6 +72,22 @@ class Record extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * この記録を自動で作った定期的な記録（手で入れた記録は空）
+     *
+     * @return BelongsTo<Recurring, $this>
+     */
+    public function recurring(): BelongsTo
+    {
+        return $this->belongsTo(Recurring::class);
+    }
+
+    /** 定期的な記録から自動で作られたか。金額などを直しても変わらない（画面設計書 5.3） */
+    public function isAutomatic(): bool
+    {
+        return $this->recurring_id !== null;
     }
 
     /**

@@ -228,7 +228,7 @@ class Recurring extends Model
      * 記録済みの月と、もう「今回はなし」の月はのぞく
      *
      * 前から対象だった月の日付が、日付の変更で過ぎた日になったとき（今月の分）は、ここに入れない。
-     * その月は、記録するか「今回はなし」かを小窓で聞く（自動で記録するかたまりで作る）
+     * その月は、記録するか「今回はなし」かを小窓で聞く（monthsPassedOnSave）
      *
      * @param  Recurring|null  $before  保存する前の内容。新しく登録するときは null
      * @return list<CarbonImmutable> 月（その月の 1 日）の並び。古い順
@@ -263,6 +263,43 @@ class Recurring extends Model
         $done = array_map(fn ($m) => CarbonImmutable::parse($m)->toDateString(), $done);
 
         return array_values(array_filter($candidates, fn (CarbonImmutable $m) => ! in_array($m->toDateString(), $done, true)));
+    }
+
+    /**
+     * 保存すると、記録する日がもう過ぎた日に変わる月（画面設計書 5.10。例：10月11日に、25日の予定を 5日に直す）
+     * 保存する前も後も記録の対象で、前はまだ日付が来ていなかった（今日もふくむ）のに、後は今日より前になる、まだ記録していない月。
+     * 記録するか「今回はなし」かを、保存の前に小窓で聞く。
+     * 金額が変わる予定で、その月の金額がまだのときは、記録できないので入れない（「金額がまだ」のお知らせに出つづける）
+     *
+     * @param  Recurring  $before  保存する前の内容
+     * @return list<CarbonImmutable> 月（その月の 1 日）の並び。古い順
+     */
+    public function monthsPassedOnSave(Recurring $before, ?CarbonImmutable $today = null): array
+    {
+        if (! $this->is_active || ! $before->is_active) {
+            return [];
+        }
+
+        $today ??= today()->toImmutable();
+        $months = [];
+        // ずらして記録する日がとなりの月になることがあるので、先月から来月まで見る
+        for ($month = $today->startOfMonth()->subMonth(), $i = 0; $i < 3; $i++, $month = $month->addMonth()) {
+            if ($before->coversMonth($month) && $this->coversMonth($month)
+                && $before->scheduledDate($month)->gte($today) && $this->scheduledDate($month)->lt($today)) {
+                $months[] = $month;
+            }
+        }
+
+        $months = array_filter($months, function (CarbonImmutable $month) use ($before) {
+            $key = $month->toDateString();
+            $hasAmount = $this->is_fixed || $before->amounts()->where('month', $key)->exists();
+
+            return $hasAmount
+                && ! $before->records()->where('recurring_month', $key)->exists()
+                && ! $before->skips()->where('month', $key)->exists();
+        });
+
+        return array_values($months);
     }
 
     /**

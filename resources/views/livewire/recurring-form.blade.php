@@ -205,16 +205,28 @@
         </div>
     </div>
 
-    {{-- 保存の前の確認：過ぎた月が記録の対象に入るときは、その月を「今回はなし」にすると知らせる（画面設計書 5.10） --}}
+    {{-- 保存の前の確認（画面設計書 5.10）
+         ・過ぎた月が記録の対象に入るときは、その月を「今回はなし」にすると知らせる
+         ・日付の変更で、今月の分の日付がもう過ぎた日になるときは、「今回はなし」か「○月○日で記録する」かを選んでもらう --}}
     <div class="modal fade" id="skip-dialog" tabindex="-1" aria-labelledby="skip-dialog-title" aria-hidden="true" wire:ignore.self>
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-body">
-                    <p id="skip-dialog-title">{{ $skipNotice }}</p>
-                    <p class="small text-secondary mb-0">記録したい月は、あとで月ごとの金額の「もどす」で記録できます</p>
+                <div class="modal-body" id="skip-dialog-title">
+                    @if ($skipNotice !== '')
+                        <p>{{ $skipNotice }}</p>
+                        <p class="small text-secondary">記録したい月は、あとで月ごとの金額の「もどす」で記録できます</p>
+                    @endif
+                    @if ($passedNotice !== '')
+                        <p class="mb-0">{{ $passedNotice }}</p>
+                    @endif
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="save(true)" wire:loading.attr="disabled">保存する</button>
+                    @if ($passedNotice !== '')
+                        <button type="button" class="btn btn-primary" wire:click="save(true, 'record')" wire:loading.attr="disabled">{{ $passedRecordLabel }}</button>
+                        <button type="button" class="btn btn-outline-primary" wire:click="save(true, 'skip')" wire:loading.attr="disabled">今回はなし</button>
+                    @else
+                        <button type="button" class="btn btn-primary" wire:click="save(true)" wire:loading.attr="disabled">保存する</button>
+                    @endif
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">やめる</button>
                 </div>
             </div>
