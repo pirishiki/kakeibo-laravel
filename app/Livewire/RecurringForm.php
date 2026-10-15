@@ -10,6 +10,7 @@ use App\Models\Recurring;
 use App\Models\RecurringSkip;
 use App\Support\FormInput;
 use App\Support\RecurringDate;
+use App\Support\RecurringRecorder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -86,6 +87,12 @@ class RecurringForm extends Component
 
     /** 保存の前の確認の小窓に出す文（過ぎた月を「今回はなし」にするとき）。出さないときは空 */
     public string $skipNotice = '';
+
+    /** 保存の前の確認の小窓に出す文（日付の変更で、今月の分の日付がもう過ぎた日になるとき）。出さないときは空 */
+    public string $passedNotice = '';
+
+    /** その小窓の「○月○日で記録する」ボタンの字 */
+    public string $passedRecordLabel = '';
 
     /** @var array{accounts: list<int>, categories: list<int>, partner: Partner|null}|null */
     private ?array $originalCache = null;
@@ -193,9 +200,11 @@ class RecurringForm extends Component
     }
 
     /**
-     * 保存する。過ぎた月が記録の対象に入るときは、先に確認の小窓を出し、「保存する」を押したら（$confirmed）その月を「今回はなし」にして保存する
+     * 保存する。過ぎた月が記録の対象に入るときは、先に確認の小窓を出し、「保存する」を押したら（$confirmed）その月を「今回はなし」にして保存する。
+     * 日付の変更で今月の分の日付がもう過ぎた日になるときは、同じ小窓で「今回はなし」（$passed＝'skip'）か「○月○日で記録する」（'record'）かを選んでもらう。
+     * 保存したら、日付が今日か過ぎていて金額がある月は、その場で記録する（データベース設計書 3.6）
      */
-    public function save(bool $confirmed = false): mixed
+    public function save(bool $confirmed = false, string $passed = ''): mixed
     {
         $this->amount = FormInput::normalizeAmount($this->amount);
         $this->estimatedAmount = FormInput::normalizeAmount($this->estimatedAmount);
@@ -207,14 +216,25 @@ class RecurringForm extends Component
         $after->fill($this->valuesToSave($data));
 
         $skips = $after->monthsToSkipOnSave($before);
-        if ($skips !== [] && ! $confirmed) {
-            $this->skipNotice = self::monthsLabel($skips).'の分は記録せず、『今回はなし』にします';
+        $passedMonths = $before === null ? [] : $after->monthsPassedOnSave($before);
+        if (($skips !== [] && ! $confirmed) || ($passedMonths !== [] && ! in_array($passed, ['skip', 'record'], true))) {
+            $this->skipNotice = $skips === [] ? '' : self::monthsLabel($skips).'の分は記録せず、『今回はなし』にします';
+            $this->passedNotice = implode('', array_map(
+                fn (CarbonImmutable $month) => $month->month.'月の分（'.self::dateLabel($after->scheduledDate($month)).'）は、日付がもう過ぎています。',
+                $passedMonths,
+            ));
+            $this->passedRecordLabel = count($passedMonths) === 1
+                ? self::dateLabel($after->scheduledDate($passedMonths[0])).'で記録する'
+                : 'それぞれの日付で記録する';
             $this->dispatch('open-modal', id: 'skip-dialog');
 
             return null;
         }
+        if ($passed === 'skip') {
+            $skips = [...$skips, ...$passedMonths];
+        }
 
-        DB::transaction(function () use ($before, $after, $skips) {
+        $recorded = DB::transaction(function () use ($before, $after, $skips) {
             if ($this->hasCategory()) {
                 $after->partner_id = $this->partnerIdToSave($before !== null);
             }
@@ -236,9 +256,12 @@ class RecurringForm extends Component
             foreach ($skips as $month) {
                 RecurringSkip::query()->firstOrCreate(['recurring_id' => $recurring->id, 'month' => $month->toDateString()]);
             }
+
+            // 日付が今日か過ぎていて金額がある月は、次の 0 時 5 分を待たずに記録する（今日を最初の月にした・小窓で「記録する」を選んだ など）
+            return RecurringRecorder::recordDue($recurring);
         });
 
-        session()->flash('status', '保存しました');
+        session()->flash('status', $recorded === 0 ? '保存しました' : '保存しました。日付が来ている分を記録しました');
 
         return $this->redirect(route('recurrings.index'));
     }
@@ -555,6 +578,12 @@ class RecurringForm extends Component
         }
 
         return $years;
+    }
+
+    /** 小窓の日付の書き方：「10月5日」 */
+    private static function dateLabel(CarbonImmutable $date): string
+    {
+        return $date->month.'月'.$date->day.'日';
     }
 
     /**

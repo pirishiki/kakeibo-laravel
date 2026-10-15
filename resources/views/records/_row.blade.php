@@ -28,6 +28,10 @@
                     <x-date :date="$record->date" class="text-secondary me-1" />
                 @endif
                 {{ $title }}
+                {{-- 定期的な記録から自動で作られた記録には「自動」と出す。金額などを直しても残る（画面設計書 5.3） --}}
+                @if ($record->isAutomatic())
+                    <span class="badge rounded-pill text-secondary bg-secondary-subtle fw-normal ms-1">自動</span>
+                @endif
             </span>
             <span class="text-nowrap">
                 @switch($record->type)

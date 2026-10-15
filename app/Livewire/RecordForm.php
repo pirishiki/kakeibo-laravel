@@ -7,6 +7,9 @@ use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
 use App\Models\Account;
 use App\Models\Partner;
 use App\Models\Record;
+use App\Models\Recurring;
+use App\Models\RecurringAmount;
+use App\Models\RecurringSkip;
 use App\Support\FormInput;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +27,7 @@ use Livewire\Component;
  * 開くときに記録を渡したら編集、渡さなければ登録として動く（欄とチェックの決まりを 1 か所にまとめるため）
  *
  * @property-read string|null $deleteBlocker
+ * @property-read string|null $skipOnDeleteNotice
  */
 class RecordForm extends Component
 {
@@ -215,7 +219,20 @@ class RecordForm extends Component
             return null;
         }
 
-        $record->delete();
+        DB::transaction(function () use ($record) {
+            // 自動で作られた記録なら、その月を「今回はなし」にする（そのままだと、次の 0 時 5 分にもう一度記録されるため。画面設計書 5.4・5.10）
+            if ($record->recurring_id !== null && $record->recurring_month !== null) {
+                $month = $record->recurring_month->toDateString();
+                $recurring = Recurring::query()->find($record->recurring_id);
+                // 金額が変わる予定は、記録の今の金額を月ごとの金額に書き写す（「もどす」で、消す前と同じ金額で記録し直せるように。データベース設計書 3.7）
+                if ($recurring !== null && ! $recurring->is_fixed) {
+                    RecurringAmount::query()->updateOrCreate(['recurring_id' => $recurring->id, 'month' => $month], ['amount' => $record->amount]);
+                }
+                RecurringSkip::query()->firstOrCreate(['recurring_id' => $record->recurring_id, 'month' => $month]);
+            }
+
+            $record->delete();
+        });
         session()->flash('status', '削除しました');
 
         return $this->redirect($this->backUrlAfter($record));
@@ -230,6 +247,20 @@ class RecordForm extends Component
         $record = $this->recordId === null ? null : Record::query()->find($this->recordId);
 
         return $record === null ? null : $this->inactiveAccountBlocker($record, null);
+    }
+
+    /**
+     * 自動で作られた記録を削除するときに、確認の小窓に出す文（画面設計書 5.4）。手で入れた記録のときは null
+     */
+    #[Computed]
+    public function skipOnDeleteNotice(): ?string
+    {
+        $record = $this->recordId === null ? null : Record::query()->with('recurring')->find($this->recordId);
+        if ($record?->recurring === null || $record->recurring_month === null) {
+            return null;
+        }
+
+        return $record->recurring_month->month.'月の'.$record->recurring->name.'は『今回はなし』になり、自動では記録されません';
     }
 
     /**
