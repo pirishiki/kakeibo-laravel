@@ -22,6 +22,9 @@ class PendingAmounts extends Component
     /** @var array<int|string, mixed> 金額の欄（「予定の id_年月」→ 打ったままの文字）。空の欄は保存しない */
     public array $amounts = [];
 
+    /** 入れた金額を使えなかったときの知らせ。ないときは空 */
+    public string $notice = '';
+
     /**
      * 金額がまだのもの。1 回の通信で 1 回だけ読む
      *
@@ -50,7 +53,10 @@ class PendingAmounts extends Component
         }
         $this->amounts = array_replace($this->amounts, $values);
         [$rules, $messages] = MonthlyAmounts::amountRules(array_keys($values));
-        $this->validate($rules, $messages);
+        // 欄が 1 つもないとき（全部記録済みになったときなど）は、チェックするものがない（空の決まりで validate すると、Livewire はエラーにする）
+        if ($rules !== []) {
+            $this->validate($rules, $messages);
+        }
 
         $saved = 0;
         foreach ($this->items as $item) {
@@ -59,6 +65,23 @@ class PendingAmounts extends Component
                 RecurringMonthly::saveAmount($item['recurring'], $item['month'], (int) $text);
                 $saved++;
             }
+        }
+
+        // 開いたあとに、ほかの画面で記録されたか「今回はなし」になってお知らせから消えた予定に入れた金額は、使えない。黙らずに名前をつけて知らせる
+        $unused = [];
+        foreach ($this->amounts as $key => $text) {
+            $key = (string) $key;
+            if (! array_key_exists($key, $values) && FormInput::normalizeAmount(is_string($text) ? $text : '') !== ''
+                && preg_match('/^(\d+)_\d{6}$/', $key, $m) === 1) {
+                $unused[] = (string) Recurring::query()->whereKey((int) $m[1])->value('name');
+            }
+        }
+        if ($unused !== []) {
+            $this->notice = MonthlyAmounts::unusedNotice(array_values(array_filter($unused))).'金額は、定期的な記録の画面の「月ごとの金額」で確かめてください。';
+            $this->amounts = array_intersect_key($this->amounts, $values);
+            unset($this->items);
+
+            return null;
         }
 
         if ($saved > 0) {
@@ -71,6 +94,7 @@ class PendingAmounts extends Component
     /** その月は記録しないことにして、お知らせから消す */
     public function skip(string $key): void
     {
+        $this->notice = '';
         foreach ($this->items as $item) {
             if (self::key($item['recurring'], $item['month']) === $key) {
                 RecurringMonthly::skip($item['recurring'], $item['month']);
@@ -79,6 +103,13 @@ class PendingAmounts extends Component
                 return;
             }
         }
+
+        // 開いたあとに、ほかの画面で記録されたか「今回はなし」になっていた。記録されていたら、残ったままなので知らせる
+        $name = preg_match('/^(\d+)_\d{6}$/', $key, $m) === 1 ? Recurring::query()->whereKey((int) $m[1])->value('name') : null;
+        if ($name !== null) {
+            $this->notice = '「'.$name.'」は、開いたあとに記録されたか『今回はなし』になっていたので、今回はなしにはしていません。記録されていたら、定期的な記録の画面の「月ごとの金額」で確かめてください。';
+        }
+        unset($this->items, $this->amounts[$key]);
     }
 
     public function render(): View

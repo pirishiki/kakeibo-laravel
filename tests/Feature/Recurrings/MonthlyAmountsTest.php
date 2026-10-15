@@ -6,6 +6,8 @@ use App\Enums\RecordType;
 use App\Enums\RecurringShift;
 use App\Livewire\MonthlyAmounts;
 use App\Livewire\PendingAmounts;
+use App\Livewire\RecordForm;
+use App\Models\Partner;
 use App\Models\Record;
 use App\Models\Recurring;
 use App\Models\RecurringAmount;
@@ -220,5 +222,68 @@ class MonthlyAmountsTest extends TestCase
             ->assertDontSee('金額がまだ');
         $this->assertSame(1, $this->power->skips()->count());
         $this->get(route('home'))->assertDontSee('お知らせ');
+    }
+
+    public function test_開いたあとに自動で記録された行の金額を直して保存すると_使わなかったことを知らせる(): void
+    {
+        // 10 月の電気代は 9,200 で入れてあり、日付（10月20日）は過ぎている。開いたあとに自動で記録されたことにする
+        RecurringAmount::query()->create(['recurring_id' => $this->power->id, 'month' => '2026-10-01', 'amount' => 9200]);
+        $component = Livewire::test(MonthlyAmounts::class, ['month' => $this->october()]);
+        RecurringRecorder::recordDue($this->power);
+
+        $component->set('amounts.'.$this->power->id, '9,500')
+            ->call('save')
+            ->assertNoRedirect()
+            ->assertSee('「電気代」は、開いたあとに記録されたか『今回はなし』になっていたので、入れた金額は使っていません。');
+        $this->assertSame(9200, Record::query()->where('recurring_id', $this->power->id)->sole()->amount);
+    }
+
+    public function test_開いたあとに記録された行の今回はなしを押すと_できなかったことを知らせる(): void
+    {
+        RecurringAmount::query()->create(['recurring_id' => $this->power->id, 'month' => '2026-10-01', 'amount' => 9200]);
+        $component = Livewire::test(MonthlyAmounts::class, ['month' => $this->october()]);
+        RecurringRecorder::recordDue($this->power);
+
+        $component->call('skip', $this->power->id)
+            ->assertSee('「電気代」は、開いたあとに記録されたか、ほかの画面で変わっていたので、今回はなしにできませんでした。')
+            ->assertSee('記録済み');
+        $this->assertSame(0, $this->power->skips()->count());
+    }
+
+    public function test_お知らせで_開いたあとに記録された予定の今回はなしを押すと_知らせる(): void
+    {
+        $component = Livewire::test(PendingAmounts::class);
+        // 別の画面で金額を入れて、記録された
+        RecurringAmount::query()->create(['recurring_id' => $this->power->id, 'month' => '2026-10-01', 'amount' => 9200]);
+        RecurringRecorder::recordDue($this->power);
+
+        $component->call('skip', PendingAmounts::key($this->power, $this->october()))
+            ->assertSee('「電気代」は、開いたあとに記録されたか『今回はなし』になっていたので、今回はなしにはしていません。');
+        $this->assertSame(0, $this->power->skips()->count());
+        $this->assertSame(1, Record::query()->count());
+    }
+
+    public function test_お知らせで_開いたあとに消えた予定に金額を入れて保存すると_知らせる(): void
+    {
+        $component = Livewire::test(PendingAmounts::class);
+        $this->power->skips()->create(['month' => '2026-10-01']);
+
+        $component->set('amounts.'.PendingAmounts::key($this->power, $this->october()), '9,300')
+            ->call('save')
+            ->assertNoRedirect()
+            ->assertSee('「電気代」は、開いたあとに記録されたか『今回はなし』になっていたので、入れた金額は使っていません。');
+        $this->assertSame(0, RecurringAmount::query()->count());
+    }
+
+    public function test_候補を出したあとに使わないになった相手を押すと_選べない理由を出す(): void
+    {
+        $partner = Partner::query()->create(['name' => 'ローソン']);
+        $component = Livewire::test(RecordForm::class)->set('partnerName', 'ロー');
+        $partner->update(['is_active' => false]);
+
+        $component->call('selectPartner', $partner->id)
+            ->assertSet('partnerId', null)
+            ->assertHasErrors('partnerName')
+            ->assertSee(Partner::UNAVAILABLE_MESSAGE);
     }
 }

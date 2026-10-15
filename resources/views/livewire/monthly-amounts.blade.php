@@ -3,6 +3,11 @@
 {{-- 月ごとの金額（画面設計書 5.10 前半）。app/Livewire/MonthlyAmounts.php とつながっている
      その月の分の予定を、記録する日（ずらしたあとの日）の順に並べる。記録済み・決まった金額の行には入力欄を出さない --}}
 <div>
+    {{-- 入れた金額を使えなかったときは、黙らずに知らせる --}}
+    @if ($notice !== '')
+        <div class="alert alert-warning" role="alert">{{ $notice }}</div>
+    @endif
+
     @if ($this->rows === [])
         {{-- 予定のない月は、空白にしない（4 章の 6） --}}
         <p class="text-secondary">この月の予定はありません</p>

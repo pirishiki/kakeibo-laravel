@@ -1,7 +1,12 @@
 {{-- ホームのお知らせ（画面設計書 5.2）。app/Livewire/PendingAmounts.php とつながっている
      いまは「金額がまだ」だけ。ふだんは 1 行で、押すとその場で入力欄が開く。お知らせが 1 つもないときは、カードごと出さない --}}
 {{-- ホームの横並び（row）の 1 つとして、横いっぱいに出す。お知らせがないときは、すき間もできないように隠す --}}
-<div @class(['col-12', 'd-none' => $this->items === []])>
+<div @class(['col-12', 'd-none' => $this->items === [] && $notice === ''])>
+    {{-- 入れた金額を使えなかったときは、黙らずに知らせる（お知らせが全部なくなったときも出す） --}}
+    @if ($notice !== '')
+        <div class="alert alert-warning" role="alert">{{ $notice }}</div>
+    @endif
+
     @if ($this->items !== [])
         <section class="card home-card border-primary">
             <div class="card-body">

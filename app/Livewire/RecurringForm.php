@@ -188,6 +188,9 @@ class RecurringForm extends Component
     {
         $partner = Partner::query()->where('is_active', true)->find($id);
         if ($partner === null) {
+            // 候補を出したあとに、ほかの画面で「使わない」にしたか削除した相手。黙って何もしないと、押しても選ばれない理由がわからないので知らせる
+            $this->addError('partnerName', Partner::UNAVAILABLE_MESSAGE);
+
             return;
         }
 
