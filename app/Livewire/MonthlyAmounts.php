@@ -104,12 +104,8 @@ class MonthlyAmounts extends Component
         if ($unused !== [] || $problems !== []) {
             $this->notice = implode(' ', [...($unused === [] ? [] : [self::unusedNotice($unused).'記録済みのものは、金額を押して記録を直してください。']), ...$problems]);
             unset($this->rows);
-            // 保存した欄は、開いたときの金額として覚え直す（もう一度「保存」を押しても、同じ金額を保存し直さないように）
-            foreach ($this->rows as $row) {
-                if ($row['status'] === RecurringMonthly::VARIABLE) {
-                    $this->fillAmount($row['recurring']->id, $row['amount']);
-                }
-            }
+            // 欄を、いまの状態で覚え直す（もう一度「保存」を押したとき、保存した欄や、記録済みになった欄を「使っていない」と言わないように）
+            $this->refillAmounts();
 
             return null;
         }
@@ -130,8 +126,14 @@ class MonthlyAmounts extends Component
             return;
         }
 
-        RecurringMonthly::skip($row['recurring'], $row['month']);
+        if (! RecurringMonthly::skip($row['recurring'], $row['month'])) {
+            $this->changedNotice($recurringId, '今回はなしにできませんでした');
+
+            return;
+        }
         unset($this->rows);
+        // 今回はなしにした行の欄は、もう出さないので覚えておかない（次の保存で「使っていない」と言わないように）
+        unset($this->amounts[$recurringId], $this->opened[$recurringId]);
     }
 
     /** 「今回はなし」をやめて元に戻す。日付が今日か過ぎていて金額があれば、すぐに記録する */
@@ -200,6 +202,18 @@ class MonthlyAmounts extends Component
         $name = Recurring::query()->whereKey($recurringId)->value('name');
         $this->notice = '「'.$name.'」は、開いたあとに記録されたか、ほかの画面で変わっていたので、'.$what.'。いまの状態を下に出しています。';
         unset($this->rows);
+    }
+
+    /** いまの行で、金額の欄を覚え直す。欄が出ていない行（記録済み・今回はなし）は覚えておかない */
+    private function refillAmounts(): void
+    {
+        $this->amounts = [];
+        $this->opened = [];
+        foreach ($this->rows as $row) {
+            if ($row['status'] === RecurringMonthly::VARIABLE) {
+                $this->fillAmount($row['recurring']->id, $row['amount']);
+            }
+        }
     }
 
     /** 金額の欄に、保存してある金額を入れる（開いたときの金額としても覚える） */

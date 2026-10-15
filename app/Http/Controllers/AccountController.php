@@ -8,6 +8,7 @@ use App\Models\Recurring;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -56,10 +57,26 @@ class AccountController extends Controller
 
     public function update(AccountRequest $request, Account $account): RedirectResponse
     {
+        $data = $request->validated();
         try {
-            $account->update($request->validated());
+            $blocker = DB::transaction(function () use ($account, $data) {
+                // 「使わない」にするときは、口座を押さえてから確かめ直す（チェックのあと、保存するまでに記録ができても、残高のある口座を「使わない」にしないように）
+                $locked = Account::query()->whereKey($account->id)->lockForUpdate()->firstOrFail();
+                if ($locked->is_active && ! ($data['is_active'] ?? true)) {
+                    $blocker = $locked->deactivationBlocker(isset($data['initial_balance']) ? (int) $data['initial_balance'] : null);
+                    if ($blocker !== null) {
+                        return $blocker;
+                    }
+                }
+                $locked->update($data);
+
+                return null;
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
+        }
+        if ($blocker !== null) {
+            return back()->withInput()->withErrors(['is_active' => $blocker]);
         }
 
         return to_route('accounts.index')->with('status', '保存しました');
@@ -95,13 +112,20 @@ class AccountController extends Controller
     /** 削除の小窓から「使わない」にする（4 章の 9）。残高が 0 円の口座だけ */
     public function deactivate(Account $account): RedirectResponse
     {
-        $blocker = $account->deactivationBlocker();
+        // 口座を押さえてから確かめて「使わない」にする（確かめたあと、変えるまでに記録ができても、残高のある口座を「使わない」にしないように）
+        $blocker = DB::transaction(function () use ($account) {
+            $locked = Account::query()->whereKey($account->id)->lockForUpdate()->firstOrFail();
+            $blocker = $locked->deactivationBlocker();
+            if ($blocker === null) {
+                $locked->update(['is_active' => false]);
+            }
+
+            return $blocker;
+        }, 3);
 
         if ($blocker !== null) {
             return to_route('accounts.edit', $account)->withErrors(['is_active' => $blocker]);
         }
-
-        $account->update(['is_active' => false]);
 
         return to_route('accounts.index')->with('status', '「使わない」にしました');
     }

@@ -228,11 +228,14 @@ document.addEventListener('submit', (event) => {
 // ブラウザの「戻る」で、送ったあとの画面に戻ってきたとき（前の画面をそのまま出すとき）は、また押せるようにする
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
+        // 画面のほうで、わざと押せなくしてあるボタン（残高を合わせるで、差がないときなど）は、そのままにする
+        document.querySelectorAll('[type=submit]:disabled').forEach((button) => {
+            if (button.form?.dataset.submitting) {
+                button.disabled = false;
+            }
+        });
         document.querySelectorAll('form[data-submitting]').forEach((form) => {
             delete form.dataset.submitting;
-        });
-        document.querySelectorAll('[type=submit]:disabled').forEach((button) => {
-            button.disabled = false;
         });
     }
 });

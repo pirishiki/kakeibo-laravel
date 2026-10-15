@@ -69,8 +69,9 @@ class AccountRequest extends FormRequest
                 $account = $this->route('account');
 
                 // 画面を開いたあとに記録ができた口座で、最初の残高を変えて送ってきたとき。黙って捨てずに知らせる（画面設計書 5.6）
+                $sent = $this->input('initial_balance');
                 if ($account !== null && $this->has('initial_balance') && $account->hasRecords()
-                    && FormInput::normalizeAmount((string) $this->input('initial_balance')) !== (string) $account->initial_balance) {
+                    && (! is_string($sent) || FormInput::normalizeAmount($sent) !== (string) $account->initial_balance)) {
                     $validator->errors()->add('initial_balance', '開いたあとにこの口座の記録ができたので、最初の残高は変えられません。今の残高を直すときは「残高を合わせる」を使ってください。');
                 }
             },

@@ -263,6 +263,10 @@ class RecurringForm extends Component
         }
 
         $recorded = DB::transaction(function () use ($before, $after, $skips) {
+            // 0 時 5 分の自動の記録と同じ順番（予定の行 → 相手・口座）で押さえる（逆の順番だと、押さえあいになることがあるため）
+            if ($before !== null) {
+                Recurring::query()->whereKey($before->id)->lockForUpdate()->first();
+            }
             if ($this->hasCategory()) {
                 $after->partner_id = $this->partnerIdToSave($before !== null);
             }
@@ -287,7 +291,7 @@ class RecurringForm extends Component
 
             // 日付が今日か過ぎていて金額がある月は、次の 0 時 5 分を待たずに記録する（今日を最初の月にした・小窓で「記録する」を選んだ など）
             return RecurringRecorder::recordDue($recurring);
-        });
+        }, 3);
 
         session()->flash('status', $recorded === 0 ? '保存しました' : '保存しました。日付が来ている分を記録しました');
 
@@ -334,7 +338,11 @@ class RecurringForm extends Component
         // 確かめたあと、消すまでのあいだに 0 時 5 分の自動の記録ができると、データベースが止める。エラー画面にせず、理由を出す
         try {
             Recurring::query()->whereKey($recurring->id)->delete();
-        } catch (QueryException) {
+        } catch (QueryException $e) {
+            // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
+            if ($e->getCode() !== '23000') {
+                throw $e;
+            }
             $this->addError('delete', '記録があるので削除できません');
 
             return null;

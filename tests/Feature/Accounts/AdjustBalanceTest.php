@@ -235,8 +235,20 @@ class AdjustBalanceTest extends TestCase
         $component = $this->adjust()->set('actual', '10500');
         $this->cash->update(['is_active' => false]);
 
-        $component->call('save')->assertStatus(404);
+        // エラーの画面にせず、理由を出す（「使わない」口座はいつも 0 円のまま）
+        $component->call('save')->assertHasErrors('actual')->assertSee('この口座は、ほかの画面で『使わない』にされたので、合わせられません。');
         $this->assertSame(0, Record::query()->count());
+    }
+
+    public function test_2つの画面から同じ口座を合わせても_二重に調整しない(): void
+    {
+        $first = $this->adjust()->set('actual', '10500');
+        $second = $this->adjust()->set('actual', '10500');
+
+        $first->call('save')->assertHasNoErrors();
+        $second->call('save')->assertHasErrors('actual');
+        $this->assertSame(1, Record::query()->count());
+        $this->assertSame(10500, $this->cash->balance());
     }
 
     public function test_プラスや日本語入力のマイナスで打っても受けとる(): void

@@ -8,6 +8,7 @@ use App\Models\Record;
 use App\Support\FormInput;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -105,8 +106,6 @@ class AdjustBalance extends Component
 
     public function save(): mixed
     {
-        // 画面を開いたあとに、ほかのタブで「使わない」にされていたら保存しない（「使わない」口座はいつも 0 円のまま）
-        abort_unless($this->account()->is_active, 404);
 
         $this->actual = FormInput::normalizeAmount($this->actual);
         $max = FormInput::MAX_AMOUNT;
@@ -142,13 +141,37 @@ class AdjustBalance extends Component
             return null;
         }
 
-        Record::create([
-            'date' => $this->date,
-            'type' => RecordType::Adjustment,
-            'amount' => $difference,
-            'account_id' => $this->accountId,
-            'memo' => $this->memo !== '' ? $this->memo : null,
-        ]);
+        $error = DB::transaction(function () {
+            // 口座を押さえてから、「使う」か・差をもう一度確かめる。
+            // 画面を開いたあとに、ほかのタブで「使わない」にされたときや、ほかのタブで先に合わせたとき（差が変わる）に、二重に調整しないため
+            $account = Account::query()->whereKey($this->accountId)->lockForUpdate()->firstOrFail();
+            if (! $account->is_active) {
+                return 'この口座は、ほかの画面で『使わない』にされたので、合わせられません。';
+            }
+            unset($this->appBalance, $this->difference);
+            $difference = $this->difference;
+            if ($difference === null || $difference === 0) {
+                return 'ずれはありません。（ほかの画面で、先に合わせてあります）';
+            }
+            if ($this->differenceTooLarge()) {
+                return self::TOO_LARGE;
+            }
+
+            Record::create([
+                'date' => $this->date,
+                'type' => RecordType::Adjustment,
+                'amount' => $difference,
+                'account_id' => $this->accountId,
+                'memo' => $this->memo !== '' ? $this->memo : null,
+            ]);
+
+            return null;
+        }, 3);
+        if ($error !== null) {
+            $this->addError('actual', $error);
+
+            return null;
+        }
 
         session()->flash('status', '保存しました');
 

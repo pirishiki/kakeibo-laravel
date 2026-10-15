@@ -286,7 +286,8 @@ trait ChoosesPartnerCategoryAccount
     protected function resolvePartner(): Partner
     {
         // 2 つの画面から同じ新しい名前をほぼ同時に保存しても、ユニーク制約のエラーにならないように、作るか、あれば読む（createOrFirst）
-        $partner = Partner::query()->where('name', $this->partnerName)->lockForUpdate()->first()
+        // （ない名前を押さえて探すと、同時に 2 つ作るときに押さえあいになるので、押さえずに探す）
+        $partner = Partner::query()->where('name', $this->partnerName)->first()
             ?? Partner::query()->createOrFirst(['name' => $this->partnerName]);
 
         if (! $partner->is_active) {

@@ -174,4 +174,38 @@ class RareCasesTest extends TestCase
             ->assertSessionHasErrors('parent_id');
         $this->assertSame($food->id, $lunch->fresh()?->parent_id);
     }
+
+    public function test_知らせが出たあとに_もう一度保存しても_記録できた欄を使っていないと言わない(): void
+    {
+        // 電気代（記録できる）と水道代（口座が「使わない」で記録できない）。どちらも 10 月の分の日付は過ぎている
+        $power = Recurring::factory()->create(['name' => '電気代', 'day' => 20, 'is_fixed' => false, 'amount' => null, 'estimated_amount' => 9000, 'start_month' => '2026-10-01']);
+        $water = Recurring::factory()->create(['name' => '水道代', 'day' => 21, 'is_fixed' => false, 'amount' => null, 'estimated_amount' => 3000, 'start_month' => '2026-10-01']);
+        $water->account->update(['is_active' => false]);
+
+        $form = Livewire::test(MonthlyAmounts::class, ['month' => CarbonImmutable::create(2026, 10, 1)])
+            ->set('amounts.'.$power->id, '9,200')
+            ->set('amounts.'.$water->id, '3,100')
+            ->call('save')
+            ->assertSee('「水道代」を記録できません');
+        $this->assertSame(1, Record::query()->count());
+
+        // 口座を「使う」に戻して、もう一度保存する：電気代のことは言わず、水道代も記録できる
+        $water->account->update(['is_active' => true]);
+        $form->set('amounts.'.$water->id, '3,200')->call('save')
+            ->assertSet('notice', '')
+            ->assertRedirect();
+        $this->assertSame(2, Record::query()->count());
+    }
+
+    public function test_金額を入れてから今回はなしを押しても_次の保存で使っていないと言わない(): void
+    {
+        $power = Recurring::factory()->create(['name' => '電気代', 'day' => 27, 'is_fixed' => false, 'amount' => null, 'estimated_amount' => 9000, 'start_month' => '2026-10-01']);
+
+        Livewire::test(MonthlyAmounts::class, ['month' => CarbonImmutable::create(2026, 10, 1)])
+            ->set('amounts.'.$power->id, '9,200')
+            ->call('skip', $power->id)
+            ->call('save')
+            ->assertSet('notice', '')
+            ->assertRedirect();
+    }
 }

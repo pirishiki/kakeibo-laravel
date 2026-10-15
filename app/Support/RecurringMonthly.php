@@ -25,6 +25,9 @@ class RecurringMonthly
 
     public const VARIABLE = 'variable';
 
+    /** 同時に動いた処理とデータベースの行の押さえあいになった（デッドロック）ときに、やり直す回数 */
+    private const ATTEMPTS = 3;
+
     /**
      * その月の分の予定の行。記録する日（ずらしたあとの日）の順。
      * 最初の月より前・最後の月より後・選んだ月でない月の予定は出さない。「使わない」の予定は、記録済みか「今回はなし」の月だけ出す
@@ -149,7 +152,7 @@ class RecurringMonthly
         return DB::transaction(function () use ($recurring, $month, $key, $amount, $today) {
             // 0 時 5 分の自動の記録と重なっても食いちがわないように、予定の行を押さえてから、記録済みかを確かめ直す
             Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
-            if ($recurring->records()->where('recurring_month', $key)->exists()) {
+            if ($recurring->records()->where('recurring_month', $key)->lockForUpdate()->exists()) {
                 return false;
             }
             if ($amount === null) {
@@ -166,22 +169,29 @@ class RecurringMonthly
             );
 
             return self::recordIfDue($recurring, $month, $today);
-        });
+        }, self::ATTEMPTS);
     }
 
-    /** その月を「今回はなし」にする。記録済みの月はできない */
-    public static function skip(Recurring $recurring, CarbonImmutable $month): void
+    /**
+     * その月を「今回はなし」にする。記録済みの月はできない
+     *
+     * @return bool できたか（もう記録済みだったときは false）
+     */
+    public static function skip(Recurring $recurring, CarbonImmutable $month): bool
     {
         $key = $month->startOfMonth()->toDateString();
-        DB::transaction(function () use ($recurring, $key) {
-            // 自動の記録と重なって「記録もあるのに今回はなし」にならないように、予定の行を押さえてから確かめる
+
+        return DB::transaction(function () use ($recurring, $key) {
+            // 自動の記録と重なって「記録もあるのに今回はなし」にならないように、予定の行を押さえてから確かめる（押さえて読むので、いちばん新しい中身で確かめる）
             Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
-            if ($recurring->records()->where('recurring_month', $key)->exists()) {
-                return;
+            if ($recurring->records()->where('recurring_month', $key)->lockForUpdate()->exists()) {
+                return false;
             }
 
             RecurringSkip::query()->firstOrCreate(['recurring_id' => $recurring->id, 'month' => $key]);
-        });
+
+            return true;
+        }, self::ATTEMPTS);
     }
 
     /**
@@ -226,7 +236,7 @@ class RecurringMonthly
             $recurring->skips()->where('month', $month->toDateString())->delete();
 
             return self::recordIfDue($recurring, $month, $today);
-        });
+        }, self::ATTEMPTS);
     }
 
     /**

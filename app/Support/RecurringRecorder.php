@@ -144,19 +144,23 @@ class RecurringRecorder
     public static function record(Recurring $recurring, CarbonImmutable $month): bool
     {
         $month = $month->startOfMonth();
-        if (self::blocker($recurring) !== null) {
-            return false;
-        }
 
         return DB::transaction(function () use ($recurring, $month) {
             Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
+            // 口座を押さえてから「使う」かを確かめる（同じときに「使わない」にされても、使わない口座に入らないように）
+            Account::query()->whereIn('id', array_filter([$recurring->account_id, $recurring->to_account_id]))->sharedLock()->get();
+            if (self::blocker($recurring) !== null) {
+                return false;
+            }
+            // 押さえて読む（lockForUpdate）と、ほかの画面でいま入れた「今回はなし」も見える
             $key = $month->toDateString();
-            if ($recurring->records()->where('recurring_month', $key)->exists() || $recurring->skips()->where('month', $key)->exists()) {
+            if ($recurring->records()->where('recurring_month', $key)->lockForUpdate()->exists()
+                || $recurring->skips()->where('month', $key)->lockForUpdate()->exists()) {
                 return false;
             }
 
             return self::insert($recurring, $month);
-        });
+        }, 3);
     }
 
     /** 記録の行を 1 つ作る（record から、予定の行を押さえたあとに呼ぶ） */

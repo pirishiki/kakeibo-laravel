@@ -14,6 +14,7 @@ use App\Support\FormInput;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -203,9 +204,16 @@ class RecordForm extends Component
         }
 
         DB::transaction(function () use ($record, $values, $hasCategory) {
+            // 口座を押さえてから「使う」かを確かめ直す（チェックのあと、保存するまでに、ほかの画面で「使わない」にされても、使わない口座に入れないように）
+            $ids = array_values(array_filter([$values['account_id'], $values['to_account_id']]));
+            $inactive = Account::query()->whereIn('id', $ids)->sharedLock()->get()
+                ->first(fn (Account $a) => ! $a->is_active && ! in_array($a->id, $this->original()['accounts'], true));
+            if ($inactive !== null) {
+                throw ValidationException::withMessages(['blocker' => '口座「'.$inactive->name.'」は、ほかの画面で『使わない』にされたので、選べません。口座を選び直してください']);
+            }
             $values['partner_id'] = $hasCategory ? $this->partnerIdToSave($record !== null) : null;
             $record === null ? Record::create($values) : $record->update($values);
-        });
+        }, 3);
 
         session()->flash('status', '保存しました');
 

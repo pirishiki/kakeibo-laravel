@@ -109,6 +109,6 @@ class Partner extends Model
             self::query()->whereKey($this->id)->delete();
 
             return true;
-        });
+        }, 3);
     }
 }

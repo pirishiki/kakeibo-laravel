@@ -76,16 +76,22 @@ class PendingAmounts extends Component
             $key = (string) $key;
             if (! array_key_exists($key, $values) && FormInput::normalizeAmount(is_string($text) ? $text : '') !== ''
                 && preg_match('/^(\d+)_\d{6}$/', $key, $m) === 1) {
-                $unused[] = (string) Recurring::query()->whereKey((int) $m[1])->value('name');
+                // 書きかえられた欄の名前（ない予定）は、名前が出せないので知らせない
+                $name = Recurring::query()->whereKey((int) $m[1])->value('name');
+                if (is_string($name)) {
+                    $unused[] = $name;
+                }
             }
         }
         if ($unused !== [] || $problems !== []) {
             $this->notice = implode(' ', [
-                ...($unused === [] ? [] : [MonthlyAmounts::unusedNotice(array_values(array_filter($unused))).'金額は、定期的な記録の画面の「月ごとの金額」で確かめてください。']),
+                ...($unused === [] ? [] : [MonthlyAmounts::unusedNotice($unused).'金額は、定期的な記録の画面の「月ごとの金額」で確かめてください。']),
                 ...$problems,
             ]);
-            $this->amounts = array_intersect_key($this->amounts, $values);
+            // いまのお知らせに残っている欄だけ、入れた金額を残す（保存できたもの・消えたものは覚えておかない）
             unset($this->items);
+            $keys = array_map(fn (array $item) => self::key($item['recurring'], $item['month']), $this->items);
+            $this->amounts = array_intersect_key($this->amounts, array_flip($keys));
 
             return null;
         }
@@ -102,8 +108,7 @@ class PendingAmounts extends Component
     {
         $this->notice = '';
         foreach ($this->items as $item) {
-            if (self::key($item['recurring'], $item['month']) === $key) {
-                RecurringMonthly::skip($item['recurring'], $item['month']);
+            if (self::key($item['recurring'], $item['month']) === $key && RecurringMonthly::skip($item['recurring'], $item['month'])) {
                 unset($this->items, $this->amounts[$key]);
 
                 return;
