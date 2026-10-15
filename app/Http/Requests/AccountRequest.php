@@ -72,7 +72,7 @@ class AccountRequest extends FormRequest
             // 「金額」を選んだときだけ、1 円以上の整数がいる（クレジットカードのときは、欄が隠れていて使わないので見ない）
             'reserve_amount' => $this->input('type') === AccountType::CreditCard->value
                 ? ['nullable']
-                : ['nullable', 'required_if:reserve_type,'.ReserveType::Amount->value, 'integer', 'between:1,'.self::MAX_AMOUNT],
+                : ['exclude_unless:reserve_type,'.ReserveType::Amount->value, 'nullable', 'required_if:reserve_type,'.ReserveType::Amount->value, 'integer', 'between:1,'.self::MAX_AMOUNT],
         ];
 
         // 最初の残高は、記録がまだない口座だけ直せる。記録があるときは、送られてきても受けとらない

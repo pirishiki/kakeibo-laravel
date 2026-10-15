@@ -3,9 +3,11 @@
 namespace App\Livewire;
 
 use App\Models\Recurring;
+use App\Models\RecurringSkip;
 use App\Support\FormInput;
 use App\Support\RecurringMonthly;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -26,26 +28,34 @@ class PendingAmounts extends Component
     /** 入れた金額を使えなかったときの知らせ。ないときは空 */
     public string $notice = '';
 
-    /** 取っておく額を下回っている口座（画面設計書 5.2 のお知らせ）：id → 名前。ホームから渡す */
+    /** @var array<int, string> 取っておく額を下回っている口座（画面設計書 5.2 のお知らせ）：id → 名前。ホームから渡す */
     #[Locked]
     public array $shortages = [];
 
     /** 入力欄を開いたまま出すか（「今回はなし」のあと、ホームを出し直したとき） */
     public bool $open = false;
 
+    /** 最初に出すときの今日（ホームのほかのカードと同じ日で数える）。あとの操作のときは、その時の今日で数える */
+    private ?CarbonImmutable $firstDay = null;
+
     /**
-     * 「今回はなし」などのあとにホームを出し直したときは、打ちかけの金額・知らせ・開いていたことを戻す
+     * 「今回はなし」などのあとにホームを出し直したときは、打ちかけの金額・知らせ・開いていたことを戻す。
+     * 持っていくものは、札（draft）ごとにセッションに入れてある。札を使うので、ほかのタブの通信で先に使われて消えることがない
      *
      * @param  array<int, string>  $shortages
      */
-    public function mount(array $shortages = []): void
+    public function mount(array $shortages = [], ?string $today = null, ?string $draft = null): void
     {
         $this->shortages = $shortages;
-        $draft = session('pending.amounts');
-        $this->amounts = is_array($draft) ? $draft : [];
-        $notice = session('pending.notice');
-        $this->notice = is_string($notice) ? $notice : '';
-        $this->open = session('pending.open') === true;
+        $this->firstDay = $today !== null ? CarbonImmutable::parse($today) : null;
+
+        $saved = $draft !== null && preg_match('/^[A-Za-z0-9]{1,64}$/', $draft) === 1 ? session()->pull('pending.draft.'.$draft) : null;
+        if (! is_array($saved)) {
+            return;
+        }
+        $this->amounts = is_array($saved['amounts'] ?? null) ? $saved['amounts'] : [];
+        $this->notice = is_string($saved['notice'] ?? null) ? $saved['notice'] : '';
+        $this->open = true;
     }
 
     /**
@@ -56,7 +66,7 @@ class PendingAmounts extends Component
     #[Computed]
     public function items(): array
     {
-        return RecurringMonthly::pending();
+        return RecurringMonthly::pending($this->firstDay);
     }
 
     /** 欄の名前：「予定の id_年月」（例：5_202610） */
@@ -142,8 +152,13 @@ class PendingAmounts extends Component
             }
         }
 
-        // 開いたあとに、ほかの画面で記録されたか「今回はなし」になっていた。記録されていたら、残ったままなので知らせる
-        $name = preg_match('/^(\d+)_\d{6}$/', $key, $m) === 1 ? Recurring::query()->whereKey((int) $m[1])->value('name') : null;
+        // 開いたあとに、ほかの画面で記録されたか「今回はなし」になっていた。記録されていたら、残ったままなので知らせる。
+        // もう「今回はなし」になっているだけ（2 回押しや、ほかのタブで同じ操作をした）なら、したかったことはできているので知らせない
+        $name = null;
+        if (preg_match('/^(\d+)_(\d{4})(\d{2})$/', $key, $m) === 1) {
+            $alreadySkipped = RecurringSkip::query()->where('recurring_id', (int) $m[1])->where('month', $m[2].'-'.$m[3].'-01')->exists();
+            $name = $alreadySkipped ? null : Recurring::query()->whereKey((int) $m[1])->value('name');
+        }
         if ($name !== null) {
             $this->notice = '「'.$name.'」は、開いたあとに記録されたか『今回はなし』になっていたので、今回はなしにはしていません。記録されていたら、定期的な記録の画面の「月ごとの金額」で確かめてください。';
         }
@@ -155,11 +170,14 @@ class PendingAmounts extends Component
     /** ホームを出し直す。打ちかけの金額・知らせ・開いていたことは、次の画面に持っていく */
     private function reloadHome(): mixed
     {
-        session()->flash('pending.amounts', array_filter($this->amounts, fn ($text) => is_string($text) && trim($text) !== ''));
-        session()->flash('pending.notice', $this->notice);
-        session()->flash('pending.open', true);
+        // 次のホームだけが使う札をつけて入れておく（flash だと、ほかのタブの通信が先に来たときに、そちらで使われて消えるため）
+        $draft = Str::random(32);
+        session()->put('pending.draft.'.$draft, [
+            'amounts' => array_filter($this->amounts, fn ($text) => is_string($text) && trim($text) !== ''),
+            'notice' => $this->notice,
+        ]);
 
-        return $this->redirect(route('home'));
+        return $this->redirect(route('home', ['draft' => $draft]));
     }
 
     public function render(): View

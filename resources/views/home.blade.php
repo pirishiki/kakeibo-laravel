@@ -11,7 +11,7 @@
 
     <div class="row g-3">
         {{-- お知らせ：金額がまだの定期的な記録（第 2 段階）。あるときだけ、いちばん上に出す --}}
-        <livewire:pending-amounts :shortages="$shortages" />
+        <livewire:pending-amounts :shortages="$shortages" :today="$today->toDateString()" :draft="$draft" />
 
         {{-- 使える額（第 2 段階）：いちばん大きな、色つきのカード。1 日あたり・1 週間あたりと、押すと開く内訳 3 行 --}}
         @if ($accounts->isNotEmpty())

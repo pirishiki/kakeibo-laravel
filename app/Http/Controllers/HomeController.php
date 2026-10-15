@@ -9,7 +9,9 @@ use App\Support\AvailableAmount;
 use App\Support\HomeCalendar;
 use App\Support\MonthlySummary;
 use Carbon\CarbonImmutable;
-use Illuminate\View\View;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 
 /**
  * ホーム（画面設計書 5.2）：お知らせ・使える額・今月のカレンダー（予定もふくむ）・今の残高の合計・今月の収支・多く使った分類・最近の記録。
@@ -17,16 +19,31 @@ use Illuminate\View\View;
  */
 class HomeController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): Response
     {
-        $month = CarbonImmutable::today()->startOfMonth();
+        // 今日は 1 回だけ決めて、全部の計算に使う（0 時をまたいで読んでも、カード・カレンダー・お知らせの日がずれないように）。
+        // 読むのは 1 つのトランザクションの中でする。MySQL は、その中で最初に読んだ時点のデータを見せつづけるので、
+        // 読んでいるあいだに 0 時 5 分の自動の記録や別のタブの保存があっても、残高と予定の両方に入る・どちらにも入らない、が起きない
+        $today = CarbonImmutable::today();
+        $draft = $request->query('draft');
+
+        return response(DB::transaction(fn () => $this->render($today, is_string($draft) ? $draft : null)));
+    }
+
+    /** ホームの中身を読んで、画面（お知らせの Livewire の部品もふくむ）を作る */
+    private function render(CarbonImmutable $today, ?string $draft): string
+    {
+        $month = $today->startOfMonth();
 
         // 今の残高：今日までの日付の記録で計算する（先の日付の記録は、その日になったら入る）。「使わない」口座は出さない
         $accounts = Account::query()->where('is_active', true)->ordered()->get();
-        $balances = Account::balances(ids: $accounts->modelKeys());
-        $available = AvailableAmount::calculate();
+        $balances = Account::balances($today, $accounts->modelKeys());
+        $available = AvailableAmount::calculate($today);
 
         return view('home', [
+            'today' => $today,
+            // 「今回はなし」のあとに出し直したときの、打ちかけの金額の札（PendingAmounts::reloadHome）
+            'draft' => $draft,
             'month' => $month,
             'weeks' => HomeCalendar::weeks($month),
             // 使える額と内訳（第 2 段階）。口座ごとの取っておく額もここから出す
@@ -52,6 +69,6 @@ class HomeController extends Controller
                 ->orderByDesc('id')
                 ->take(5)
                 ->get(),
-        ]);
+        ])->render();
     }
 }

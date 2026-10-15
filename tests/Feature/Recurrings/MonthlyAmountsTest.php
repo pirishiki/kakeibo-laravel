@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Support\RecurringRecorder;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -219,8 +220,8 @@ class MonthlyAmountsTest extends TestCase
         $component = Livewire::test(PendingAmounts::class)->assertSee('金額がまだのものが 1 件あります');
 
         // 使える額・カレンダーも変わるので、ホームを出し直す
-        $component->call('skip', PendingAmounts::key($this->power, $this->october()))
-            ->assertRedirect(route('home'));
+        $component->call('skip', PendingAmounts::key($this->power, $this->october()));
+        $this->assertStringStartsWith(route('home').'?draft=', $component->effects['redirect']);
         $this->assertSame(1, $this->power->skips()->count());
         $this->get(route('home'))->assertDontSee('お知らせ');
     }
@@ -232,16 +233,43 @@ class MonthlyAmountsTest extends TestCase
         ]);
         $gasKey = PendingAmounts::key($gas, $this->october());
 
-        Livewire::test(PendingAmounts::class)
+        $component = Livewire::test(PendingAmounts::class)
             ->set('amounts.'.$gasKey, '4,100')
-            ->call('skip', PendingAmounts::key($this->power, $this->october()))
-            ->assertRedirect(route('home'));
+            ->call('skip', PendingAmounts::key($this->power, $this->october()));
+        $draft = $this->draftOf($component);
 
-        // 次に開いたホームでは、ガス代の欄に 4,100 が残り、欄は開いたまま
-        Livewire::test(PendingAmounts::class)
+        // 別のタブのホームが先に開いても（札がないので）持っていかれない
+        Livewire::test(PendingAmounts::class)->assertSet('amounts', [])->assertSet('open', false);
+
+        // 札つきで開いたホームでは、ガス代の欄に 4,100 が残り、欄は開いたまま。札は 1 回だけ使える
+        Livewire::test(PendingAmounts::class, ['draft' => $draft])
             ->assertSet('amounts.'.$gasKey, '4,100')
             ->assertSet('open', true)
             ->assertSee('金額がまだのものが 1 件あります');
+        Livewire::test(PendingAmounts::class, ['draft' => $draft])->assertSet('amounts', []);
+    }
+
+    public function test_お知らせの今回はなしを2回押しても_まちがった知らせは出ない(): void
+    {
+        $key = PendingAmounts::key($this->power, $this->october());
+        $first = Livewire::test(PendingAmounts::class);
+        $second = Livewire::test(PendingAmounts::class);
+
+        $first->call('skip', $key);
+        $second->call('skip', $key);
+
+        Livewire::test(PendingAmounts::class, ['draft' => $this->draftOf($second)])->assertSet('notice', '');
+        $this->assertSame(1, $this->power->skips()->count());
+    }
+
+    /** 「今回はなし」のあとに出し直すホームの URL についている札 */
+    private function draftOf(Testable $component): string
+    {
+        $url = $component->effects['redirect'] ?? '';
+        $this->assertStringStartsWith(route('home').'?draft=', $url);
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        return (string) $query['draft'];
     }
 
     public function test_開いたあとに自動で記録された行の金額を直して保存すると_使わなかったことを知らせる(): void
@@ -277,9 +305,9 @@ class MonthlyAmountsTest extends TestCase
         RecurringAmount::query()->create(['recurring_id' => $this->power->id, 'month' => '2026-10-01', 'amount' => 9200]);
         RecurringRecorder::recordDue($this->power);
 
-        $component->call('skip', PendingAmounts::key($this->power, $this->october()))->assertRedirect(route('home'));
+        $component->call('skip', PendingAmounts::key($this->power, $this->october()));
         // 出し直したホームで知らせる
-        Livewire::test(PendingAmounts::class)
+        Livewire::test(PendingAmounts::class, ['draft' => $this->draftOf($component)])
             ->assertSee('「電気代」は、開いたあとに記録されたか『今回はなし』になっていたので、今回はなしにはしていません。');
         $this->assertSame(0, $this->power->skips()->count());
         $this->assertSame(1, Record::query()->count());

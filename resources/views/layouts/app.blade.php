@@ -75,6 +75,10 @@
         </nav>
 
         <main class="container py-4 app-main">
+            {{-- 保存できなかったときの知らせ（時間がたって保存できなかったときなど）。消えずに残す --}}
+            @if (session('warning'))
+                <div class="alert alert-warning" role="alert">{{ session('warning') }}</div>
+            @endif
             @yield('content')
         </main>
     </div>

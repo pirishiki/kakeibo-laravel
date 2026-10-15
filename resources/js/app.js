@@ -34,7 +34,12 @@ document.querySelectorAll('[data-hide-when]').forEach((block) => {
 
 // 欄に打ったら、となりの選ぶ丸を選んだことにする（例：取っておく額の金額の欄に打つと「金額」。
 // 「なし」のまま金額を打って保存し、打った金額が使われないことがないように）。data-select-radio に丸の id を書く
+// 人が打ったときだけ（isTrusted）。欄に入る・出るときのカンマのつけ外しでも input の合図が出るので、それでは選び直さない
+// （「全部取っておく」を選び直したあと、Tab で金額の欄を通っただけで「金額」に戻らないように）
 document.addEventListener('input', (event) => {
+    if (!event.isTrusted) {
+        return;
+    }
     const radio = event.target instanceof HTMLElement && event.target.dataset.selectRadio
         ? document.getElementById(event.target.dataset.selectRadio)
         : null;
@@ -42,6 +47,13 @@ document.addEventListener('input', (event) => {
         radio.checked = true;
     }
 });
+
+// 「今回はなし」のあとに出し直したホームの URL の札（?draft=…）は、使い終わったので外す（読みこみ直したときに残らないように）
+if (new URLSearchParams(window.location.search).has('draft')) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('draft');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
 
 // Livewire の部品から小窓を開く（定期的な記録の保存の前の確認など）。PHP で $this->dispatch('open-modal', id: '小窓の id') と書く
 window.addEventListener('open-modal', (event) => {
@@ -257,7 +269,11 @@ document.addEventListener('submit', (event) => {
 // Livewire のフォームは、送っても画面に残ることがある（入力のまちがいがあったときなど）ので、保存して別の画面へ移ったとき（redirect）だけ数える
 let typedSinceSubmit = false;
 let submitted = false;
-const markTyped = () => {
+// 人が打った・選んだときだけ数える（カンマのつけ外しなど、プログラムが出す合図は数えない）
+const markTyped = (event) => {
+    if (!event.isTrusted) {
+        return;
+    }
     typedSinceSubmit = true;
     submitted = false;
 };

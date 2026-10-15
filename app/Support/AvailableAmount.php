@@ -139,7 +139,7 @@ class AvailableAmount
         }
 
         $records = Record::query()
-            ->with(['partner', 'category.parent'])
+            ->with('partner')
             ->whereBetween('date', [$today->addDay()->toDateString(), $endOfMonth->toDateString()])
             ->get();
         foreach ($records as $record) {
