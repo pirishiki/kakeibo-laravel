@@ -6,6 +6,7 @@ use App\Enums\RecordType;
 use Carbon\CarbonImmutable;
 use Database\Factories\RecordFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +45,24 @@ class Record extends Model
             'amount' => 'integer',
             'recurring_month' => 'immutable_date',
         ];
+    }
+
+    /**
+     * 品物は、半角カナを全角カナにそろえて保存する（ﾊﾟﾝ → パン。画面設計書 5.3）。
+     * 半角カナと全角カナが混ざった品物（ﾊﾟﾝケーキ）も「パンケーキ」で探して見つかるようにするため
+     * （データベースのくらべ方では、半角カナと全角カナを同じとして探せないため）。どこから保存しても同じになるよう、ここでそろえる
+     *
+     * @return Attribute<string|null, string|null>
+     */
+    protected function item(): Attribute
+    {
+        return Attribute::make(set: fn (?string $value) => self::normalizeItem($value));
+    }
+
+    /** 品物の文字の形をそろえる：半角カナを全角カナに（濁点・半濁点は 1 文字にまとめる）。ほかの文字はそのまま */
+    public static function normalizeItem(?string $value): ?string
+    {
+        return $value === null ? null : mb_convert_kana($value, 'KV');
     }
 
     /**

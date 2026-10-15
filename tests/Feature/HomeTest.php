@@ -149,7 +149,8 @@ class HomeTest extends TestCase
         // 移動だけの日も、記録の一覧に見出しがあるので、その日へ
         $this->assertSame('2026-10-08', HomeCalendar::jumpDate(CarbonImmutable::create(2026, 10, 20), $dates));
 
-        $this->get('/')->assertSee('/records#day-2026-10-08', false)->assertSee('/records#day-2026-10-05', false);
+        // 月も URL に入れる（ホームを開いたまま月が変わっても、カレンダーの月の一覧を開くように）
+        $this->get('/')->assertSee('/records?month=2026-10#day-2026-10-08', false)->assertSee('/records?month=2026-10#day-2026-10-05', false);
         // 記録の一覧には、動いていく先の目印がある
         $this->get('/records')->assertSee('id="day-2026-10-08"', false);
     }

@@ -93,7 +93,8 @@
                                     @endphp
                                     {{-- 押すと、記録の一覧の今月のその日の見出しへ（その日に記録がないときは、その日より前でいちばん近い記録のある日） --}}
                                     {{-- 読み上げでは「10月9日（金） 支出 1,200」のように、月と曜日もつけて読む --}}
-                                    <a href="{{ route('records.index').($jump === null ? '' : '#day-'.$jump) }}"
+                                    {{-- 月も URL に入れる（ホームを開いたまま 0 時をこえて月が変わっても、カレンダーの月の一覧を開くように） --}}
+                                    <a href="{{ route('records.index', ['month' => $day->format('Y-m')]).($jump === null ? '' : '#day-'.$jump) }}"
                                         @class(['home-cal-day', 'is-today' => $day->isToday()])
                                         @if ($day->isToday()) aria-current="date" @endif>
                                         <span class="home-cal-num" aria-hidden="true">{{ $day->day }}</span>

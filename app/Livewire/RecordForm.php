@@ -11,6 +11,7 @@ use App\Models\Recurring;
 use App\Models\RecurringAmount;
 use App\Models\RecurringSkip;
 use App\Support\FormInput;
+use App\Support\RecordSearch;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -526,10 +527,16 @@ class RecordForm extends Component
         return $effect;
     }
 
-    /** 編集・削除のあとに戻る先。記録の一覧から開いたときは、その記録の月の一覧に戻る（画面設計書 5.4） */
+    /**
+     * 編集・削除のあとに戻る先。記録の一覧から開いたときは、その記録の月の一覧に戻る（画面設計書 5.4）。
+     * 「探す」で探した一覧から開いたときは、同じ条件の一覧に戻る（探し直さなくてよいように）
+     */
     private function backUrlAfter(Record $record): string
     {
-        return parse_url($this->backUrl, PHP_URL_PATH) === '/records'
+        parse_str((string) parse_url($this->backUrl, PHP_URL_QUERY), $query);
+        $fromSearch = array_intersect(array_keys($query), [...RecordSearch::FIELDS, RecordSearch::MARK]) !== [];
+
+        return parse_url($this->backUrl, PHP_URL_PATH) === '/records' && ! $fromSearch
             ? route('records.index', ['month' => $record->date->format('Y-m')])
             : $this->backUrl;
     }

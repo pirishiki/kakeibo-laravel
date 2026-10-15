@@ -211,6 +211,55 @@ if (mergeForm && mergeInput && mergeDialog) {
         }
     });
 }
+
+// 記録の一覧を、ホームのカレンダーの日（#day-2026-10-09）から開いたとき、その日がこのページになく、続きのページがある（記録が 500 件をこえる）ときは、
+// その日から始まる続きのページを開き直す（その日の見出しへ動けず、一覧のいちばん上に出たままにならないように。画面設計書 5.2）。
+// 続きの印（before）は「この日付・この番号より前」の意味なので、その日の次の日・番号 0 にすると、その日の記録から始まる
+const dayTarget = window.location.hash.match(/^#day-(\d{4}-\d{2}-\d{2})$/);
+// 開き直したページにもその日がなかったとき（そのあいだに記録を消したなど）に、何度も開き直さないよう、続きの印がもうついていたら何もしない
+if (dayTarget && !document.getElementById(window.location.hash.slice(1)) && document.querySelector('[data-records-more]')
+    && !new URLSearchParams(window.location.search).has('before')) {
+    const next = new Date(`${dayTarget[1]}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const url = new URL(window.location.href);
+    url.searchParams.set('before', `${next.toISOString().slice(0, 10)}.0`);
+    window.location.replace(url.toString());
+}
+
+// 記録の一覧の「探す」の小分類の欄（画面設計書 5.3）：選んだ大分類の小分類だけを出す。大分類が「すべて」のときは選べなくする。
+// 隠すだけでは、スマートフォンのブラウザによっては選べてしまうので、出さない小分類は欄から外す。
+// data-sub-of に大分類の欄の id、小分類の option に data-parent（大分類の id）を書く
+document.querySelectorAll('[data-sub-of]').forEach((sub) => {
+    const parent = document.getElementById(sub.dataset.subOf);
+    if (!parent) {
+        return;
+    }
+    const children = [...sub.querySelectorAll('option[data-parent]')];
+    const update = () => {
+        const selected = sub.value;
+        children.forEach((option) => option.remove());
+        children.filter((option) => option.dataset.parent === parent.value).forEach((option) => sub.append(option));
+        // 前に選んだ小分類が、ほかの大分類のものになったときは「すべて」に戻す
+        sub.value = [...sub.options].some((option) => option.value === selected) ? selected : '';
+        sub.disabled = parent.value === '';
+    };
+    parent.addEventListener('change', update);
+    update();
+});
+
+// 「探す」の欄を送るときは、空の欄を外して送る（URL を ?from=&to=&… のように長くしないため）。送る中身が決まったら、欄を元に戻す
+document.querySelectorAll('[data-search-form]').forEach((form) => {
+    form.addEventListener('submit', () => {
+        const emptied = [...form.querySelectorAll('input:not([type=hidden]), select')].filter((field) => !field.disabled && field.value === '');
+        emptied.forEach((field) => {
+            field.disabled = true;
+        });
+        setTimeout(() => emptied.forEach((field) => {
+            field.disabled = false;
+        }), 0);
+    });
+});
+
 // 金額の欄（data-amount）：打ち終えて欄を離れたら、1,000,000 のようにカンマをつける。0 の打ちすぎに気づきやすくするため
 // 打っているあいだはカンマをつけない（文字の位置がずれて打ちにくいため）。欄に戻ったらカンマを外す
 // 全角の数字も半角にそろえる。サーバーでも、カンマと全角を読みかえてから確かめる（app/Support/FormInput.php）

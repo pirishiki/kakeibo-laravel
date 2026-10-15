@@ -45,7 +45,18 @@ class MonthlySummary
      */
     public static function incomeExpense(CarbonImmutable $month): array
     {
-        $totals = self::records($month)->toBase()
+        return self::incomeExpenseOf(self::records($month));
+    }
+
+    /**
+     * 記録の集まりの収入と支出の合計（記録の一覧で探したときも、この数え方。画面設計書 5.3）
+     *
+     * @param  Builder<Record>  $records
+     * @return array{income: int, expense: int}
+     */
+    public static function incomeExpenseOf(Builder $records): array
+    {
+        $totals = (clone $records)->toBase()
             ->whereIn('type', [RecordType::Income->value, RecordType::Expense->value])
             ->groupBy('type')
             ->selectRaw('type, SUM(amount) AS total')
