@@ -153,7 +153,12 @@ class RecurringMonthly
                 return false;
             }
 
-            RecurringAmount::query()->updateOrCreate(['recurring_id' => $recurring->id, 'month' => $key], ['amount' => $amount]);
+            // 2 つの画面からほぼ同時に保存しても、ユニーク制約のエラーにならないように、あれば書きかえ・なければ作る を 1 文で行う
+            RecurringAmount::query()->upsert(
+                [['recurring_id' => $recurring->id, 'month' => $key, 'amount' => $amount, 'created_at' => now(), 'updated_at' => now()]],
+                ['recurring_id', 'month'],
+                ['amount', 'updated_at'],
+            );
 
             return self::recordIfDue($recurring, $month, $today);
         });

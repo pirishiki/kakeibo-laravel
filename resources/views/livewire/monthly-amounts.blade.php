@@ -39,12 +39,12 @@
                                         @break
                                     @case(RecurringMonthly::SKIPPED)
                                         <span class="d-block">今回はなし</span>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="restore({{ $id }})" wire:loading.attr="disabled">もどす</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="restore({{ $id }})" aria-label="{{ $recurring->name }}をもどす" wire:loading.attr="disabled">もどす</button>
                                         @break
                                     @case(RecurringMonthly::FIXED)
                                         <x-money :amount="(int) $row['amount']" />
                                         <span class="d-block small text-secondary">決まった金額</span>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="skip({{ $id }})" wire:loading.attr="disabled">今回はなし</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="skip({{ $id }})" aria-label="{{ $recurring->name }}を今回はなしにする" wire:loading.attr="disabled">今回はなし</button>
                                         @break
                                     @default
                                         {{-- 金額が変わる：入れた金額があれば出し、なければ概算を薄い字で出す。欄を離れたらカンマをつける（data-amount） --}}
@@ -52,13 +52,14 @@
                                             <input type="text" id="amount-{{ $id }}" inputmode="numeric" autocomplete="off" data-amount
                                                 wire:model="amounts.{{ $id }}"
                                                 placeholder="{{ $row['estimate'] === null ? '' : '概算 '.number_format($row['estimate']) }}"
-                                                class="form-control text-end @error('amounts.'.$id) is-invalid @enderror">
+                                                class="form-control text-end @error('amounts.'.$id) is-invalid @enderror"
+                                                @error('amounts.'.$id) aria-describedby="amount-{{ $id }}-error" @enderror>
                                             <span class="input-group-text">円</span>
                                             @error('amounts.'.$id)
-                                                <div class="invalid-feedback text-start">{{ $message }}</div>
+                                                <div id="amount-{{ $id }}-error" class="invalid-feedback text-start">{{ $message }}</div>
                                             @enderror
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="skip({{ $id }})" wire:loading.attr="disabled">今回はなし</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="skip({{ $id }})" aria-label="{{ $recurring->name }}を今回はなしにする" wire:loading.attr="disabled">今回はなし</button>
                                 @endswitch
                             </div>
                         </div>

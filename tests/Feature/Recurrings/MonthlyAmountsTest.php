@@ -104,6 +104,18 @@ class MonthlyAmountsTest extends TestCase
         $this->assertSame(0, RecurringAmount::query()->count());
     }
 
+    public function test_開いたままの古い画面で保存しても_ほかの画面で入れた金額は消さない(): void
+    {
+        $november = CarbonImmutable::create(2026, 11, 1);
+        $old = Livewire::test(MonthlyAmounts::class, ['month' => $november]);
+        // 別の画面で、11 月の電気代を入れておく
+        RecurringAmount::query()->create(['recurring_id' => $this->power->id, 'month' => '2026-11-01', 'amount' => 8500]);
+
+        $old->call('save');
+
+        $this->assertSame(8500, (int) RecurringAmount::query()->sole()->amount);
+    }
+
     public function test_金額は1円以上の整数(): void
     {
         Livewire::test(MonthlyAmounts::class, ['month' => $this->october()])

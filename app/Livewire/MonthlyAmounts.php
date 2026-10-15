@@ -27,12 +27,19 @@ class MonthlyAmounts extends Component
     /** @var array<int|string, mixed> 金額が変わる予定の金額の欄（予定の id → 打ったままの文字） */
     public array $amounts = [];
 
+    /**
+     * @var array<int, string> 開いたときの金額（予定の id → 数字だけの文字）。保存のときは、ここから変わった欄だけを保存する
+     *                         （開いたままの古い画面で保存して、ほかの画面で入れた金額を消さないため）。画面の側から書きかえられないようにする
+     */
+    #[Locked]
+    public array $opened = [];
+
     public function mount(CarbonImmutable $month): void
     {
         $this->month = $month->startOfMonth()->toDateString();
         foreach ($this->rows as $row) {
             if ($row['status'] === RecurringMonthly::VARIABLE) {
-                $this->amounts[$row['recurring']->id] = $row['amount'] === null ? '' : number_format($row['amount']);
+                $this->fillAmount($row['recurring']->id, $row['amount']);
             }
         }
     }
@@ -51,7 +58,9 @@ class MonthlyAmounts extends Component
     /** 全部の金額の欄をまとめて保存する。日付が今日か過ぎていたものは、予定の日付ですぐに記録する */
     public function save(): mixed
     {
-        $variable = array_filter($this->rows, fn (array $row) => $row['status'] === RecurringMonthly::VARIABLE);
+        // 欄が出ていて、開いたときから金額を変えた行だけ
+        $variable = array_filter($this->rows, fn (array $row) => $row['status'] === RecurringMonthly::VARIABLE
+            && array_key_exists($row['recurring']->id, $this->amounts));
         $values = [];
         foreach ($variable as $row) {
             $text = $this->amounts[$row['recurring']->id] ?? '';
@@ -63,7 +72,9 @@ class MonthlyAmounts extends Component
 
         foreach ($variable as $row) {
             $text = $values[$row['recurring']->id];
-            RecurringMonthly::saveAmount($row['recurring'], $row['month'], $text === '' ? null : (int) $text);
+            if ($text !== ($this->opened[$row['recurring']->id] ?? '')) {
+                RecurringMonthly::saveAmount($row['recurring'], $row['month'], $text === '' ? null : (int) $text);
+            }
         }
 
         session()->flash('status', '保存しました');
@@ -94,7 +105,7 @@ class MonthlyAmounts extends Component
         // 金額が変わる予定で、まだ記録されていなければ、入れてある金額を欄に出す
         foreach ($this->rows as $fresh) {
             if ($fresh['recurring']->id === $recurringId && $fresh['status'] === RecurringMonthly::VARIABLE) {
-                $this->amounts[$recurringId] = $fresh['amount'] === null ? '' : number_format($fresh['amount']);
+                $this->fillAmount($recurringId, $fresh['amount']);
             }
         }
     }
@@ -122,6 +133,13 @@ class MonthlyAmounts extends Component
         }
 
         return [$rules, $messages];
+    }
+
+    /** 金額の欄に、保存してある金額を入れる（開いたときの金額としても覚える） */
+    private function fillAmount(int $recurringId, ?int $amount): void
+    {
+        $this->amounts[$recurringId] = $amount === null ? '' : number_format($amount);
+        $this->opened[$recurringId] = $amount === null ? '' : (string) $amount;
     }
 
     /**

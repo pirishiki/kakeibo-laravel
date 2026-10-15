@@ -7,11 +7,11 @@
             <div class="card-body">
                 <h2 class="home-label">お知らせ</h2>
                 <button type="button" class="btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-1 text-start"
-                    data-bs-toggle="collapse" data-bs-target="#home-pending" aria-expanded="false" aria-controls="home-pending">
+                    data-bs-toggle="collapse" data-bs-target="#home-pending" aria-expanded="false" aria-controls="home-pending" wire:ignore.self>
                     金額がまだのものが {{ count($this->items) }} 件あります <x-chevron />
                 </button>
 
-                {{-- 開いたあと「今回はなし」で描き直しても、開いたままにする（wire:ignore.self） --}}
+                {{-- 開いたあと「今回はなし」で描き直しても、開いたままにする（wire:ignore.self。上のボタンの「開いている」と矢印の向きも同じ） --}}
                 <div class="collapse" id="home-pending" wire:ignore.self>
                     <form wire:submit="save" novalidate class="mt-2">
                         <div class="list-group list-group-flush mb-2">
@@ -37,13 +37,14 @@
                                                 <input type="text" id="pending-{{ $key }}" inputmode="numeric" autocomplete="off" data-amount
                                                     wire:model="amounts.{{ $key }}"
                                                     placeholder="{{ $item['estimate'] === null ? '' : '概算 '.number_format($item['estimate']) }}"
-                                                    class="form-control text-end @error('amounts.'.$key) is-invalid @enderror">
+                                                    class="form-control text-end @error('amounts.'.$key) is-invalid @enderror"
+                                                    @error('amounts.'.$key) aria-describedby="pending-{{ $key }}-error" @enderror>
                                                 <span class="input-group-text">円</span>
                                                 @error('amounts.'.$key)
-                                                    <div class="invalid-feedback text-start">{{ $message }}</div>
+                                                    <div id="pending-{{ $key }}-error" class="invalid-feedback text-start">{{ $message }}</div>
                                                 @enderror
                                             </div>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="skip('{{ $key }}')" wire:loading.attr="disabled">今回はなし</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" wire:click="skip('{{ $key }}')" aria-label="{{ $item['recurring']->name }}を今回はなしにする" wire:loading.attr="disabled">今回はなし</button>
                                         </div>
                                     </div>
                                 </div>
