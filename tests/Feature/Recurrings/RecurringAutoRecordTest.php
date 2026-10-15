@@ -60,6 +60,7 @@ class RecurringAutoRecordTest extends TestCase
         $this->assertNotNull($event);
         $this->assertSame('5 0 * * *', $event->expression);
         $this->assertTrue($event->withoutOverlapping);
+        $this->assertSame(60, $event->expiresAt, '途中で止まったときの鍵は 60 分で切れる');
     }
 
     public function test_今日が記録する日の予定を保存すると_その場で記録される(): void

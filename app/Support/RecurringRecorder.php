@@ -7,6 +7,7 @@ use App\Models\Recurring;
 use App\Models\RecurringAmount;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Throwable;
 
 /**
  * 定期的な記録を、records に記録する（データベース設計書 3.6「自動で記録する仕組み」）
@@ -25,7 +26,12 @@ class RecurringRecorder
         $count = 0;
         Recurring::query()->where('is_active', true)->get()
             ->each(function (Recurring $recurring) use ($today, &$count) {
-                $count += self::recordDue($recurring, $today);
+                // 1 つの予定でまちがいが起きても、ログに残して、ほかの予定は記録する（全体構成設計書 5 章）
+                try {
+                    $count += self::recordDue($recurring, $today);
+                } catch (Throwable $e) {
+                    report($e);
+                }
             });
 
         return $count;
