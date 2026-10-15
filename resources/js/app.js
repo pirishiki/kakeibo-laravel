@@ -295,6 +295,16 @@ document.addEventListener('livewire:init', () => {
             markSubmitted();
         }
     });
+    // Livewire の画面（記録の登録など）で、時間がたって保存できなかったとき（419）。
+    // Livewire は英語の小窓を出し、「OK」で読みこみ直して入力を消すので、それを止めて、入力を画面に残したまま日本語で知らせる（画面設計書 4 章の 12）
+    window.Livewire.hook('request', ({ fail }) => {
+        fail(({ status, preventDefault }) => {
+            if (status === 419) {
+                preventDefault();
+                showPageAlert('画面を開いてから時間がたっていたので、保存できませんでした。入れた内容は画面に残っています。控えてから［読みこみ直す］を押し、もう一度入れてください。');
+            }
+        });
+    });
 });
 window.addEventListener('pageshow', (event) => {
     if (!event.persisted) {
@@ -304,16 +314,26 @@ window.addEventListener('pageshow', (event) => {
         window.location.reload();
         return;
     }
-    if (document.getElementById('stale-page-alert')) {
+    showPageAlert('前の画面を出しています。残高などが古いかもしれません');
+});
+
+// 画面の上に、知らせと［読みこみ直す］を出す（同じ知らせは 1 つだけ）
+function showPageAlert(message) {
+    if (document.getElementById('page-alert')) {
         return;
     }
     const alert = document.createElement('div');
-    alert.id = 'stale-page-alert';
+    alert.id = 'page-alert';
     alert.className = 'alert alert-warning d-flex justify-content-between align-items-center gap-2 flex-wrap';
     alert.setAttribute('role', 'alert');
-    alert.innerHTML =
-        '<span>前の画面を出しています。残高などが古いかもしれません</span>' +
-        '<button type="button" class="btn btn-sm btn-outline-secondary">読みこみ直す</button>';
-    alert.querySelector('button').addEventListener('click', () => window.location.reload());
+    const text = document.createElement('span');
+    text.textContent = message;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-sm btn-outline-secondary';
+    button.textContent = '読みこみ直す';
+    button.addEventListener('click', () => window.location.reload());
+    alert.append(text, button);
     document.querySelector('main')?.prepend(alert);
-});
+    alert.scrollIntoView({ block: 'nearest' });
+}
