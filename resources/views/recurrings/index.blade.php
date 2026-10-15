@@ -2,11 +2,34 @@
 
 @section('title', '定期的な記録')
 
-{{-- 定期的な記録（画面設計書 5.10）。上の「月ごとの金額」は次のかたまりで足し、いまは下の「登録してある定期的な記録」だけ --}}
+{{-- 定期的な記録（画面設計書 5.10）。上に「月ごとの金額」、下に「登録してある定期的な記録」 --}}
 @section('content')
     <h1 class="h4 mb-3">定期的な記録</h1>
 
     <div style="max-width: 560px">
+        @if ($running->isNotEmpty() || $stopped->isNotEmpty())
+            <section class="mb-4">
+                <h2 class="h6 text-secondary">月ごとの金額</h2>
+                {{-- 月の切りかえ：記録の一覧と同じ形。前は予定のいちばん早い最初の月まで、先は 12 か月先まで --}}
+                <nav class="d-flex justify-content-center align-items-center gap-3 mb-2" aria-label="月の切りかえ">
+                    @if ($hasPrevious)
+                        <a href="{{ route('recurrings.index', ['month' => $month->subMonth()->format('Y-m')]) }}"
+                            class="btn btn-link text-decoration-none fs-4 py-0" aria-label="前の月">‹</a>
+                    @else
+                        <span class="btn btn-link fs-4 py-0 invisible" aria-hidden="true">‹</span>
+                    @endif
+                    <h3 class="h5 mb-0">{{ $month->format('Y年n月') }}</h3>
+                    @if ($hasNext)
+                        <a href="{{ route('recurrings.index', ['month' => $month->addMonth()->format('Y-m')]) }}"
+                            class="btn btn-link text-decoration-none fs-4 py-0" aria-label="次の月">›</a>
+                    @else
+                        <span class="btn btn-link fs-4 py-0 invisible" aria-hidden="true">›</span>
+                    @endif
+                </nav>
+                <livewire:monthly-amounts :month="$month" :key="$month->format('Y-m')" />
+            </section>
+        @endif
+
         <h2 class="h6 text-secondary">登録してある定期的な記録</h2>
 
         @if ($running->isEmpty() && $stopped->isEmpty())
