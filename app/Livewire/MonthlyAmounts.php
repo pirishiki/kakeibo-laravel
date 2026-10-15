@@ -83,7 +83,11 @@ class MonthlyAmounts extends Component
             if ($text !== ($this->opened[$row['recurring']->id] ?? '')) {
                 $amount = $text === '' ? null : (int) $text;
                 RecurringMonthly::saveAmount($row['recurring'], $row['month'], $amount);
-                $problems[] = $amount === null ? null : RecurringMonthly::recordProblem($row['recurring'], $row['month'], $amount);
+                $problems[] = $amount === null
+                    ? ($row['recurring']->records()->where('recurring_month', $row['month']->toDateString())->exists()
+                        ? '「'.$row['recurring']->name.'」は、開いたあとに記録されていたので、金額を消していません。記録済みの金額を押して記録を直してください。'
+                        : null)
+                    : RecurringMonthly::recordProblem($row['recurring'], $row['month'], $amount);
             }
         }
         $problems = array_values(array_filter($problems));

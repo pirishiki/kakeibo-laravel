@@ -38,6 +38,16 @@ class AdjustBalance extends Component
 
     public string $memo = '';
 
+    /**
+     * 画面に最後に出した「アプリの残高」と、その日付。保存のときに、いまの残高とくらべる
+     * （開いたあとに、ほかの画面でこの口座の記録が変わったら、画面で見た差とちがう額で黙って調整しないため）。画面の側から書きかえられないようにする
+     */
+    #[Locked]
+    public ?int $shownBalance = null;
+
+    #[Locked]
+    public string $shownDate = '';
+
     /** 保存したあとに戻る画面（記録の部品と同じく、書きかえられないようにする） */
     #[Locked]
     public string $backUrl = '';
@@ -156,6 +166,10 @@ class AdjustBalance extends Component
             if ($this->differenceTooLarge()) {
                 return self::TOO_LARGE;
             }
+            // 画面に出した残高と変わった（開いたあとに、ほかの画面でこの口座の記録が変わった）ときは、黙ってちがう額で調整しない
+            if ($this->shownBalance !== null && $this->shownDate === $this->date && $this->appBalance !== $this->shownBalance) {
+                return 'ほかの画面でこの口座の記録が変わったので、差が '.number_format($difference).' 円になりました。差を確かめてから、もう一度保存してください。';
+            }
 
             Record::create([
                 'date' => $this->date,
@@ -180,6 +194,10 @@ class AdjustBalance extends Component
 
     public function render(): View
     {
+        // 画面に出す残高を覚えておく（保存のときに、いまの残高とくらべる）
+        $this->shownBalance = $this->appBalance;
+        $this->shownDate = $this->date;
+
         return view('livewire.adjust-balance', ['account' => $this->account()]);
     }
 

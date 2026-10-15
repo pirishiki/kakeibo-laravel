@@ -76,7 +76,10 @@ class PartnerController extends Controller
         // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
         try {
             Partner::query()->whereKey($partner->id)->delete();
-        } catch (QueryException) {
+        } catch (QueryException $e) {
+            // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
+            throw_if($e->getCode() !== '23000', $e);
+
             return to_route('partners.edit', $partner)->withErrors(['delete' => '記録があるので削除できません']);
         }
 
@@ -116,7 +119,9 @@ class PartnerController extends Controller
         // 確かめたあとに、まとめ先を「使わない」にした・記録が足された、などで、まとめられなかったときは、もう一度選んでもらう
         try {
             $merged = $partner->mergeInto($target);
-        } catch (QueryException) {
+        } catch (QueryException $e) {
+            // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
+            throw_if($e->getCode() !== '23000', $e);
             $merged = false;
         }
 

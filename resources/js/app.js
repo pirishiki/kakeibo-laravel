@@ -225,17 +225,10 @@ document.addEventListener('submit', (event) => {
         });
     }, 0);
 });
-// ブラウザの「戻る」で、送ったあとの画面に戻ってきたとき（前の画面をそのまま出すとき）は、また押せるようにする
+// ブラウザの「戻る」で、前の画面をそのまま出したとき（ブラウザがとっておいた画面）は、読みこみ直す。
+// とっておいた画面は、残高などが古いままで、送ったあとの押せないボタンもそのままなので、いまの中身で出し直す
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
-        // 画面のほうで、わざと押せなくしてあるボタン（残高を合わせるで、差がないときなど）は、そのままにする
-        document.querySelectorAll('[type=submit]:disabled').forEach((button) => {
-            if (button.form?.dataset.submitting) {
-                button.disabled = false;
-            }
-        });
-        document.querySelectorAll('form[data-submitting]').forEach((form) => {
-            delete form.dataset.submitting;
-        });
+        window.location.reload();
     }
 });

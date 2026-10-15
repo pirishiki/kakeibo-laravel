@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Enums\RecordType;
 use App\Enums\RecurringShift;
 use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
+use App\Models\Account;
 use App\Models\Partner;
 use App\Models\Recurring;
 use App\Models\RecurringSkip;
@@ -15,6 +16,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -262,27 +264,41 @@ class RecurringForm extends Component
             $skips = [...$skips, ...$passedMonths];
         }
 
-        $recorded = DB::transaction(function () use ($before, $after, $skips) {
-            // 0 時 5 分の自動の記録と同じ順番（予定の行 → 相手・口座）で押さえる（逆の順番だと、押さえあいになることがあるため）
+        $values = $after->only($after->getFillable());
+        // 押さえあい（デッドロック）でやり直すときも、同じ結果になるように、毎回、押さえた行から作り直す（前の回の中身を使わない）
+        $recorded = DB::transaction(function () use ($before, $values, $skips) {
+            // 0 時 5 分の自動の記録と同じ順番（予定の行 → 口座 → 相手）で押さえる（逆の順番だと、押さえあいになることがあるため）
             if ($before !== null) {
-                Recurring::query()->whereKey($before->id)->lockForUpdate()->first();
-            }
-            if ($this->hasCategory()) {
-                $after->partner_id = $this->partnerIdToSave($before !== null);
+                $recurring = Recurring::query()->lockForUpdate()->find($before->id);
+                if ($recurring === null) {
+                    throw ValidationException::withMessages(['save' => 'この定期的な記録は、ほかの画面で削除されました。一覧から開き直してください']);
+                }
+                if ($this->openedAt !== null && $recurring->updated_at?->toDateTimeString() !== $this->openedAt) {
+                    throw ValidationException::withMessages(['save' => 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください']);
+                }
+            } else {
+                $recurring = new Recurring;
             }
 
-            if ($before === null) {
-                $after->save();
-                $recurring = $after;
-            } else {
-                $before->fill($after->only($after->getFillable()))->save();
-                $recurring = $before;
-                // 「毎月変わる」から「決まっている」に変えたら、まだ記録されていない月に入れておいた金額を消す（「今回はなし」は残す）
-                if ($recurring->is_fixed && $recurring->wasChanged('is_fixed')) {
-                    $recurring->amounts()
-                        ->whereNotIn('month', $recurring->records()->whereNotNull('recurring_month')->select('recurring_month'))
-                        ->delete();
-                }
+            // 口座を押さえてから「使う」かを確かめ直す。動いている予定（使うで、最後の月が今月か先）は、「使わない」口座を使えない（4 章の 9）
+            $accounts = Account::query()->whereIn('id', array_filter([$values['account_id'], $values['to_account_id']]))->sharedLock()->get();
+            $end = $values['end_month'];
+            $willRun = $values['is_active'] && ($end === null || CarbonImmutable::parse($end)->gte(today()->startOfMonth()));
+            $inactive = $accounts->first(fn (Account $a) => ! $a->is_active);
+            if ($willRun && $inactive !== null) {
+                throw ValidationException::withMessages(['save' => '口座「'.$inactive->name.'」は、ほかの画面で『使わない』にされたので、選べません。口座を選び直してください']);
+            }
+
+            if ($this->hasCategory()) {
+                $values['partner_id'] = $this->partnerIdToSave($before !== null);
+            }
+            $wasFixed = $recurring->exists ? $recurring->is_fixed : null;
+            $recurring->fill($values)->save();
+            // 「毎月変わる」から「決まっている」に変えたら、まだ記録されていない月に入れておいた金額を消す（「今回はなし」は残す）
+            if ($recurring->is_fixed && $wasFixed === false) {
+                $recurring->amounts()
+                    ->whereNotIn('month', $recurring->records()->whereNotNull('recurring_month')->select('recurring_month'))
+                    ->delete();
             }
 
             foreach ($skips as $month) {

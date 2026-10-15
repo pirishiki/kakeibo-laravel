@@ -204,15 +204,31 @@ class RecordForm extends Component
         }
 
         DB::transaction(function () use ($record, $values, $hasCategory) {
-            // 口座を押さえてから「使う」かを確かめ直す（チェックのあと、保存するまでに、ほかの画面で「使わない」にされても、使わない口座に入れないように）
-            $ids = array_values(array_filter([$values['account_id'], $values['to_account_id']]));
-            $inactive = Account::query()->whereIn('id', $ids)->sharedLock()->get()
-                ->first(fn (Account $a) => ! $a->is_active && ! in_array($a->id, $this->original()['accounts'], true));
+            // 記録の行 → 口座（前と後の両方）の順に押さえてから、もう一度確かめる。
+            // チェックのあと保存するまでに、ほかの画面で直された・「使わない」にされたときに、上書きや「使わない」口座の残高の変化を起こさないため
+            $locked = null;
+            if ($record !== null) {
+                $locked = Record::query()->lockForUpdate()->find($record->id);
+                if ($locked === null) {
+                    throw ValidationException::withMessages(['blocker' => self::GONE_MESSAGE]);
+                }
+                if ($this->openedAt !== null && $locked->updated_at?->toDateTimeString() !== $this->openedAt) {
+                    throw ValidationException::withMessages(['blocker' => 'この記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください']);
+                }
+            }
+            $ids = array_values(array_unique(array_filter([$values['account_id'], $values['to_account_id'], $locked?->account_id, $locked?->to_account_id])));
+            $accounts = Account::query()->whereIn('id', $ids)->sharedLock()->get();
+            $inactive = $accounts->first(fn (Account $a) => ! $a->is_active && ! in_array($a->id, $this->original()['accounts'], true)
+                && in_array($a->id, [$values['account_id'], $values['to_account_id']], true));
             if ($inactive !== null) {
                 throw ValidationException::withMessages(['blocker' => '口座「'.$inactive->name.'」は、ほかの画面で『使わない』にされたので、選べません。口座を選び直してください']);
             }
+            $blocker = $locked === null ? null : $this->inactiveAccountBlocker($locked, $values);
+            if ($blocker !== null) {
+                throw ValidationException::withMessages(['blocker' => $blocker]);
+            }
             $values['partner_id'] = $hasCategory ? $this->partnerIdToSave($record !== null) : null;
-            $record === null ? Record::create($values) : $record->update($values);
+            $locked === null ? Record::create($values) : $locked->update($values);
         }, 3);
 
         session()->flash('status', '保存しました');
@@ -249,16 +265,31 @@ class RecordForm extends Component
             return $this->redirect($this->backUrl);
         }
 
-        // 「使わない」口座の記録を消すと、その口座の残高が 0 円でなくなるので止める
+        // 「使わない」口座の記録を消すと、その口座の残高が 0 円でなくなるので止める（小窓を開いたあとに「使わない」にされたときも、理由を出す）
         if ($this->deleteBlocker !== null) {
+            $this->addError('blocker', $this->deleteBlocker);
+
             return null;
         }
 
-        DB::transaction(function () use ($record) {
+        $error = DB::transaction(function () use ($record) {
+            // 予定の行（自動の記録のとき）→ 記録の行 → 口座 の順に押さえてから、もう一度確かめる
+            // （ほかの画面で「使わない」にした・残高を合わせたのと同時に消して、使わない口座の残高が変わったり、合わせた額がずれたりしないように）
+            $recurring = $record->recurring_id === null ? null : Recurring::query()->lockForUpdate()->find($record->recurring_id);
+            $locked = Record::query()->lockForUpdate()->find($record->id);
+            if ($locked === null) {
+                return null;
+            }
+            Account::query()->whereIn('id', array_filter([$locked->account_id, $locked->to_account_id]))->sharedLock()->get();
+            $blocker = $this->inactiveAccountBlocker($locked, null);
+            if ($blocker !== null) {
+                return $blocker;
+            }
+            $record = $locked;
+
             // 自動で作られた記録なら、その月を「今回はなし」にする（そのままだと、次の 0 時 5 分にもう一度記録されるため。画面設計書 5.4・5.10）
             if ($record->recurring_id !== null && $record->recurring_month !== null) {
                 $month = $record->recurring_month->toDateString();
-                $recurring = Recurring::query()->find($record->recurring_id);
                 // 金額が変わる予定は、記録の今の金額を月ごとの金額に書き写す（「もどす」で、消す前と同じ金額で記録し直せるように。データベース設計書 3.7）
                 if ($recurring !== null && ! $recurring->is_fixed) {
                     RecurringAmount::query()->updateOrCreate(['recurring_id' => $recurring->id, 'month' => $month], ['amount' => $record->amount]);
@@ -267,7 +298,14 @@ class RecordForm extends Component
             }
 
             $record->delete();
-        });
+
+            return null;
+        }, 3);
+        if ($error !== null) {
+            $this->addError('blocker', $error);
+
+            return null;
+        }
         session()->flash('status', '削除しました');
 
         return $this->redirect($this->backUrlAfter($record));

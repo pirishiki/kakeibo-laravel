@@ -146,10 +146,14 @@ class RecurringRecorder
         $month = $month->startOfMonth();
 
         return DB::transaction(function () use ($recurring, $month) {
-            Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
-            // 口座を押さえてから「使う」かを確かめる（同じときに「使わない」にされても、使わない口座に入らないように）
-            Account::query()->whereIn('id', array_filter([$recurring->account_id, $recurring->to_account_id]))->sharedLock()->get();
-            if (self::blocker($recurring) !== null) {
+            // 押さえた行の中身（いちばん新しい口座・金額など）で記録する。0 時 5 分の処理が最初に読んだ中身は古いことがあるため
+            $recurring = Recurring::query()->lockForUpdate()->find($recurring->id);
+            if ($recurring === null) {
+                return false;
+            }
+            // 口座を押さえて、押さえた行で「使う」かを確かめる（同じときに「使わない」にされても、使わない口座に入らないように）
+            $accounts = Account::query()->whereIn('id', array_filter([$recurring->account_id, $recurring->to_account_id]))->sharedLock()->get();
+            if ($accounts->contains(fn (Account $a) => ! $a->is_active)) {
                 return false;
             }
             // 押さえて読む（lockForUpdate）と、ほかの画面でいま入れた「今回はなし」も見える

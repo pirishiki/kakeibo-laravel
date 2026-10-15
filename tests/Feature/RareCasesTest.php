@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\CategoryKind;
 use App\Enums\RecordType;
 use App\Enums\RecurringShift;
+use App\Livewire\AdjustBalance;
 use App\Livewire\MonthlyAmounts;
 use App\Livewire\RecordForm;
 use App\Livewire\RecurringForm;
@@ -195,6 +196,50 @@ class RareCasesTest extends TestCase
             ->assertSet('notice', '')
             ->assertRedirect();
         $this->assertSame(2, Record::query()->count());
+    }
+
+    public function test_開いたあとに口座が使わないにされた予定を保存すると_理由を出して保存しない(): void
+    {
+        $rent = Recurring::factory()->create(['start_month' => '2026-11-01']);
+        $form = Livewire::test(RecurringForm::class, ['recurring' => $rent]);
+        $rent->account->update(['is_active' => false]);
+
+        // 入力のチェック（口座の欄）か、保存の直前の確かめ直しのどちらかで止まる
+        $form->set('name', '家賃（新）')->call('save')->assertHasErrors()->assertNoRedirect();
+        $this->assertSame('家賃', $rent->fresh()?->name);
+    }
+
+    public function test_記録するときは_押さえた行のいまの金額で記録する(): void
+    {
+        $rent = Recurring::factory()->create(['start_month' => '2026-09-01']);
+        $stale = Recurring::query()->findOrFail($rent->id);
+        // 0 時 5 分の処理が読んだあとに、ほかの画面で金額が直された
+        $rent->update(['amount' => 72000]);
+
+        RecurringRecorder::record($stale, CarbonImmutable::create(2026, 9, 1));
+
+        $this->assertSame(72000, Record::query()->sole()->amount);
+    }
+
+    public function test_残高を合わせる画面を開いたあとに記録が変わったら_ちがう額で調整せずに知らせる(): void
+    {
+        $cash = Account::factory()->create(['initial_balance' => 10000]);
+        $form = Livewire::test(AdjustBalance::class, ['account' => $cash])->set('actual', '10,500');
+        // ほかの画面で、この口座に 300 円の支出をつけた
+        Record::factory()->create(['account_id' => $cash->id, 'amount' => 300]);
+
+        $form->call('save')->assertHasErrors('actual')->assertSee('差が 800 円になりました');
+        $this->assertSame(1, Record::query()->count());
+    }
+
+    public function test_開いたあとに口座が使わないにされた記録は_削除せずに理由を出す(): void
+    {
+        $record = $this->transfer(1000);
+        $form = Livewire::test(RecordForm::class, ['record' => $record]);
+        $record->account->update(['is_active' => false]);
+
+        $form->call('delete')->assertHasErrors('blocker')->assertNoRedirect();
+        $this->assertNotNull($record->fresh());
     }
 
     public function test_金額を入れてから今回はなしを押しても_次の保存で使っていないと言わない(): void

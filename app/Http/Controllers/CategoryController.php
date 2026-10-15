@@ -119,7 +119,10 @@ class CategoryController extends Controller
         // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
         try {
             Category::query()->whereKey($category->id)->delete();
-        } catch (QueryException) {
+        } catch (QueryException $e) {
+            // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
+            throw_if($e->getCode() !== '23000', $e);
+
             return to_route('categories.edit', $category)->withErrors(['delete' => '記録があるので削除できません']);
         }
 

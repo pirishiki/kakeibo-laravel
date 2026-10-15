@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -285,10 +286,17 @@ trait ChoosesPartnerCategoryAccount
     /** 打った名前の相手を返す。ないときは新しく作り、「使わない」相手なら「使う」に戻す（画面設計書 5.4 の相手の欄） */
     protected function resolvePartner(): Partner
     {
-        // 2 つの画面から同じ新しい名前をほぼ同時に保存しても、ユニーク制約のエラーにならないように、作るか、あれば読む（createOrFirst）
+        // 2 つの画面から同じ新しい名前をほぼ同時に保存しても、エラーにならないようにする
         // （ない名前を押さえて探すと、同時に 2 つ作るときに押さえあいになるので、押さえずに探す）
-        $partner = Partner::query()->where('name', $this->partnerName)->first()
-            ?? Partner::query()->createOrFirst(['name' => $this->partnerName]);
+        $partner = Partner::query()->where('name', $this->partnerName)->first();
+        if ($partner === null) {
+            try {
+                $partner = Partner::create(['name' => $this->partnerName]);
+            } catch (UniqueConstraintViolationException) {
+                // ほかの画面が、いま同じ名前で作った。押さえて読むと、いちばん新しい中身（できたばかりの相手）が見える
+                $partner = Partner::query()->where('name', $this->partnerName)->sharedLock()->firstOrFail();
+            }
+        }
 
         if (! $partner->is_active) {
             $partner->update(['is_active' => true]);
