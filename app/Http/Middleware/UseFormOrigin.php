@@ -16,9 +16,7 @@ class UseFormOrigin
     public function handle(Request $request, Closure $next): Response
     {
         $from = $request->input('_from');
-        // このアプリの中の場所（/ で始まり、// で始まらない）だけ使う
-        if (! $request->isMethod('GET') && ! $request->headers->has('referer') && is_string($from)
-            && str_starts_with($from, '/') && ! str_starts_with($from, '//')) {
+        if (! $request->isMethod('GET') && ! $request->headers->has('referer') && is_string($from) && self::isAppPath($from)) {
             $request->headers->set('referer', url($from));
         }
 
@@ -33,10 +31,20 @@ class UseFormOrigin
             return null;
         }
         // このアプリの中の場所だけの形（/accounts/create）も受けとる
-        if (str_starts_with($referer, '/') && ! str_starts_with($referer, '//')) {
-            return url($referer);
+        if (str_starts_with($referer, '/')) {
+            return self::isAppPath($referer) ? url($referer) : null;
         }
 
-        return parse_url($referer, PHP_URL_HOST) === $request->getHost() ? $referer : null;
+        // 移す先の見出し（Location）が壊れないように、空白・改行などの見えない文字が入った URL は使わない
+        return parse_url($referer, PHP_URL_HOST) === $request->getHost() && preg_match('/[\x00-\x20\x7f]/', $referer) !== 1 ? $referer : null;
+    }
+
+    /**
+     * このアプリの中の場所か：/ で始まり、// や /\ で始まらない（ほかのサイトにならない）。
+     * 改行・空白などの見えない文字と \ は入れない（移す先の見出しが壊れて、エラーの画面にならないように）
+     */
+    private static function isAppPath(string $path): bool
+    {
+        return preg_match('#^/(?![/\\\\])[^\x00-\x20\x7f\\\\]*$#', $path) === 1;
     }
 }

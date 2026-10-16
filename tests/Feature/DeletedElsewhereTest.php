@@ -457,6 +457,19 @@ class DeletedElsewhereTest extends TestCase
             ->assertSessionHasErrors('name');
     }
 
+    public function test_送った画面に改行やほかのサイトが入っていたら_使わない(): void
+    {
+        $shop = Partner::factory()->create(['name' => 'パン屋']);
+        foreach (["/partners\r\nX-Evil: 1", '//evil.example', '/\\evil.example', '/a b'] as $from) {
+            $response = $this->put(route('partners.update', $shop), ['name' => '', 'is_active' => '1', '_from' => $from]);
+            $response->assertRedirect();
+            $location = (string) $response->headers->get('Location');
+            $this->assertStringStartsWith(url('/'), $location);
+            $this->assertStringNotContainsString('evil', $location);
+            $this->assertDoesNotMatchRegularExpression('/[\r\n]/', $location);
+        }
+    }
+
     public function test_押さえあいで戻り先がわからないときは_入力を持たずにホームで知らせる(): void
     {
         $shop = Partner::factory()->create(['name' => 'パン屋']);
