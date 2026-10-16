@@ -57,7 +57,7 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 
 ## 設計で大事にした判断
 
-ここは目次。くわしい理由と、比べて選ばなかった案（「ほかに考えた案」）は、それぞれの判断のすぐ横に書いている。
+主な判断を下にまとめた。くわしい理由と、比べて選ばなかった案（「ほかに考えた案」）は、次の文書のそれぞれの判断のすぐ横に書いている。
 
 - 何を作るかの判断（口座・相手・分類・ログインなど）と技術の選び方：[要件定義書](要件定義書.md) 4.1・5 章
 - データの持ち方の判断：[データベース設計書](データベース設計書.md)
@@ -281,8 +281,7 @@ $account = aws sts get-caller-identity --profile dothething --query Account --ou
 $budget = '{"BudgetName":"monthly-5usd","BudgetLimit":{"Amount":"5","Unit":"USD"},"TimeUnit":"MONTHLY","BudgetType":"COST","CostTypes":{"IncludeCredit":false,"IncludeRefund":false}}'
 $notify = '[{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":50,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"FORECASTED","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]}]'
 [IO.File]::WriteAllText("$PWD\budget.json", $budget)
-[IO.File]::WriteAllText("$PWD
-otify.json", $notify)
+[IO.File]::WriteAllText("$PWD\notify.json", $notify)
 aws budgets create-budget --profile dothething --account-id $account --budget file://budget.json --notifications-with-subscribers file://notify.json
 Remove-Item budget.json, notify.json
 ```
