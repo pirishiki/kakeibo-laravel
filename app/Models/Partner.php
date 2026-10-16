@@ -96,7 +96,11 @@ class Partner extends Model
     public function mergeInto(Partner $target): bool
     {
         return DB::transaction(function () use ($target) {
-            $locked = self::query()->whereKey([$this->id, $target->id])->lockForUpdate()->get()->keyBy('id');
+            // 押さえる順番の決まり（予定→記録→口座→分類→相手）にそろえて、書きかえる予定・記録を先に押さえてから相手を押さえる
+            // （記録・予定の保存と逆の順に押さえて、たがいを待ちつづけないように）
+            Recurring::query()->where('partner_id', $this->id)->orderBy('id')->lockForUpdate()->pluck('id');
+            Record::query()->where('partner_id', $this->id)->orderBy('id')->lockForUpdate()->pluck('id');
+            $locked = self::query()->whereKey([$this->id, $target->id])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $fresh = $locked->get($target->id);
 
             if ($target->id === $this->id || $fresh === null || ! $fresh->is_active || ! $locked->has($this->id)) {

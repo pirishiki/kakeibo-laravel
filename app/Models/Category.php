@@ -117,7 +117,8 @@ class Category extends Model
                 return false;
             }
 
-            $level = self::query()->sameLevelAs($first)->lockForUpdate()->pluck('id')->all();
+            // id の小さい順に押さえる（予算の保存・分類の変更と順番をそろえて、たがいを待ちつづけないように）
+            $level = self::query()->sameLevelAs($first)->reorder()->orderBy('id')->lockForUpdate()->pluck('id')->all();
 
             if (count($level) !== count($ids) || array_diff($level, $ids) !== []) {
                 return false;
@@ -128,6 +129,6 @@ class Category extends Model
             }
 
             return true;
-        });
+        }, 3);
     }
 }

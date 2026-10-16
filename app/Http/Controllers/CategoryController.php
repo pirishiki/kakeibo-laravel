@@ -7,6 +7,7 @@ use App\Http\Requests\CategoryRequest;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Recurring;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -114,17 +115,21 @@ class CategoryController extends Controller
             $category = DB::transaction(function () use ($category, $data) {
                 // 分類を押さえて読み直してから保存する（開いたあと、保存までにほかの画面で削除されていたら、
                 // 何も保存していないのに「保存しました」と出さないように。なければ一覧へ戻して知らせる。app/Support/DeletedElsewhere.php）
-                $locked = Category::query()->lockForUpdate()->findOrFail($category->id);
+                // 小分類を移すときは、移す先の大分類もいっしょに押さえる。分類は、どこでも id の小さい順に押さえる
+                // （予算の保存・定期的な記録の保存と順番をそろえて、たがいを待ちつづけないように）
+                $parentId = isset($data['parent_id']) ? (int) $data['parent_id'] : null;
+                $rows = Category::query()->whereKey(array_filter([$category->id, $parentId]))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+                $locked = $rows->get($category->id) ?? throw (new ModelNotFoundException)->setModel(Category::class, [$category->id]);
                 $locked->fill($data);
 
                 // 入力のチェックのあと、押さえるまでに、ほかの画面で定期的な記録が変わっていることがあるので、押さえたあとに確かめ直す
-                // （動いている予定が「使わない」分類を使う形にしないため。画面設計書 4 章の 9）。押さえる順番は 小分類→大分類
+                // （動いている予定が「使わない」分類を使う形にしないため。画面設計書 4 章の 9）
                 $running = fn () => Recurring::usingCategory($locked)->running()->exists();
                 if ($locked->isDirty('is_active') && ! $locked->is_active && $running()) {
                     throw ValidationException::withMessages(['is_active' => Recurring::IN_USE_MESSAGE]);
                 }
                 if (! $locked->isParent() && $locked->isDirty('parent_id')) {
-                    $parent = Category::query()->sharedLock()->find($locked->parent_id);
+                    $parent = $rows->get($locked->parent_id);
                     if ($parent === null) {
                         throw ValidationException::withMessages(['parent_id' => self::PARENT_GONE_MESSAGE]);
                     }

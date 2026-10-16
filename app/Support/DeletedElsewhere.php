@@ -113,16 +113,18 @@ class DeletedElsewhere
      */
     private static function keptInput(Request $request): ?array
     {
+        // 変更のフォームの内容（名前の欄がある）のときだけ持っていく。相手をまとめる欄だけのときなどは、追加の画面に入れるものがない
         $old = $request->session()->getOldInput();
-        if (is_array($old) && $old !== []) {
+        if (is_array($old) && array_key_exists('name', $old)) {
             return Arr::except($old, ['_token', '_method', 'opened_at', 'originals']);
         }
         $saved = $request->session()->get('expired_input');
         if (is_array($saved) && ($saved['at'] ?? 0) >= now()->timestamp - RestoreExpiredInput::KEEP_SECONDS
             && RestoreExpiredInput::place((string) ($saved['url'] ?? '')) === RestoreExpiredInput::place($request->fullUrl())) {
             $request->session()->forget('expired_input');
+            $input = (array) ($saved['input'] ?? []);
 
-            return Arr::except((array) ($saved['input'] ?? []), ['_token', '_method', 'opened_at', 'originals']);
+            return array_key_exists('name', $input) ? Arr::except($input, ['_token', '_method', 'opened_at', 'originals']) : null;
         }
 
         return null;

@@ -294,11 +294,14 @@ class RecurringForm extends Component
                 throw ValidationException::withMessages(['save' => '口座「'.$inactive->name.'」は、ほかの画面で『使わない』にされたので、選べません。口座を選び直してください']);
             }
 
-            // 分類も押さえて（小分類→大分類の順）確かめ直す。確かめたあと、保存までに、ほかの画面で分類が「使わない」にされた・削除されたとき、
-            // 動いている予定が「使わない」分類を使う形にしない・エラーの画面にしない（分類の「使わない」も、分類を押さえてから予定を確かめる）
+            // 分類も押さえて確かめ直す。確かめたあと、保存までに、ほかの画面で分類が「使わない」にされた・削除されたとき、
+            // 動いている予定が「使わない」分類を使う形にしない・エラーの画面にしない（分類の「使わない」も、分類を押さえてから予定を確かめる）。
+            // 小分類と大分類は 1 回で、id の小さい順に押さえる（予算の保存・分類の変更と順番をそろえて、たがいを待ちつづけないように）
             if ($values['category_id'] !== null) {
-                $category = Category::query()->sharedLock()->find($values['category_id']);
-                $parent = $category?->parent_id === null ? $category : Category::query()->sharedLock()->find($category->parent_id);
+                $parentId = Category::query()->whereKey($values['category_id'])->value('parent_id');
+                $rows = Category::query()->whereKey(array_filter([$values['category_id'], $parentId]))->orderBy('id')->sharedLock()->get()->keyBy('id');
+                $category = $rows->get($values['category_id']);
+                $parent = $category?->parent_id === null ? $category : $rows->get($category->parent_id);
                 if ($category === null || $parent === null) {
                     throw ValidationException::withMessages(['save' => '選んだ分類は、ほかの画面で削除されたので、選べません。分類を選び直してください']);
                 }

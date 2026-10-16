@@ -377,6 +377,35 @@ class DeletedElsewhereTest extends TestCase
         $this->assertNotSame('直した', $rent->fresh()?->name);
     }
 
+    public function test_記録の保存の途中で打った名前の相手の名前が変わったら_打った名前の相手で保存する(): void
+    {
+        $account = Account::factory()->create();
+        $food = Category::factory()->create(['name' => '趣味のもの', 'kind' => CategoryKind::Expense]);
+        $shop = Partner::factory()->create(['name' => 'スーパー']);
+        $form = Livewire::test(RecordForm::class)->set('amount', '500')->set('categoryId', $food->id)->set('accountId', $account->id)->set('partnerName', 'スーパー');
+
+        // 名前で見つけたすぐあと（押さえる前）に、ほかの画面でその相手の名前が変わった
+        $done = false;
+        DB::listen(function (QueryExecuted $query) use ($shop, &$done) {
+            if (! $done && str_contains($query->sql, 'from `partners` where `name`') && ! str_contains($query->sql, 'share')) {
+                $done = true;
+                Partner::query()->whereKey($shop->id)->update(['name' => 'スーパーA']);
+            }
+        });
+
+        $form->call('save')->assertHasNoErrors();
+        $this->assertTrue($done);
+        $this->assertSame('スーパー', Record::query()->sole()->partner?->name);
+    }
+
+    public function test_まとめる欄だけを持って戻る途中で相手が削除されていたら_追加の画面へは移らない(): void
+    {
+        $this->withSession(['_old_input' => ['merge_target' => 'コンビニ']])
+            ->get('/partners/999/edit')
+            ->assertRedirect(route('partners.index'))
+            ->assertSessionHas('warning', 'この相手は、ほかの画面で削除されていました。');
+    }
+
     public function test_決まっていない種類の行は_今までどおり404(): void
     {
         // 記録・口座などの行の番号ではない、ないページ

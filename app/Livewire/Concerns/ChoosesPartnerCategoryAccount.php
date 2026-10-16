@@ -302,8 +302,10 @@ trait ChoosesPartnerCategoryAccount
         // （ない名前を押さえて探すと、同時に 2 つ作るときに押さえあいになるので、押さえずに探す）
         for ($attempt = 1; ; $attempt++) {
             $found = Partner::query()->where('name', $this->partnerName)->first();
-            // 見つけた相手は、押さえて読み直す（保存までに、ほかの画面で削除・まとめられないように。もう消えていたら作る）
-            $partner = $found === null ? null : Partner::query()->sharedLock()->find($found->id);
+            // 見つけた相手は、押さえて読み直す（保存までに、ほかの画面で削除・まとめられないように。もう消えていたら作る）。
+            // 名前も条件に入れる：上の読みは、このトランザクションで前に読んだ時点の古い中身のことがあり、ほかの画面で名前が変わった相手を
+            // 見つけてしまうため（そのまま使うと、打った名前とちがう相手で黙って保存してしまう）
+            $partner = $found === null ? null : Partner::query()->where('name', $this->partnerName)->sharedLock()->find($found->id);
             if ($partner !== null) {
                 break;
             }
