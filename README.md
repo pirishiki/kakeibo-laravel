@@ -117,7 +117,7 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 
 | 層 | 技術 |
 |---|---|
-| フロントエンド | Blade（Laravel の画面のひな形）+ Livewire（画面の一部だけを書きかえる）+ Alpine.js（小さな動き）、Bootstrap 5.3（Sass で色を変え、Vite でビルド） |
+| フロントエンド | Blade（Laravel の画面のひな形）+ Livewire（画面の一部だけを書きかえる）+ ふつうの JavaScript（サーバーに聞かなくてよい小さな動き）、Bootstrap 5.3（Sass で色を変え、Vite でビルド） |
 | バックエンド | PHP 8.5 + Laravel 13、ログインは Fortify（部品の管理は Composer） |
 | データベース | MySQL 8.4（LTS） |
 | インフラ | AWS（CloudFront・EC2・RDS）を Terraform で作る |
