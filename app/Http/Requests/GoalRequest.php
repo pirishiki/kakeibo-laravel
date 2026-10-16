@@ -19,6 +19,9 @@ class GoalRequest extends FormRequest
     /** 期限の年は、今年から何年先まで選べるか */
     public const YEARS_AHEAD = 40;
 
+    /** 追加の保存が 2 回届いた 2 回目か（同じ中身の目標が、もうその口座にある） */
+    private bool $duplicate = false;
+
     /** 目標額は、記録の金額の欄と同じ形（文字の欄、欄を離れたらカンマ）なので、チェックの前に数だけの形にそろえる */
     protected function prepareForValidation(): void
     {
@@ -80,10 +83,10 @@ class GoalRequest extends FormRequest
                     return;
                 }
                 // 保存を 2 回押して 2 回届いたとき：1 回目でできた同じ中身の目標が口座を使っているが、まちがいにはしない（GoalController で「保存しました」にする）
-                $same = ! $validator->errors()->hasAny(['name', 'target_amount', 'deadline_year', 'deadline_month'])
+                $this->duplicate = ! $validator->errors()->hasAny(['name', 'target_amount', 'deadline_year', 'deadline_month'])
                     && $this->goal() === null
                     && Goal::query()->where('account_id', $this->integer('account_id'))->first()?->hasContent($this->goalData()) === true;
-                if ($same) {
+                if ($this->duplicate) {
                     return;
                 }
                 $message = self::accountProblem(Account::query()->find($this->integer('account_id')), $this->goal()?->id);
@@ -92,7 +95,8 @@ class GoalRequest extends FormRequest
                 }
             },
             function (Validator $validator) {
-                if ($validator->errors()->hasAny(['deadline_year', 'deadline_month'])) {
+                // 2 回目が届いたもの（もう保存できている）は、期限も見ない（1 回目が月末、2 回目が月をまたいで届くと「今月より前」になってしまうため）
+                if ($this->duplicate || $validator->errors()->hasAny(['deadline_year', 'deadline_month'])) {
                     return;
                 }
                 $deadline = $this->deadline();

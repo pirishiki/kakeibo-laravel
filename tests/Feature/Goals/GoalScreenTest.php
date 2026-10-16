@@ -142,6 +142,34 @@ class GoalScreenTest extends TestCase
         $this->get(route('goals.create'))->assertSee('value="海外旅行"', false)->assertSee('保存すると新しい目標として追加できます');
     }
 
+    public function test_入力のまちがいで戻る間に削除されていても_打った内容を追加の画面へ持っていく(): void
+    {
+        $goal = $this->goal();
+
+        // 名前を空にして保存 → まちがいで変更の画面へ戻る。その間に、ほかのタブで目標が削除された
+        $this->from(route('goals.edit', $goal))
+            ->put(route('goals.update', $goal), $this->form(['name' => '', 'target_amount' => '450,000', 'opened_at' => $goal->fingerprint()]))
+            ->assertSessionHasErrors('name');
+        $goal->delete();
+
+        $this->get(route('goals.edit', $goal->id))
+            ->assertRedirect(route('goals.create'))
+            ->assertSessionHasInput('target_amount', '450,000');
+        $this->get(route('goals.create'))->assertSee('value="450,000"', false)->assertSee('保存すると新しい目標として追加できます');
+    }
+
+    public function test_追加の2回目が月をまたいで届いても_保存しましたになる(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 31)->setTime(23, 59, 59));
+        $this->post(route('goals.store'), $this->form(['deadline_year' => '2026', 'deadline_month' => '10']))->assertSessionHas('status', '保存しました');
+
+        $this->travelTo(now()->setDate(2026, 11, 1)->setTime(0, 0, 1));
+        $this->post(route('goals.store'), $this->form(['deadline_year' => '2026', 'deadline_month' => '10']))
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', '保存しました');
+        $this->assertDatabaseCount('goals', 1);
+    }
+
     public function test_入力のまちがいで戻ったあとも_開いたあとに直されたことに気づく(): void
     {
         $goal = $this->goal();

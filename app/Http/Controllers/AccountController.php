@@ -112,7 +112,9 @@ class AccountController extends Controller
             // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
             throw_if($e->getCode() !== '23000', $e);
 
-            return to_route('accounts.edit', $account)->withErrors(['delete' => $this->deleteBlocker($account) ?? '記録があるので削除できません']);
+            // 確かめ直すまでに、止めた理由（目標など）がなくなっていることもあるので、そのときは理由を決めつけずに知らせる
+            return to_route('accounts.edit', $account)->withErrors(['delete' => $this->deleteBlocker($account)
+                ?? 'ほかの画面でこの口座の使われ方が変わったので、削除していません。もう一度「削除」を押してください']);
         }
 
         return to_route('accounts.index')->with('status', '削除しました');

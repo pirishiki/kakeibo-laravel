@@ -12,6 +12,7 @@ use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
 use App\Models\Recurring;
+use App\Models\RecurringSkip;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -92,7 +93,7 @@ class SampleSeeder extends Seeder
             $recurring = function (string $name, RecordType $type, int $day, RecurringShift $shift, int $amount, array $values = []) use ($bank, $today) {
                 $values += ['months' => null, 'is_fixed' => true, 'to_account_id' => null, 'category_id' => null, 'partner' => null, 'end_month' => null, 'is_active' => true];
                 $end = $values['end_month'];
-                Recurring::create([
+                $created = Recurring::create([
                     'name' => $name,
                     'type' => $type,
                     'day' => $day,
@@ -110,6 +111,11 @@ class SampleSeeder extends Seeder
                     'end_month' => $end,
                     'is_active' => $values['is_active'],
                 ]);
+                // 終わったもの（最後の月の 1 年前から）は、記録する日がもう過ぎた月がある。登録の画面と同じく、その月は「今回はなし」にする
+                // （アプリを使う前に払った分として扱う。しないと、記録も「今回はなし」もない月が、使える額の予定にたまりつづけるため）
+                foreach ($created->monthsToSkipOnSave(null, $today) as $month) {
+                    RecurringSkip::create(['recurring_id' => $created->id, 'month' => $month->toDateString()]);
+                }
             };
             $recurring('給料', RecordType::Income, 25, RecurringShift::Previous, 250000, ['is_fixed' => false, 'category_id' => $salary->id, 'partner' => '会社']);
             $recurring('賞与', RecordType::Income, 10, RecurringShift::Previous, 400000, [

@@ -10,6 +10,7 @@ use App\Support\Goals;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +25,9 @@ class GoalController extends Controller
 {
     /** ほかの画面で削除された目標を開いた・保存した・削除したときの知らせ */
     private const DELETED_MESSAGE = 'この目標は、ほかの画面で削除されていました。';
+
+    /** 削除された目標に打った内容を、追加の画面へ持っていったときの知らせ */
+    private const KEPT_INPUT_MESSAGE = '打った内容を入れておいたので、保存すると新しい目標として追加できます。';
 
     public function index(): View
     {
@@ -67,6 +71,13 @@ class GoalController extends Controller
     {
         $found = Goal::query()->find((int) $goal);
         if ($found === null) {
+            // 時間切れ（419）・ログインし直し・入力のまちがいで、打った内容を持ってこの画面に戻ってきたときは、それを捨てずに追加の画面へ持っていく
+            if (session()->hasOldInput()) {
+                return to_route('goals.create')
+                    ->withInput(Arr::except((array) session()->getOldInput(), ['opened_at', '_token', '_method']))
+                    ->with('warning', self::DELETED_MESSAGE.self::KEPT_INPUT_MESSAGE);
+            }
+
             return to_route('goals.index')->with('warning', self::DELETED_MESSAGE);
         }
 
@@ -112,7 +123,7 @@ class GoalController extends Controller
             // 打った内容を捨てないように、追加の画面へ持っていく（そのまま保存すれば、新しい目標として追加できる）
             return to_route('goals.create')
                 ->withInput($request->except(['opened_at', '_token', '_method']))
-                ->with('warning', self::DELETED_MESSAGE.'保存していません。打った内容を入れておいたので、保存すると新しい目標として追加できます。');
+                ->with('warning', self::DELETED_MESSAGE.'保存していません。'.self::KEPT_INPUT_MESSAGE);
         }
 
         return to_route('goals.index')->with('status', '保存しました');
