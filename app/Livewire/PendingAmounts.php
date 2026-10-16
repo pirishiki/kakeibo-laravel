@@ -7,6 +7,7 @@ use App\Models\RecurringSkip;
 use App\Support\FormInput;
 use App\Support\RecurringMonthly;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
@@ -100,17 +101,23 @@ class PendingAmounts extends Component
             $this->validate($rules, $messages);
         }
 
-        $saved = 0;
-        $problems = [];
-        foreach ($this->items as $item) {
-            $text = $values[self::key($item['recurring'], $item['month'])];
-            if ($text !== '') {
-                RecurringMonthly::saveAmount($item['recurring'], $item['month'], (int) $text);
-                $problems[] = RecurringMonthly::recordProblem($item['recurring'], $item['month'], (int) $text);
-                $saved++;
+        // 全部の予定を 1 つのトランザクションで保存する（途中の予定で、ほかの画面の保存と押さえあってやり直しを使い切ったときに、
+        // 前の予定だけ保存・記録されたのに「保存できませんでした」と出さないように。全部やるか、何もしないか）
+        $filled = array_values(array_filter($this->items, fn (array $item) => $values[self::key($item['recurring'], $item['month'])] !== ''));
+        DB::transaction(function () use ($filled, $values) {
+            // 先に、保存する予定の行を全部、id の小さい順に押さえる（押さえる順番の決まり：予定→記録→口座。MonthlyAmounts と同じ）
+            RecurringMonthly::lockForSaving(array_map(fn (array $item) => $item['recurring'], $filled));
+            foreach ($filled as $item) {
+                RecurringMonthly::saveAmount($item['recurring'], $item['month'], (int) $values[self::key($item['recurring'], $item['month'])]);
             }
-        }
-        $problems = array_values(array_filter($problems));
+        }, 3);
+        $saved = count($filled);
+
+        // 記録できたかの確かめは、保存し終わってから、いちばん新しい中身で行う（MonthlyAmounts と同じ理由）
+        $problems = array_values(array_filter(array_map(
+            fn (array $item) => RecurringMonthly::recordProblem($item['recurring'], $item['month'], (int) $values[self::key($item['recurring'], $item['month'])]),
+            $filled,
+        )));
 
         // 開いたあとに、ほかの画面で記録されたか「今回はなし」になってお知らせから消えた予定に入れた金額は、使えない。黙らずに名前をつけて知らせる
         $unused = [];

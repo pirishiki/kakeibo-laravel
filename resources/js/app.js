@@ -338,6 +338,27 @@ document.addEventListener('submit', (event) => {
         markSubmitted();
     }
 });
+// フォームを送るとき、送った画面の場所を _from に入れる。ブラウザが Referer を送らない設定でも、入力のまちがいなどで
+// この画面へ戻せるように（app/Http/Middleware/UseFormOrigin.php。ほかのタブで最後に開いた画面へ戻って、その欄に入れないように）
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.hasAttribute('wire:submit') || (form.method || '').toLowerCase() === 'get') {
+        return;
+    }
+    let from = form.querySelector('input[name="_from"]');
+    if (!from) {
+        from = document.createElement('input');
+        from.type = 'hidden';
+        from.name = '_from';
+        form.append(from);
+    }
+    from.value = location.pathname + location.search;
+}, true);
+
+// Livewire の部品からの知らせ（ほかの画面の保存と重なって保存できなかったときなど。app/Providers/AppServiceProvider.php）
+window.addEventListener('page-alert', (event) => {
+    showPageAlert(event.detail?.message ?? '', false);
+});
 document.addEventListener('livewire:init', () => {
     window.Livewire.hook('effect', ({ effects }) => {
         if (effects?.redirect) {
@@ -352,6 +373,12 @@ document.addEventListener('livewire:init', () => {
                 preventDefault();
                 keepFieldsForReload();
                 showPageAlert('画面を開いてから時間がたっていたので、操作できませんでした。［読みこみ直す］を押すと、入れた内容を欄に戻します（ログインが切れていたら、ログインし直したあとに戻します）。');
+            }
+            // 見つからない（404）：ふつうは部品が自分で知らせるが、それでも届いたときに、英語の小窓のかわりに日本語で知らせる（入力は残す）
+            if (status === 404) {
+                preventDefault();
+                keepFieldsForReload();
+                showPageAlert('この画面で使っているものが、ほかの画面で削除されていたので、操作できませんでした。一覧から開き直してください。');
             }
         });
     });

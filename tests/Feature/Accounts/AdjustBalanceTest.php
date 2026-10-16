@@ -334,7 +334,10 @@ class AdjustBalanceTest extends TestCase
     {
         $this->cash->update(['is_active' => false]);
 
-        $this->get(route('accounts.adjust', $this->cash))->assertNotFound();
+        // 開いたままの古い画面のリンクから来ても、エラーの画面ではなく、口座の変更の画面で理由を出す
+        $this->get(route('accounts.adjust', $this->cash))
+            ->assertRedirect(route('accounts.edit', $this->cash))
+            ->assertSessionHas('warning', 'この口座は「使わない」になっているので、残高を合わせられません。');
     }
 
     public function test_合わせる口座は画面の側から変えられない(): void

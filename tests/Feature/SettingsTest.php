@@ -76,14 +76,15 @@ class SettingsTest extends TestCase
             ->assertSee('name="_token"', false);
     }
 
-    public function test_予算は出て_貯金の目標はまだ出さない(): void
+    public function test_予算と貯金の目標が出る(): void
     {
         $this->actingAs(User::factory()->create());
 
         $this->get('/settings')
             ->assertSee('分類ごとの毎月の予算（今月 0 件）')
             ->assertSee('href="'.route('budgets.index').'"', false)
-            ->assertDontSee('貯金の目標');
+            ->assertSee('旅行・車の買いかえなど（0 件）')
+            ->assertSee('href="'.route('goals.index').'"', false);
     }
 
     public function test_定期的な記録は毎月の予定と目標に出て_使うで終わっていないものだけ数える(): void

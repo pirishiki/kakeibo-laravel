@@ -12,12 +12,17 @@ use App\Models\Record;
 use App\Models\Recurring;
 use App\Models\RecurringAmount;
 use App\Models\User;
+use App\Support\ConcurrencyError;
 use App\Support\RecurringRecorder;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
+use PDOException;
+use RuntimeException;
 use Tests\TestCase;
+use Throwable;
 
 /**
  * 要件定義書 10.2「月ごとの金額・今回はなし」「ホームのお知らせ」のうち、画面の項目を確かめる（画面設計書 5.10・5.2）
@@ -93,6 +98,69 @@ class MonthlyAmountsTest extends TestCase
 
         $this->assertSame(0, Record::query()->where('recurring_id', $this->power->id)->count());
         $this->assertSame(8500, (int) RecurringAmount::query()->sole()->amount);
+    }
+
+    public function test_2つめの行で止まったら_1つめも保存せず_押さえあいなら保存できなかったと知らせる(): void
+    {
+        $water = $this->water();
+        $save = fn () => Livewire::test(MonthlyAmounts::class, ['month' => $this->october()])
+            ->set('amounts.'.$this->power->id, '9200')->set('amounts.'.$water->id, '3100')->call('save');
+
+        $this->assertAllOrNothing($save);
+        // 2 つめで、ほかの画面の保存と押さえあって、やり直しを使い切った：エラーの小窓ではなく、画面の上で知らせる
+        $this->stopAtSecondRecord(new QueryException('mysql', 'insert', [], new PDOException('Deadlock found when trying to get lock; try restarting transaction')));
+        $save()->assertDispatched('page-alert', message: ConcurrencyError::MESSAGE)->assertNoRedirect();
+    }
+
+    public function test_お知らせでも_2つめで止まったら1つめも保存せず_押さえあいなら知らせる(): void
+    {
+        $water = $this->water();
+        $save = fn () => Livewire::test(PendingAmounts::class)
+            ->set('amounts.'.PendingAmounts::key($this->power, $this->october()), '9200')
+            ->set('amounts.'.PendingAmounts::key($water, $this->october()), '3100')->call('save');
+
+        $this->assertAllOrNothing($save);
+        $this->stopAtSecondRecord(new QueryException('mysql', 'insert', [], new PDOException('Deadlock found when trying to get lock; try restarting transaction')));
+        $save()->assertDispatched('page-alert', message: ConcurrencyError::MESSAGE)->assertNoRedirect();
+    }
+
+    /** 毎月 10 日・金額が変わる水道代。10 月から（10 月 24 日には日付が過ぎているので、保存すると記録する） */
+    private function water(): Recurring
+    {
+        return Recurring::factory()->create([
+            'name' => '水道代', 'day' => 10, 'is_fixed' => false, 'amount' => null, 'estimated_amount' => 3000, 'start_month' => '2026-10-01',
+        ]);
+    }
+
+    /** 2 つめの記録を作るときに、$e で止める */
+    private function stopAtSecondRecord(Throwable $e): void
+    {
+        Record::flushEventListeners();
+        $count = 0;
+        Record::creating(function () use (&$count, $e) {
+            if (++$count === 2) {
+                throw $e;
+            }
+        });
+    }
+
+    /**
+     * 2 つめの記録を作るときに止まったら、1 つめの金額・記録も残らないこと（全部やるか、何もしないか）。
+     * 本物の押さえあいでは MySQL がトランザクションごと取り消すが、テストの中では外側のトランザクションがあってそれが起きないので、
+     * ほかのまちがいで止めて、1 つめも取り消されることで確かめる
+     */
+    private function assertAllOrNothing(callable $save): void
+    {
+        $this->stopAtSecondRecord(new RuntimeException('2 つめで止める'));
+        $stopped = null;
+        try {
+            $save();
+        } catch (RuntimeException $e) {
+            $stopped = $e->getMessage();
+        }
+        $this->assertSame('2 つめで止める', $stopped);
+        $this->assertSame(0, RecurringAmount::query()->count());
+        $this->assertSame(0, Record::query()->count());
     }
 
     public function test_空にして保存すると金額がまだに戻る(): void

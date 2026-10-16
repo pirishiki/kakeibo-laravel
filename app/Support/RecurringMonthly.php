@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Account;
 use App\Models\Record;
 use App\Models\Recurring;
 use App\Models\RecurringAmount;
@@ -133,6 +134,25 @@ class RecurringMonthly
             <=> [$b['date']->lt($thisMonth) ? 0 : 1, $b['date'], $b['recurring']->id]);
 
         return $items;
+    }
+
+    /**
+     * いくつかの予定の金額を 1 つのトランザクションでまとめて保存する前に、使う行を、押さえる順番の決まり（予定→記録→口座）どおりに
+     * まとめて押さえる（MonthlyAmounts・PendingAmounts）。1 行ずつ保存すると、1 行目の記録・口座を押さえたまま 2 行目の予定・記録を押さえに行き、
+     * 残高を合わせる画面などと、たがいを待ちつづけることがあるため。saveAmount の中でもう一度押さえても、もう持っているので待たない
+     *
+     * @param  list<Recurring>  $recurrings
+     */
+    public static function lockForSaving(array $recurrings): void
+    {
+        $ids = array_values(array_unique(array_map(fn (Recurring $r) => $r->id, $recurrings)));
+        if ($ids === []) {
+            return;
+        }
+        $rows = Recurring::query()->whereKey($ids)->orderBy('id')->lockForUpdate()->get();
+        Record::query()->whereIn('recurring_id', $ids)->orderBy('id')->lockForUpdate()->pluck('id');
+        $accounts = $rows->flatMap(fn (Recurring $r) => [$r->account_id, $r->to_account_id])->filter()->unique()->sort()->values()->all();
+        Account::query()->whereKey($accounts)->orderBy('id')->sharedLock()->pluck('id');
     }
 
     /**

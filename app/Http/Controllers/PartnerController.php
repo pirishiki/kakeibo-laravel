@@ -9,7 +9,9 @@ use Illuminate\Database\QueryException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -53,8 +55,18 @@ class PartnerController extends Controller
 
     public function update(PartnerRequest $request, Partner $partner): RedirectResponse
     {
+        $data = $request->validated();
         try {
-            $partner->update($request->validated());
+            // 相手を押さえて読み直してから保存する（ほかの画面で削除されていたら、何も保存していないのに「保存しました」と出さないように。
+            // なければ一覧へ戻して知らせる。app/Support/DeletedElsewhere.php）
+            DB::transaction(function () use ($partner, $data) {
+                $locked = Partner::query()->lockForUpdate()->findOrFail($partner->id);
+                // 入力のチェックのあと、押さえるまでに、ほかの画面で動いている予定がこの相手を使うようになっていたら、「使わない」にしない（4 章の 9）
+                if ($locked->is_active && ! ($data['is_active'] ?? true) && Recurring::usingPartner($locked->id)->running()->exists()) {
+                    throw ValidationException::withMessages(['is_active' => Recurring::IN_USE_MESSAGE]);
+                }
+                $locked->update($data);
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
         }
@@ -93,7 +105,20 @@ class PartnerController extends Controller
             return to_route('partners.edit', $partner)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
         }
 
-        $partner->update(['is_active' => false]);
+        // 押さえて読み直してから、もう一度確かめて変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる。
+        // 確かめたあとに、ほかの画面で動いている予定がこの相手を使うようになっていたら、「使わない」にしない）
+        $blocked = DB::transaction(function () use ($partner) {
+            $locked = Partner::query()->lockForUpdate()->findOrFail($partner->id);
+            if (Recurring::usingPartner($locked->id)->running()->exists()) {
+                return true;
+            }
+            $locked->update(['is_active' => false]);
+
+            return false;
+        }, 3);
+        if ($blocked) {
+            return to_route('partners.edit', $partner)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
+        }
 
         return to_route('partners.index')->with('status', '「使わない」にしました');
     }
@@ -114,7 +139,11 @@ class PartnerController extends Controller
                 ->whereNot('id', $partner->id)],
         ]);
 
-        $target = Partner::query()->where('name', $request->string('merge_target')->toString())->firstOrFail();
+        $target = Partner::query()->where('name', $request->string('merge_target')->toString())->first();
+        if ($target === null) {
+            // 確かめたあと、探すまでに、まとめ先がほかの画面で削除された
+            return back()->withInput()->with('warning', '選んだ相手は、ほかの画面で削除されていたので、保存していません。選び直してください。');
+        }
 
         // 確かめたあとに、まとめ先を「使わない」にした・記録が足された、などで、まとめられなかったときは、もう一度選んでもらう
         try {
@@ -125,6 +154,10 @@ class PartnerController extends Controller
             $merged = false;
         }
 
+        if (! $merged && ! Partner::query()->whereKey($partner->id)->exists()) {
+            // まとめる相手が、ほかの画面でまとめられたか削除された（まとめるを 2 回押して 2 回届いたときもここ）
+            return to_route('partners.index')->with('status', 'この相手は、もうまとめられているか、削除されています');
+        }
         if (! $merged) {
             return back()->withInput()->withErrors(['merge_target' => 'まとめられませんでした。画面を読みこみ直してから、もう一度まとめてください']);
         }

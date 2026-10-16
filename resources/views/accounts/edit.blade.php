@@ -11,6 +11,9 @@
             @if ($message === \App\Models\Recurring::DELETE_BLOCKED_MESSAGE)
                 @include('recurrings._used-by', ['recurrings' => $usedBy])
             @endif
+            @if ($goal !== null && str_starts_with($message, '貯金の目標'))
+                @include('goals._used-by')
+            @endif
         </div>
     @enderror
 
@@ -29,11 +32,15 @@
         </div>
     </div>
 
-    {{-- 削除の小窓。記録があるか・定期的な記録が使っているか、「使わない」にできるかどうかで、出す文とボタンを変える --}}
+    {{-- 削除の小窓。記録があるか・定期的な記録や貯金の目標が使っているか、「使わない」にできるかどうかで、出す文とボタンを変える --}}
     @php
-        $canDelete = ! $hasRecords && $usedBy->isEmpty();
-        // 削除できない理由：記録があるとき、または記録はないが定期的な記録が使っているとき（4 章の 9）
-        $reason = $hasRecords ? '記録があるので削除できません。' : \App\Models\Recurring::DELETE_BLOCKED_MESSAGE.'。';
+        $canDelete = ! $hasRecords && $usedBy->isEmpty() && $goal === null;
+        // 削除できない理由：記録があるとき、記録はないが定期的な記録が使っているとき、貯金の目標が使っているとき（4 章の 9）
+        $reason = match (true) {
+            $hasRecords => '記録があるので削除できません。',
+            $usedBy->isNotEmpty() => \App\Models\Recurring::DELETE_BLOCKED_MESSAGE.'。',
+            default => '',
+        };
     @endphp
     <div class="modal fade" id="delete-dialog" tabindex="-1" aria-labelledby="delete-dialog-title" @if (! $canDelete && $account->is_active && $blocker !== null) aria-describedby="delete-dialog-reason" @endif aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -41,6 +48,9 @@
                 <div class="modal-body">
                     @if ($canDelete)
                         <p id="delete-dialog-title" class="mb-0">「{{ $account->name }}」を削除しますか？</p>
+                    @elseif ($reason === '')
+                        {{-- 記録も定期的な記録もなく、貯金の目標だけが使っているとき：削除も「使わない」もできないので、目標の文だけを出す --}}
+                        <p id="delete-dialog-title" class="mb-0">{{ $goal->blockedMessage('削除できません') }}</p>
                     @elseif (! $account->is_active)
                         <p id="delete-dialog-title" class="mb-0">{{ $reason }}この口座は、もう「使わない」になっています。</p>
                     @elseif ($blocker === null)
@@ -53,6 +63,10 @@
                     {{-- 定期的な記録が使っているときは、どれが使っているかと、そこへのリンク --}}
                     @if ($usedBy->isNotEmpty())
                         @include('recurrings._used-by', ['recurrings' => $usedBy])
+                    @endif
+                    {{-- 貯金の目標が使っているときは、その目標へのリンク --}}
+                    @if ($goal !== null)
+                        @include('goals._used-by')
                     @endif
                 </div>
                 <div class="modal-footer">

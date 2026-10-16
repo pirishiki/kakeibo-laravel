@@ -82,7 +82,7 @@ class CategoryManageTest extends TestCase
 
         $this->post('/categories', ['name' => 'ランチ', 'parent_id' => $child->id])
             ->assertSessionHasErrors(['parent_id' => '親の大分類は、出ている中から選んでください。']);
-        $this->get("/categories/create?parent={$child->id}")->assertNotFound();
+        $this->get("/categories/create?parent={$child->id}")->assertRedirect(route('categories.index'));
     }
 
     public function test_収入用と支出用は追加のときだけ選べて_あとから変えられない(): void
@@ -90,7 +90,7 @@ class CategoryManageTest extends TestCase
         $this->post('/categories', ['name' => '副業', 'kind' => 'income'])->assertSessionHasNoErrors();
         $side = $this->find('副業', CategoryKind::Income);
 
-        $this->get("/categories/{$side->id}/edit")->assertSee('収入用')->assertSee('あとから変えられません')->assertDontSee('name="kind"', false);
+        $this->get("/categories/{$side->id}/edit")->assertSee('収入用')->assertSee('あとから変えられません')->assertDontSee('type="radio" id="kind-', false);
         $this->put("/categories/{$side->id}", ['name' => '副業', 'kind' => 'expense', 'is_active' => '1'])->assertSessionHasNoErrors();
         $this->assertSame(CategoryKind::Income, $side->refresh()->kind);
     }

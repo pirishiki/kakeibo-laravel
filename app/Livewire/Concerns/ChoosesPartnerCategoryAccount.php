@@ -253,8 +253,10 @@ trait ChoosesPartnerCategoryAccount
     {
         // 候補から選んだ・もともと入っていた相手（名前を打ち直していない）は、名前ではなく id で決める。
         // 開いたあとに、ほかの画面でその相手の名前を変えたり、ほかの相手にまとめたりしても、元の名前の相手を作り直さないため
+        // 相手は、押さえて読み直してから使う（読んでから記録・予定を書きこむまでに、ほかの画面で削除・まとめられて、
+        // 消えた相手を書きこもうとしてエラーの画面にならないように。押さえる順番は 予定→記録→口座→分類→相手）
         if ($this->partnerId !== null) {
-            $partner = Partner::query()->find($this->partnerId);
+            $partner = Partner::query()->sharedLock()->find($this->partnerId);
             if ($partner !== null) {
                 $original = $this->original()['partner'];
                 if (! $partner->is_active && $original?->id !== $partner->id) {
@@ -264,8 +266,8 @@ trait ChoosesPartnerCategoryAccount
                 return $partner->id;
             }
             // ほかの相手にまとめられて消えた：変更なら、いまの記録・予定の相手（まとめ先）のまま
-            $saved = $this->savedPartnerId();
-            if ($editing && $saved !== null) {
+            $saved = $editing ? $this->lockedPartnerId($this->savedPartnerId()) : null;
+            if ($saved !== null) {
                 return $saved;
             }
 
@@ -274,10 +276,20 @@ trait ChoosesPartnerCategoryAccount
 
         $original = $this->original()['partner'];
         if ($editing && $original !== null && $original->name === $this->partnerName) {
-            return $original->id;
+            // もともとの相手のまま。まとめられて消えていたら、いまの記録・予定の相手（まとめ先）
+            $kept = $this->lockedPartnerId($original->id) ?? $this->lockedPartnerId($this->savedPartnerId());
+            if ($kept !== null) {
+                return $kept;
+            }
         }
 
         return $this->resolvePartner()->id;
+    }
+
+    /** 相手を押さえて、まだあればその id。ないときは null */
+    private function lockedPartnerId(?int $id): ?int
+    {
+        return $id !== null && Partner::query()->sharedLock()->whereKey($id)->exists() ? $id : null;
     }
 
     /** いま保存してある記録・予定の相手（変更のとき）。登録のときは null */
@@ -288,13 +300,28 @@ trait ChoosesPartnerCategoryAccount
     {
         // 2 つの画面から同じ新しい名前をほぼ同時に保存しても、エラーにならないようにする
         // （ない名前を押さえて探すと、同時に 2 つ作るときに押さえあいになるので、押さえずに探す）
-        $partner = Partner::query()->where('name', $this->partnerName)->first();
-        if ($partner === null) {
+        for ($attempt = 1; ; $attempt++) {
+            $found = Partner::query()->where('name', $this->partnerName)->first();
+            // 見つけた相手は、押さえて読み直す（保存までに、ほかの画面で削除・まとめられないように。もう消えていたら作る）。
+            // 名前も条件に入れる：上の読みは、このトランザクションで前に読んだ時点の古い中身のことがあり、ほかの画面で名前が変わった相手を
+            // 見つけてしまうため（そのまま使うと、打った名前とちがう相手で黙って保存してしまう）
+            $partner = $found === null ? null : Partner::query()->where('name', $this->partnerName)->sharedLock()->find($found->id);
+            if ($partner !== null) {
+                break;
+            }
             try {
                 $partner = Partner::create(['name' => $this->partnerName]);
+                break;
             } catch (UniqueConstraintViolationException) {
                 // ほかの画面が、いま同じ名前で作った。押さえて読むと、いちばん新しい中身（できたばかりの相手）が見える
-                $partner = Partner::query()->where('name', $this->partnerName)->sharedLock()->firstOrFail();
+                $partner = Partner::query()->where('name', $this->partnerName)->sharedLock()->first();
+                if ($partner !== null) {
+                    break;
+                }
+                // 読むまでに、その相手がまた削除・まとめられていた。何度もくり返すときは、エラーの画面にせずに選び直してもらう
+                if ($attempt >= 3) {
+                    throw ValidationException::withMessages(['partnerName' => Partner::UNAVAILABLE_MESSAGE]);
+                }
             }
         }
 

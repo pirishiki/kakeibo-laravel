@@ -3,7 +3,7 @@
 {{-- ログインしたあとの画面の外わく。上にアプリの名前とログアウト、メニュー（画面設計書 3.1）。
      メニューは全部の画面に出すので、画面ごとには書かず、ここに 1 回だけ書く。ログイン画面は layouts/base だけを使うので、メニューは出ない --}}
 @php
-    // いま開いている画面に合うメニューの項目に、印をつける（定期的な記録・口座・分類・相手は、スマホでは「設定」の中にあるので「設定」に印）
+    // いま開いている画面に合うメニューの項目に、印をつける（定期的な記録・口座・分類・相手・予算・貯金の目標は、スマホでは「設定」の中にあるので「設定」に印）
     $menu = [
         'home' => request()->routeIs('home'),
         'records' => request()->routeIs('records.index', 'records.edit'),
@@ -13,8 +13,9 @@
         'categories' => request()->routeIs('categories.*'),
         'partners' => request()->routeIs('partners.*'),
         'budgets' => request()->routeIs('budgets.*'),
+        'goals' => request()->routeIs('goals.*'),
     ];
-    $menu['settings'] = request()->routeIs('settings.*') || $menu['recurrings'] || $menu['accounts'] || $menu['categories'] || $menu['partners'] || $menu['budgets'];
+    $menu['settings'] = request()->routeIs('settings.*') || $menu['recurrings'] || $menu['accounts'] || $menu['categories'] || $menu['partners'] || $menu['budgets'] || $menu['goals'];
 @endphp
 
 @section('body')
@@ -48,8 +49,7 @@
     @endif
 
     <div class="d-lg-flex">
-        {{-- パソコンのメニュー：画面の左。全部の画面をここに出すので、設定の画面を開かなくても行ける。
-             貯金の目標（第 3 段階の 2 回目）は、そのときに足す --}}
+        {{-- パソコンのメニュー：画面の左。全部の画面をここに出すので、設定の画面を開かなくても行ける --}}
         <nav class="side-menu d-none d-lg-block" aria-label="メニュー">
             <div class="list-group list-group-flush">
                 @foreach ([
@@ -69,6 +69,7 @@
                     ['categories', 'categories.index', '分類'],
                     ['partners', 'partners.index', '相手'],
                     ['budgets', 'budgets.index', '予算'],
+                    ['goals', 'goals.index', '貯金の目標'],
                 ] as [$key, $route, $label])
                     <a href="{{ route($route) }}" @class(['list-group-item list-group-item-action', 'active' => $menu[$key]])
                         @if ($menu[$key]) aria-current="page" @endif>{{ $label }}</a>

@@ -18,7 +18,8 @@
         @endforeach
     </select>
     @error('type')
-        <div class="invalid-feedback">{{ $message }}</div>
+        {{-- 貯金の目標が理由のときは、その目標へのリンクを出す --}}
+        <div class="invalid-feedback">{{ $message }}@if (($goal ?? null) !== null && str_starts_with($message, '貯金の目標'))@include('goals._used-by')@endif</div>
     @enderror
 </div>
 
@@ -87,8 +88,8 @@
             @checked(old('is_active', $account->is_active))>
         <label for="is_active" class="form-check-label">使う</label>
         @error('is_active')
-            {{-- 定期的な記録が理由のときは、どれが使っているかとリンクを出す --}}
-            <div class="invalid-feedback">{{ $message }}@if (str_starts_with($message, '残高が'))（<a href="{{ route('accounts.adjust', $account) }}">残高を合わせる</a>）@endif@if ($message === \App\Models\Recurring::IN_USE_MESSAGE)@include('recurrings._used-by', ['recurrings' => $usedBy->filter(fn ($r) => $r->is_active && ! $r->isEnded())])@endif</div>
+            {{-- 定期的な記録・貯金の目標が理由のときは、どれが使っているかとリンクを出す --}}
+            <div class="invalid-feedback">{{ $message }}@if (str_starts_with($message, '残高が'))（<a href="{{ route('accounts.adjust', $account) }}">残高を合わせる</a>）@endif@if ($message === \App\Models\Recurring::IN_USE_MESSAGE)@include('recurrings._used-by', ['recurrings' => $usedBy->filter(fn ($r) => $r->is_active && ! $r->isEnded())])@endif@if (($goal ?? null) !== null && str_starts_with($message, '貯金の目標'))@include('goals._used-by')@endif</div>
         @enderror
     </div>
 @endif

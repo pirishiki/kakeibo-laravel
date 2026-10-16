@@ -9,6 +9,9 @@ use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
 use App\Models\Recurring;
+use App\Support\AvailableAmount;
+use App\Support\RecurringRecorder;
+use Carbon\CarbonImmutable;
 use Database\Seeders\SampleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -46,6 +49,21 @@ class SampleSeederTest extends TestCase
         // 最初の月は、記録する日がまだ来ていない月。10月14日なので、給料（10月23日）は 10 月、Suica へ移す（10月1日）は 11 月から
         $this->assertSame('2026-10-01', Recurring::query()->where('name', '給料')->sole()->start_month->toDateString());
         $this->assertSame('2026-11-01', Recurring::query()->where('name', 'Suica へ移す')->sole()->start_month->toDateString());
+    }
+
+    public function test_終わった定期的な記録の過ぎた月は今回はなしになり_使える額の予定にたまらない(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 14)->setTime(12, 0));
+
+        $this->seed(SampleSeeder::class);
+
+        // 古いローンは 2025年8月〜2026年8月。どの月も記録する日が過ぎているので、登録の画面と同じく全部「今回はなし」
+        $loan = Recurring::query()->where('name', '古いローン')->sole();
+        $this->assertSame(13, $loan->skips()->count());
+        $this->assertSame([], RecurringRecorder::dueMonths($loan, CarbonImmutable::today()));
+        // 使える額の予定に、先月以前の分が 1 件もない
+        $past = array_filter(AvailableAmount::calculate(CarbonImmutable::today())['plans'], fn (array $plan) => $plan['date']->lt(CarbonImmutable::today()->startOfMonth()));
+        $this->assertSame([], $past);
     }
 
     public function test_月のはじめに動かしても_今日より先の記録はできない(): void

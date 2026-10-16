@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\Record;
 use App\Support\AvailableAmount;
 use App\Support\Budgets;
+use App\Support\Goals;
 use App\Support\HomeCalendar;
 use App\Support\MonthlySummary;
 use Carbon\CarbonImmutable;
@@ -15,8 +16,8 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 /**
- * ホーム（画面設計書 5.2）：お知らせ（予算もふくむ）・使える額・今月のカレンダー（予定もふくむ）・今の残高の合計・今月の収支・多く使った分類・最近の記録。
- * 貯金の目標（第 3 段階）は、その段階で足す
+ * ホーム（画面設計書 5.2）：お知らせ（予算もふくむ）・使える額・今月のカレンダー（予定もふくむ）・今の残高の合計・今月の収支・多く使った分類・
+ * 貯金の目標・最近の記録
  */
 class HomeController extends Controller
 {
@@ -41,6 +42,7 @@ class HomeController extends Controller
         $balances = Account::balances($today, $accounts->modelKeys());
         $available = AvailableAmount::calculate($today);
         $expenseCategories = MonthlySummary::categoryTotals($month, RecordType::Expense);
+        $goals = Goals::list($today);
 
         return view('home', [
             'today' => $today,
@@ -66,6 +68,9 @@ class HomeController extends Controller
             'balances' => $balances,
             ...MonthlySummary::incomeExpense($month),
             'topCategories' => $expenseCategories->take(3),
+            // 貯金の目標（第 3 段階）：達成していない目標を、一覧と同じ順で（画面設計書 5.13）。目標が 1 つもないかどうかも渡す
+            'goals' => array_values(array_filter($goals, fn (array $row) => ! $row['achieved'])),
+            'hasGoals' => $goals !== [],
             // 最後に入力した 5 件。記録の日付（date）ではなく、入力した日時（created_at）の新しい順。同じ日時なら、あとで保存したもの（id が大きいもの）が上
             'recentRecords' => Record::query()
                 ->with(['account', 'toAccount', 'category.parent', 'partner'])

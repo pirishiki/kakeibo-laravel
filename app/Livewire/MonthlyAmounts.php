@@ -6,6 +6,7 @@ use App\Models\Recurring;
 use App\Support\FormInput;
 use App\Support\RecurringMonthly;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -77,18 +78,29 @@ class MonthlyAmounts extends Component
             $this->validate($rules, $messages);
         }
 
-        $problems = [];
-        foreach ($variable as $row) {
-            $text = $values[$row['recurring']->id];
-            if ($text !== ($this->opened[$row['recurring']->id] ?? '')) {
-                $amount = $text === '' ? null : (int) $text;
-                RecurringMonthly::saveAmount($row['recurring'], $row['month'], $amount);
-                $problems[] = $amount === null
-                    ? ($row['recurring']->records()->where('recurring_month', $row['month']->toDateString())->exists()
-                        ? '「'.$row['recurring']->name.'」は、開いたあとに記録されていたので、金額を消していません。記録済みの金額を押して記録を直してください。'
-                        : null)
-                    : RecurringMonthly::recordProblem($row['recurring'], $row['month'], $amount);
+        // 全部の行を 1 つのトランザクションで保存する（途中の行で、ほかの画面の保存と押さえあってやり直しを使い切ったときに、
+        // 前の行だけ保存・記録されたのに「保存できませんでした」と出さないように。全部やるか、何もしないか）
+        $changed = array_values(array_filter($variable, fn (array $row) => $values[$row['recurring']->id] !== ($this->opened[$row['recurring']->id] ?? '')));
+        DB::transaction(function () use ($changed, $values) {
+            // 先に、保存する予定の行を全部、id の小さい順に押さえる（押さえる順番の決まり：予定→記録→口座。1 行目の記録・口座を押さえたまま
+            // 2 行目の予定を押さえに行くと、残高を合わせる画面などと、たがいを待ちつづけることがあるため）
+            RecurringMonthly::lockForSaving(array_map(fn (array $row) => $row['recurring'], $changed));
+            foreach ($changed as $row) {
+                $text = $values[$row['recurring']->id];
+                RecurringMonthly::saveAmount($row['recurring'], $row['month'], $text === '' ? null : (int) $text);
             }
+        }, 3);
+
+        // 記録できたかの確かめは、保存し終わってから、いちばん新しい中身で行う（トランザクションの中だと、最初に読んだ時点の古い中身を見て、
+        // ほかの画面・自動の記録で前の金額で記録されていたことに気づかず、「保存しました」と出してしまうため）
+        $problems = [];
+        foreach ($changed as $row) {
+            $text = $values[$row['recurring']->id];
+            $problems[] = $text === ''
+                ? ($row['recurring']->records()->where('recurring_month', $row['month']->toDateString())->exists()
+                    ? '「'.$row['recurring']->name.'」は、開いたあとに記録されていたので、金額を消していません。記録済みの金額を押して記録を直してください。'
+                    : null)
+                : RecurringMonthly::recordProblem($row['recurring'], $row['month'], (int) $text);
         }
         $problems = array_values(array_filter($problems));
 

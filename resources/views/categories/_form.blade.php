@@ -16,6 +16,8 @@
         @if ($category->exists)
             <span class="form-label d-block">収入用・支出用</span>
             <p class="mb-0">{{ $category->kind->label() }}用 <span class="form-text">（あとから変えられません）</span></p>
+            {{-- 保存では使わない。ほかの画面でこの分類が削除されていたとき、打った内容を同じ用の追加の画面へ持っていくため（app/Support/DeletedElsewhere.php） --}}
+            <input type="hidden" name="kind" value="{{ $category->kind->value }}">
         @else
             <span class="form-label d-block">収入用・支出用</span>
             @foreach (\App\Enums\CategoryKind::cases() as $kind)
