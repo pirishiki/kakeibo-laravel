@@ -10,6 +10,7 @@ use App\Livewire\MonthlyAmounts;
 use App\Livewire\RecordForm;
 use App\Livewire\RecurringForm;
 use App\Models\Account;
+use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
@@ -252,5 +253,92 @@ class RareCasesTest extends TestCase
             ->call('save')
             ->assertSet('notice', '')
             ->assertRedirect();
+    }
+
+    // ---- 予算（第 3 段階）：古い画面・2 回押し・月をまたぐ・ほかのタブで分類が変わったとき ----
+
+    /** 支出の大分類「食費」（最初から入っている） */
+    private function food(): Category
+    {
+        return Category::query()->whereNull('parent_id')->where('kind', CategoryKind::Expense)->where('name', '食費')->firstOrFail();
+    }
+
+    public function test_予算_開いたあとにほかのタブで変わった分類は上書きせず_打った金額を残し_ほかは保存する(): void
+    {
+        $food = $this->food();
+        $daily = Category::query()->whereNull('parent_id')->where('name', '日用品')->firstOrFail();
+        // 画面を開いたときは食費 30,000。そのあと、ほかのタブで 32,000 にした
+        Budget::create(['category_id' => $food->id, 'start_month' => '2026-10-01', 'amount' => 32000]);
+
+        $this->put('/budgets', [
+            'amounts' => [$food->id => '35000', $daily->id => '8000'],
+            'originals' => [$food->id => '30000', $daily->id => ''],
+        ])->assertSessionHas('warning', 'ほかの分類は保存しました。「食費」は、開いたあとにほかの画面で予算が変わっていたので、保存していません。今の予算を出したので、確かめてからもう一度保存してください。');
+
+        $this->assertSame(32000, Budget::query()->where('category_id', $food->id)->value('amount'));
+        $this->assertSame(8000, Budget::query()->where('category_id', $daily->id)->value('amount'));
+        // 打った金額は欄に残り、開いたときの金額は今の予算になる（次はそのまま保存できる）
+        $this->get('/budgets')->assertSee('value="35000"', false)->assertSee('name="originals['.$food->id.']" value="32000"', false);
+    }
+
+    public function test_予算_変えていない欄は_ほかのタブで直した予算を上書きしない(): void
+    {
+        $food = $this->food();
+        Budget::create(['category_id' => $food->id, 'start_month' => '2026-10-01', 'amount' => 32000]);
+
+        // 開いたときのまま（30,000）送っても、変えていないので何もしない
+        $this->put('/budgets', ['amounts' => [$food->id => '30,000'], 'originals' => [$food->id => '30000']])->assertSessionHas('status', '保存しました');
+
+        $this->assertSame(32000, Budget::query()->where('category_id', $food->id)->value('amount'));
+    }
+
+    public function test_予算_2回押しても_行は1つで_知らせも出ない(): void
+    {
+        $food = $this->food();
+        $send = ['amounts' => [$food->id => '30000'], 'originals' => [$food->id => '']];
+
+        $this->put('/budgets', $send)->assertSessionHas('status', '保存しました');
+        $this->put('/budgets', $send)->assertSessionHas('status', '保存しました')->assertSessionMissing('warning');
+
+        $this->assertSame(1, Budget::query()->count());
+    }
+
+    public function test_予算_月末に開いて月初めに保存すると_新しい月から変わる(): void
+    {
+        $food = $this->food();
+        $row = Budget::create(['category_id' => $food->id, 'start_month' => '2026-04-01', 'amount' => 30000]);
+        // 10月31日 23時59分に開き、11月1日 0時1分に保存した
+        $this->travelTo(now()->setDate(2026, 11, 1)->setTime(0, 1));
+
+        $this->put('/budgets', ['amounts' => [$food->id => '35000'], 'originals' => [$food->id => '30000']])->assertSessionHas('status');
+
+        $this->assertSame('2026-10-01', $row->fresh()?->end_month?->toDateString());
+        $this->assertDatabaseHas('budgets', ['category_id' => $food->id, 'start_month' => '2026-11-01', 'amount' => 35000]);
+    }
+
+    public function test_予算_特別な月を開いたまま月が過ぎたら_何も保存せずに知らせる(): void
+    {
+        $food = $this->food();
+        $this->travelTo(now()->setDate(2026, 11, 1)->setTime(0, 1));
+
+        $this->put('/budgets', ['month' => '2026-10', 'amounts' => [$food->id => '40000'], 'originals' => [$food->id => '']])
+            ->assertRedirect('/budgets?month=2026-11')
+            ->assertSessionHas('warning', '選んでいた月は、もう直せない月になったので、保存していません。今月の分を出したので、もう一度入れてください。');
+
+        $this->assertSame(0, Budget::query()->count());
+    }
+
+    public function test_予算_開いたあとに使わないになった分類と削除された分類は_保存せずに知らせる(): void
+    {
+        $food = $this->food();
+        $gone = Category::factory()->childOf($food)->create(['name' => '消えた小分類']);
+        $goneId = $gone->id;
+        $gone->delete();
+        $food->update(['is_active' => false]);
+
+        $this->put('/budgets', ['amounts' => [$food->id => '30000', $goneId => '5000'], 'originals' => [$food->id => '', $goneId => '']])
+            ->assertSessionHas('warning', '「食費」は、開いたあとに『使わない』になったので、保存していません。 開いたあとに削除された分類が 1 つあったので、その分は保存していません。');
+
+        $this->assertSame(0, Budget::query()->count());
     }
 }
