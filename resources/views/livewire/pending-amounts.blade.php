@@ -18,7 +18,8 @@
                 @endforeach
                 {{-- 今月、予算の 80% 以上になった分類（第 3 段階）。押すと月のまとめへ。% は 1 % 未満を切り捨て、「こえました」は予算より多く使ったときだけ --}}
                 @foreach ($budgetAlerts as $alert)
-                    <a href="{{ route('summary.index') }}" class="d-block text-decoration-none text-danger mb-1">
+                    {{-- こえたら赤、まだこえていない 80% 以上はオレンジ（月のまとめの棒と同じ） --}}
+                    <a href="{{ route('summary.index') }}" @class(['d-block text-decoration-none mb-1', 'text-danger' => $alert['status']['over'], 'text-caution' => ! $alert['status']['over']])>
                         @if ($alert['status']['over'])
                             {{ $alert['name'] }} が予算をこえました（+{{ number_format(-$alert['status']['rest']) }} 円）
                         @else

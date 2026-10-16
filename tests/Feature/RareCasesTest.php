@@ -18,6 +18,7 @@ use App\Models\Recurring;
 use App\Models\User;
 use App\Support\RecurringRecorder;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
@@ -310,7 +311,9 @@ class RareCasesTest extends TestCase
         // 10月31日 23時59分に開き、11月1日 0時1分に保存した
         $this->travelTo(now()->setDate(2026, 11, 1)->setTime(0, 1));
 
-        $this->put('/budgets', ['amounts' => [$food->id => '35000'], 'originals' => [$food->id => '30000']])->assertSessionHas('status');
+        // 画面の「今月から」とちがうので、黙らずに知らせる
+        $this->put('/budgets', ['opened' => '2026-10', 'amounts' => [$food->id => '35000'], 'originals' => [$food->id => '30000']])
+            ->assertSessionHas('warning', '11月から新しい予算にしました（10月は前の予算のままです）。');
 
         $this->assertSame('2026-10-01', $row->fresh()?->end_month?->toDateString());
         $this->assertDatabaseHas('budgets', ['category_id' => $food->id, 'start_month' => '2026-11-01', 'amount' => 35000]);
@@ -340,5 +343,68 @@ class RareCasesTest extends TestCase
             ->assertSessionHas('warning', '「食費」は、開いたあとに『使わない』になったので、保存していません。 開いたあとに削除された分類が 1 つあったので、その分は保存していません。');
 
         $this->assertSame(0, Budget::query()->count());
+    }
+
+    public function test_予算_時間切れで戻した入力は_月をまたいで別の特別な月に入らない(): void
+    {
+        $food = $this->food();
+        // 10月31日に 10 月の特別な月を開いて打ち、時間切れで戻ったのが 11月1日（戻る先は /budgets?month=2026-10、入力は old に入っている）
+        $this->travelTo(now()->setDate(2026, 11, 1)->setTime(0, 1));
+
+        $this->withSession(['_old_input' => ['month' => '2026-10', 'amounts' => [$food->id => '50,000'], 'originals' => [$food->id => '']]])
+            ->get('/budgets?month=2026-10')
+            ->assertRedirect('/budgets?month=2026-11')
+            ->assertSessionHas('warning', '選んでいた月は、もう直せない月になったので、保存していません。今月の分を出したので、もう一度入れてください。');
+        // 別の月（12 月）を開いても、10 月の入力は欄に入らない
+        $this->withSession(['_old_input' => ['month' => '2026-10', 'amounts' => [$food->id => '50,000']]])
+            ->get('/budgets?month=2026-12')
+            ->assertDontSee('value="50,000"', false);
+        // ふだんの予算の画面にも入らない
+        $this->withSession(['_old_input' => ['month' => '2026-10', 'amounts' => [$food->id => '50,000']]])
+            ->get('/budgets')
+            ->assertDontSee('value="50,000"', false);
+    }
+
+    public function test_予算_時間切れで戻した入力は_同じ画面なら欄と開いたときの金額ごと戻る(): void
+    {
+        $food = $this->food();
+        Budget::create(['category_id' => $food->id, 'start_month' => '2026-10-01', 'amount' => 30000]);
+
+        $this->withSession(['_old_input' => ['opened' => '2026-10', 'amounts' => [$food->id => '35,000'], 'originals' => [$food->id => '28000']]])
+            ->get('/budgets')
+            ->assertSee('value="35,000"', false)
+            // 開いたときの金額も戻すので、そのあとにほかで変わっていたら、保存のときに止まる
+            ->assertSee('name="originals['.$food->id.']" value="28000"', false);
+    }
+
+    public function test_予算_大分類が使わないになったときは_そうわかるように知らせる(): void
+    {
+        $food = $this->food();
+        $eatOut = Category::factory()->childOf($food)->create(['name' => '外食']);
+        $food->update(['is_active' => false]);
+
+        $this->put('/budgets', ['amounts' => [$eatOut->id => '10000'], 'originals' => [$eatOut->id => '']])
+            ->assertSessionHas('warning', '「食費 › 外食」は、開いたあとに大分類が『使わない』になったので、保存していません。');
+
+        $this->assertSame(0, Budget::query()->count());
+    }
+
+    public function test_予算_同じ名前の小分類も_お知らせで見分けられる(): void
+    {
+        $food = $this->food();
+        $daily = Category::query()->whereNull('parent_id')->where('name', '日用品')->firstOrFail();
+        $foodOther = Category::factory()->childOf($food)->create(['name' => 'その他']);
+        Category::factory()->childOf($daily)->create(['name' => 'その他']);
+        Budget::create(['category_id' => $foodOther->id, 'start_month' => '2026-10-01', 'amount' => 1000]);
+        Record::factory()->create(['type' => RecordType::Expense, 'amount' => 900, 'category_id' => $foodOther->id, 'partner_id' => Partner::factory()->create()->id]);
+
+        $this->get('/')->assertSee('食費 › その他 が予算の 90% です（あと 100 円）');
+    }
+
+    public function test_予算_0円の予算はデータベースが止める(): void
+    {
+        $this->expectException(QueryException::class);
+
+        Budget::create(['category_id' => $this->food()->id, 'start_month' => '2026-10-01', 'amount' => 0]);
     }
 }

@@ -623,7 +623,7 @@ class BudgetSpecTest extends TestCase
 
         $this->get('/')->assertOk()
             ->assertSee('食費 が予算の 90% です（あと 2,000 円）')
-            ->assertSee('外食 が予算の 95% です（あと 500 円）')
+            ->assertSee('食費 › 外食 が予算の 95% です（あと 500 円）')
             ->assertDontSee('日用品 が予算');
     }
 

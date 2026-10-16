@@ -14,10 +14,10 @@
             <span class="d-block small text-secondary">ふだん {{ $usualAmount === null ? 'なし' : number_format($usualAmount) }}</span>
         @endif
     </label>
-    <input type="hidden" name="originals[{{ $id }}]" value="{{ old('originals.'.$id, $saved === null ? '' : (string) $saved) }}">
+    <input type="hidden" name="originals[{{ $id }}]" value="{{ $useOld ? old('originals.'.$id, $saved === null ? '' : (string) $saved) : ($saved === null ? '' : (string) $saved) }}">
     <div class="input-group has-validation flex-shrink-0" style="width: 11rem">
         <input type="text" id="budget-{{ $id }}" name="amounts[{{ $id }}]" inputmode="numeric" autocomplete="off" data-amount
-            value="{{ old('amounts.'.$id, $saved === null ? '' : number_format($saved)) }}"
+            value="{{ $useOld ? old('amounts.'.$id, $saved === null ? '' : number_format($saved)) : ($saved === null ? '' : number_format($saved)) }}"
             placeholder="{{ $special === null ? 'なし' : 'ふだんのまま' }}"
             class="form-control text-end @error('amounts.'.$id) is-invalid @enderror"
             @error('amounts.'.$id) aria-describedby="budget-{{ $id }}-error" @enderror>

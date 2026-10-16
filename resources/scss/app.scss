@@ -11,6 +11,9 @@ $body-color: #23271f; // ふつうの字
 // （$body-bg を変えると、それを使っているカード・入力欄・小窓まで灰色になり、「カードは白」にならないため）
 $page-bg: #f3f4f2;
 $primary-soft: #dff2f0; // うすい青緑
+// 注意（まだ）：予算の 80% 以上で、まだこえていないとき（第 3 段階）。字は白の上で読める濃さ、棒は少し明るく
+$caution: #b45309;
+$caution-bar: #d97706;
 
 // 字（画面設計書 6.4）。Noto Sans JP は画面の <head> で Google Fonts から読む
 $font-family-sans-serif: 'Noto Sans JP', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -318,6 +321,15 @@ $bottom-menu-height: 64px;
 .summary-budget-bar {
     height: 0.5rem;
     min-width: 3rem;
+}
+
+// 予算の 80% 以上で、まだこえていないとき（こえたら赤。画面設計書 6.3）
+.text-caution {
+    color: $caution !important;
+}
+
+.bg-caution {
+    background-color: $caution-bar !important;
 }
 
 // 円グラフの色の見本（凡例の四角）

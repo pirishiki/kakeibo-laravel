@@ -50,6 +50,9 @@
             @method('PUT')
             @if ($special !== null)
                 <input type="hidden" name="month" value="{{ $special->format('Y-m') }}">
+            @else
+                {{-- 開いたときの月。月末に開いて月初めに保存したら、「○月から新しい予算にしました」と知らせる --}}
+                <input type="hidden" name="opened" value="{{ $useOld ? old('opened', $first->format('Y-m')) : $first->format('Y-m') }}">
             @endif
 
             <div class="card mb-3">

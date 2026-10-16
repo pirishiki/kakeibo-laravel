@@ -20,11 +20,23 @@ use Illuminate\View\View;
  */
 class BudgetController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $today = CarbonImmutable::today();
-        $special = $request->has('month') ? self::specialMonth($request->query('month'), $today) : null;
         $month = $today->startOfMonth();
+        $special = null;
+        if ($request->has('month')) {
+            $special = self::specialMonth($request->query('month'), $today);
+            // 形は合っているが、もう直せない（または 12 か月より先の）月：開いたまま月が変わった画面の URL や、
+            // 時間切れ（419）・ログインし直しで戻ってきたときなど。黙って別の月を出すと、戻した入力が別の月に入ってしまうので、
+            // 保存のときと同じく、今月の特別な月へ移って知らせる（移ると、戻した入力も 1 回で消える）
+            if ($special === null && self::isMonthText($request->query('month'))) {
+                return to_route('budgets.index', ['month' => $month->format('Y-m')])
+                    ->with('warning', self::PASSED_MONTH_MESSAGE);
+            }
+            // 形がちがうとき（?month= だけなど）は来月
+            $special ??= $month->addMonth();
+        }
 
         // 分類の管理と同じ順。「使わない」分類と、「使わない」大分類の下の小分類は出さない
         $parents = Category::query()
@@ -42,6 +54,8 @@ class BudgetController extends Controller
             'parents' => $parents,
             'special' => $special,
             'first' => $month,
+            // 時間切れ（419）・ログインし直しで戻した入力は、同じ画面（ふだんの予算／同じ特別な月）のものだけを欄に戻す
+            'useOld' => old('month') === $special?->format('Y-m'),
             'last' => $month->addMonths(Budgets::SPECIAL_MONTHS_AHEAD),
             // ふだんの予算：特別な月のときは、分類の横に小さく出す（その月に使われるふだんの予算）
             'usual' => $usual,
@@ -56,36 +70,59 @@ class BudgetController extends Controller
         $today = CarbonImmutable::today();
         $special = null;
         if ($request->filled('month')) {
-            $special = self::specialMonth($request->input('month'), $today, strict: true);
+            $special = self::specialMonth($request->input('month'), $today);
             if ($special === null) {
                 // 開いたまま月が変わって、選んでいた月が過ぎた（または 12 か月先をこえた）。過ぎた月の予算は直さない（画面設計書 5.11）
                 return to_route('budgets.index', ['month' => $today->startOfMonth()->format('Y-m')])
-                    ->with('warning', '選んでいた月は、もう直せない月になったので、保存していません。今月の分を出したので、もう一度入れてください。');
+                    ->with('warning', self::PASSED_MONTH_MESSAGE);
             }
         }
 
         [$amounts, $originals] = $this->validated($request);
         $result = Budgets::save($special, $amounts, $originals, $today);
+        $savedAny = $result['saved'] > 0;
 
         $back = to_route('budgets.index', $special !== null ? ['month' => $special->format('Y-m')] : []);
         $messages = [];
         if ($result['conflicts'] !== []) {
             $messages[] = '「'.implode('」「', $result['conflicts']).'」は、開いたあとにほかの画面で予算が変わっていたので、保存していません。今の予算を出したので、確かめてからもう一度保存してください。';
-            // 打った金額は欄に残す（今の予算は「開いたときの金額」として持ちなおすので、次はそのまま保存できる）
-            $back->withInput(['amounts' => array_intersect_key((array) $request->input('amounts', []), $result['conflicts'])]);
+            // 打った金額は欄に残す（今の予算は「開いたときの金額」として持ちなおすので、次はそのまま保存できる）。どの画面の入力かも持っていく
+            $back->withInput([
+                'amounts' => array_intersect_key((array) $request->input('amounts', []), $result['conflicts']),
+                'month' => $special?->format('Y-m'),
+            ]);
         }
         if ($result['unusable'] !== []) {
             $messages[] = '「'.implode('」「', $result['unusable']).'」は、開いたあとに『使わない』になったので、保存していません。';
         }
+        if ($result['parentUnusable'] !== []) {
+            $messages[] = '「'.implode('」「', $result['parentUnusable']).'」は、開いたあとに大分類が『使わない』になったので、保存していません。';
+        }
         if ($result['missing'] > 0) {
             $messages[] = '開いたあとに削除された分類が '.$result['missing'].' つあったので、その分は保存していません。';
+        }
+        // ふだんの予算を、月末に開いて月初めに保存したとき：「今月から」は保存したときの月になるので、黙らずに知らせる
+        $opened = self::isMonthText($request->input('opened')) ? CarbonImmutable::createFromFormat('!Y-m', (string) $request->input('opened')) : null;
+        if ($special === null && $savedAny && $opened !== null && ! $opened->equalTo($today->startOfMonth())) {
+            $messages[] = $today->format('n月').'から新しい予算にしました（'.$opened->format('n月').'は前の予算のままです）。';
         }
 
         if ($messages === []) {
             return $back->with('status', '保存しました');
         }
 
-        return $back->with('warning', ($result['saved'] > 0 ? 'ほかの分類は保存しました。' : '').implode(' ', $messages));
+        $hasProblem = $result['conflicts'] !== [] || $result['unusable'] !== [] || $result['parentUnusable'] !== [] || $result['missing'] > 0;
+
+        return $back->with('warning', ($savedAny && $hasProblem ? 'ほかの分類は保存しました。' : '').implode(' ', $messages));
+    }
+
+    /** もう直せない月の特別な月を、保存しようとした・開こうとしたときの知らせ */
+    private const PASSED_MONTH_MESSAGE = '選んでいた月は、もう直せない月になったので、保存していません。今月の分を出したので、もう一度入れてください。';
+
+    /** 「2026-12」の形か */
+    private static function isMonthText(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value) === 1;
     }
 
     /**
@@ -123,9 +160,9 @@ class BudgetController extends Controller
 
     /**
      * ?month=2026-12 から特別な月を出す。今月から 12 か月先までだけ選べる。
-     * 画面を開くとき（strict でない）は、形がちがう・範囲の外なら来月にする。保存のときは null を返す
+     * 形がちがう・範囲の外のときは null（開くときは、形がちがえば来月、範囲の外なら今月へ移って知らせる。保存のときは保存しない）
      */
-    private static function specialMonth(mixed $value, CarbonImmutable $today, bool $strict = false): ?CarbonImmutable
+    private static function specialMonth(mixed $value, CarbonImmutable $today): ?CarbonImmutable
     {
         $first = $today->startOfMonth();
         $month = is_string($value) && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value) === 1
@@ -133,7 +170,7 @@ class BudgetController extends Controller
             : null;
 
         if ($month === null || $month->lessThan($first) || $month->greaterThan($first->addMonths(Budgets::SPECIAL_MONTHS_AHEAD))) {
-            return $strict ? null : $first->addMonth();
+            return null;
         }
 
         return $month;

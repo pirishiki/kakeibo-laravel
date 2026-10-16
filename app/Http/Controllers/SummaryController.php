@@ -19,10 +19,10 @@ class SummaryController extends Controller
 {
     public function index(Request $request): Response
     {
-        $month = MonthlySummary::month($request->query('month'));
-        // 今日は 1 回だけ決め、1 つのトランザクションの中で読む（ホームと同じ）。0 時をまたいだり、読んでいるあいだに記録が足されたりしても、
-        // 表・グラフ・予算の状況が、同じ時点のデータで計算されるように
+        // 今日は 1 回だけ決め（見る月を決めるのにも使う）、1 つのトランザクションの中で読む（ホームと同じ）。0 時をまたいだり、
+        // 読んでいるあいだに記録が足されたりしても、表・グラフ・予算の状況が、同じ時点のデータで計算されるように
         $today = CarbonImmutable::today();
+        $month = MonthlySummary::month($request->query('month'), $today);
 
         return response(DB::transaction(function () use ($month, $today) {
             $expenseCategories = MonthlySummary::categoryTotals($month, RecordType::Expense);

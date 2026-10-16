@@ -42,7 +42,8 @@ class Budgets
             $amounts = array_intersect_key($amounts, array_flip(self::usableIds(array_keys($amounts))));
         }
 
-        return array_map(fn ($amount) => (int) $amount, $amounts);
+        // 予算は 1 円以上（データベースの CHECK でも止めている）。万一 0 以下があっても、% の計算で 0 で割らないように使わない
+        return array_filter(array_map(fn ($amount) => (int) $amount, $amounts), fn (int $amount) => $amount > 0);
     }
 
     /**
@@ -125,7 +126,7 @@ class Budgets
             ])
             ->filter(fn (array $item) => $item['status']['warn'])
             ->sortBy(fn (array $item) => self::orderKey($item['category']))
-            ->map(fn (array $item) => ['name' => $item['category']->name, 'status' => $item['status']])
+            ->map(fn (array $item) => ['name' => self::displayName($item['category']), 'status' => $item['status']])
             ->values()
             ->all();
     }
@@ -138,15 +139,16 @@ class Budgets
      * @param  CarbonImmutable|null  $special  特別な月（その月の 1 日）。null ならふだんの予算
      * @param  array<int, string>  $amounts  分類の id → 打った金額（数だけの形、空なら「予算なし」「ふだんのまま」）
      * @param  array<int, string>  $originals  分類の id → 開いたときの金額（同じ形）
-     * @return array{saved: int, conflicts: array<int, string>, unusable: list<string>, missing: int}
-     *                                                                                                saved＝保存した分類の数、conflicts＝開いたあとに変わっていた分類（id → 名前）、
-     *                                                                                                unusable＝開いたあとに「使わない」になった分類、missing＝開いたあとに削除された分類の数
+     * @return array{saved: int, conflicts: array<int, string>, unusable: list<string>, parentUnusable: list<string>, missing: int}
+     *                                                                                                                              saved＝保存した分類の数、conflicts＝開いたあとに変わっていた分類（id → 名前）、
+     *                                                                                                                              unusable＝開いたあとに「使わない」になった分類、parentUnusable＝開いたあとに大分類が「使わない」になった小分類、
+     *                                                                                                                              missing＝開いたあとに削除された分類の数
      */
     public static function save(?CarbonImmutable $special, array $amounts, array $originals, CarbonImmutable $today): array
     {
         $month = $today->startOfMonth();
         $changed = array_filter($amounts, fn (string $value, int $id) => $value !== ($originals[$id] ?? ''), ARRAY_FILTER_USE_BOTH);
-        $result = ['saved' => 0, 'conflicts' => [], 'unusable' => [], 'missing' => 0];
+        $result = ['saved' => 0, 'conflicts' => [], 'unusable' => [], 'parentUnusable' => [], 'missing' => 0];
         if ($changed === []) {
             return $result;
         }
@@ -156,7 +158,7 @@ class Budgets
             // （id の順にロックして、2 つの保存がたがいを待ちつづけないようにする）
             $ids = array_keys($changed);
             sort($ids);
-            $categories = Category::query()->whereKey($ids)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $categories = Category::query()->whereKey($ids)->orderBy('id')->lockForUpdate()->with('parent')->get()->keyBy('id');
             $usable = array_flip(self::usableIds($ids));
 
             foreach ($changed as $id => $value) {
@@ -167,7 +169,12 @@ class Budgets
                     continue;
                 }
                 if (! isset($usable[$id])) {
-                    $result['unusable'][] = $category->name;
+                    // 小分類そのものは「使う」のままで、大分類が「使わない」になったときは、そうわかるように分けて知らせる
+                    if ($category->is_active && ! $category->isParent()) {
+                        $result['parentUnusable'][] = self::displayName($category);
+                    } else {
+                        $result['unusable'][] = self::displayName($category);
+                    }
 
                     continue;
                 }
@@ -180,7 +187,7 @@ class Budgets
                     continue;
                 }
                 if ((string) ($current->amount ?? '') !== ($originals[$id] ?? '')) {
-                    $result['conflicts'][$id] = $category->name;
+                    $result['conflicts'][$id] = self::displayName($category);
 
                     continue;
                 }
@@ -235,6 +242,15 @@ class Budgets
         $current !== null
             ? $current->update(['amount' => (int) $value])
             : Budget::create(['category_id' => $categoryId, 'month' => $special, 'amount' => (int) $value]);
+    }
+
+    /**
+     * お知らせ・知らせに出す分類の名前。小分類は「食費 › 外食」のように大分類の名前をつける
+     * （小分類の名前は大分類ごとに決めるので、食費の下と日用品の下に同じ「その他」があっても見分けられるように）
+     */
+    public static function displayName(Category $category): string
+    {
+        return $category->parent !== null ? $category->parent->name.' › '.$category->name : $category->name;
     }
 
     /**

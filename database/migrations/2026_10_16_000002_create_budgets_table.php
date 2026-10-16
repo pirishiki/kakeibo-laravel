@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -26,6 +27,9 @@ return new class extends Migration
             // データベースでは止められない。アプリで分類の行をロックしてから確かめる（app/Support/Budgets.php）
             $table->unique(['category_id', 'month']);
         });
+
+        // 予算は 1 円以上（0 だと % の計算で 0 で割ってしまう）。アプリの入力チェックに加えて、データベースでも止める
+        DB::statement('ALTER TABLE budgets ADD CONSTRAINT budgets_amount_positive CHECK (amount >= 1)');
     }
 
     public function down(): void

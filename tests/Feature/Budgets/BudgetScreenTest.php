@@ -152,8 +152,9 @@ class BudgetScreenTest extends TestCase
         $this->get('/budgets?month=')->assertSee('2026年11月');
         $this->get('/budgets?month=2026-10')->assertSee('2026年10月')->assertDontSee('month=2026-09')->assertSee('month=2026-11');
         $this->get('/budgets?month=2027-10')->assertSee('2027年10月')->assertSee('month=2027-09')->assertDontSee('month=2027-11');
-        // 範囲の外は来月にする
-        $this->get('/budgets?month=2026-09')->assertSee('2026年11月');
+        // 範囲の外は、今月の特別な月へ移って知らせる
+        $this->get('/budgets?month=2026-09')->assertRedirect('/budgets?month=2026-10')->assertSessionHas('warning');
+        $this->get('/budgets?month=2027-11')->assertRedirect('/budgets?month=2026-10');
         $this->get('/budgets?month=2026-12')->assertSee('ふだん 30,000')->assertSee('placeholder="ふだんのまま"', false);
     }
 
@@ -221,8 +222,25 @@ class BudgetScreenTest extends TestCase
         $this->spend($daily, 7995);
 
         $this->get('/')
-            ->assertSeeInOrder(['食費 が予算の 82% です（あと 5,200 円）', '外食 が予算をこえました（+2,800 円）'])
+            ->assertSeeInOrder(['食費 が予算の 82% です（あと 5,200 円）', '食費 › 外食 が予算をこえました（+2,800 円）'])
             ->assertDontSee('日用品 が予算');
+    }
+
+    public function test_こえたら赤_80パーセント以上でまだこえていなければオレンジ(): void
+    {
+        $this->usual($this->food, 30000);
+        $this->usual($this->eatOut, 10000);
+        $this->spend($this->eatOut, 12800);
+        $this->spend($this->food, 12000);
+
+        // 月のまとめ：食費 24,800 / 30,000（82%）はオレンジ、外食はこえたので赤
+        $this->get('/summary')
+            ->assertSeeInOrder(['progress-bar bg-caution', 'text-caution', 'あと 5,200（82%）'], false)
+            ->assertSeeInOrder(['progress-bar bg-danger', 'text-danger', '2,800 こえた'], false);
+        // ホームのお知らせも同じ色
+        $this->get('/')
+            ->assertSeeInOrder(['text-caution', '食費 が予算の 82% です'], false)
+            ->assertSeeInOrder(['text-danger', '食費 › 外食 が予算をこえました'], false);
     }
 
     public function test_予算とちょうど同じ額は100パーセントで_こえましたではない(): void
