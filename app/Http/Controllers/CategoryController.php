@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -36,11 +37,18 @@ class CategoryController extends Controller
     }
 
     /** 大分類の追加は ?kind=expense、小分類の追加は ?parent=1 のように、どこに作るかを URL の後ろにつける */
-    public function create(Request $request): View
+    public function create(Request $request): View|RedirectResponse
     {
         $parent = $request->filled('parent')
-            ? Category::query()->whereNull('parent_id')->findOrFail($request->integer('parent'))
+            ? Category::query()->whereNull('parent_id')->find($request->integer('parent'))
             : null;
+        if ($request->filled('parent') && $parent === null) {
+            // 大分類がほかの画面で削除されていた。保存しようとして戻ってきたときは、打った名前を文に出す（欄に戻す先がないため）
+            $name = old('name');
+
+            return to_route('categories.index')->with('warning', 'この大分類は、ほかの画面で削除されていました。'
+                .(is_string($name) && $name !== '' ? '打った名前「'.$name.'」は保存していません。' : ''));
+        }
 
         $category = new Category([
             'kind' => $parent->kind ?? (CategoryKind::tryFrom($request->string('kind')->toString()) ?? CategoryKind::Expense),
@@ -88,16 +96,24 @@ class CategoryController extends Controller
 
     public function update(CategoryRequest $request, Category $category): RedirectResponse
     {
-        $category->fill($request->validated());
-
-        // 小分類を別の大分類へ移したときは、移した先のいちばん下に入れる。過去の記録も小分類についていくので、いっしょに移る
-        // 「使う」に戻したときも、使う分類のいちばん下に入れる（好きな場所へは、つまみで動かす）
-        if ($category->isDirty('parent_id') || ($category->isDirty('is_active') && $category->is_active)) {
-            $category->sort_order = (int) Category::query()->sameLevelAs($category)->max('sort_order') + 1;
-        }
+        $data = $request->validated();
 
         try {
-            $category->save();
+            $category = DB::transaction(function () use ($category, $data) {
+                // 分類を押さえて読み直してから保存する（開いたあと、保存までにほかの画面で削除されていたら、
+                // 何も保存していないのに「保存しました」と出さないように。なければ一覧へ戻して知らせる。app/Support/DeletedElsewhere.php）
+                $locked = Category::query()->lockForUpdate()->findOrFail($category->id);
+                $locked->fill($data);
+
+                // 小分類を別の大分類へ移したときは、移した先のいちばん下に入れる。過去の記録も小分類についていくので、いっしょに移る
+                // 「使う」に戻したときも、使う分類のいちばん下に入れる（好きな場所へは、つまみで動かす）
+                if ($locked->isDirty('parent_id') || ($locked->isDirty('is_active') && $locked->is_active)) {
+                    $locked->sort_order = (int) Category::query()->sameLevelAs($locked)->max('sort_order') + 1;
+                }
+                $locked->save();
+
+                return $locked;
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
         }
@@ -140,7 +156,8 @@ class CategoryController extends Controller
             return to_route('categories.edit', $category)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
         }
 
-        $category->update(['is_active' => false]);
+        // 押さえて読み直してから変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる）
+        DB::transaction(fn () => Category::query()->lockForUpdate()->findOrFail($category->id)->update(['is_active' => false]), 3);
 
         return $this->toRow($category)->with('status', '「使わない」にしました');
     }

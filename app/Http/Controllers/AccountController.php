@@ -64,7 +64,7 @@ class AccountController extends Controller
         try {
             $blocker = DB::transaction(function () use ($account, $data) {
                 // 「使わない」にするときは、口座を押さえてから確かめ直す（チェックのあと、保存するまでに記録ができても、残高のある口座を「使わない」にしないように）
-                $locked = Account::query()->whereKey($account->id)->lockForUpdate()->firstOrFail();
+                $locked = Account::query()->lockForUpdate()->findOrFail($account->id);
                 // チェックのあと、押さえるまでに記録ができていたら、最初の残高は変えない（黙って書きかえないで知らせる）
                 if (isset($data['initial_balance']) && (int) $data['initial_balance'] !== $locked->initial_balance && $locked->hasRecords()) {
                     return ['initial_balance', '開いたあとにこの口座の記録ができたので、最初の残高は変えられません。今の残高を直すときは「残高を合わせる」を使ってください。'];
@@ -134,8 +134,14 @@ class AccountController extends Controller
     }
 
     /** 残高を合わせる（画面設計書 5.7）。入力欄と保存は Livewire の部品（app/Livewire/AdjustBalance.php） */
-    public function adjust(Account $account): View
+    public function adjust(Account $account): View|RedirectResponse
     {
+        // 「使わない」口座はいつも 0 円のまま、という前提を守るため、合わせられない（画面設計書 5.6）。
+        // 開いたままの古い画面のリンクから来たときに、エラーの画面ではなく理由を出す
+        if (! $account->is_active) {
+            return to_route('accounts.edit', $account)->with('warning', 'この口座は「使わない」になっているので、残高を合わせられません。');
+        }
+
         return view('accounts.adjust', ['account' => $account]);
     }
 
@@ -144,7 +150,7 @@ class AccountController extends Controller
     {
         // 口座を押さえてから確かめて「使わない」にする（確かめたあと、変えるまでに記録ができても、残高のある口座を「使わない」にしないように）
         $blocker = DB::transaction(function () use ($account) {
-            $locked = Account::query()->whereKey($account->id)->lockForUpdate()->firstOrFail();
+            $locked = Account::query()->lockForUpdate()->findOrFail($account->id);
             $blocker = $locked->deactivationBlocker();
             if ($blocker === null) {
                 $locked->update(['is_active' => false]);

@@ -1,12 +1,15 @@
 <?php
 
 use App\Http\Middleware\RestoreExpiredInput;
+use App\Support\DeletedElsewhere;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -67,5 +70,16 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return redirect()->to($back)->withInput($input)
                 ->with('warning', '画面を開いてから時間がたっていたので、操作できませんでした。入れた内容は残してあるので、もう一度押してください。');
+        });
+
+        // 開いた・保存した口座や分類などが、ほかの画面で削除されていたとき（404）。エラーの画面のかわりに、一覧へ戻して知らせる
+        // （app/Support/DeletedElsewhere.php）。Livewire の部品は、部品の中で知らせる
+        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+            $missing = $e->getPrevious();
+            if (! $missing instanceof ModelNotFoundException || $request->expectsJson() || $request->hasHeader('X-Livewire')) {
+                return null;
+            }
+
+            return DeletedElsewhere::response($missing, $request);
         });
     })->create();

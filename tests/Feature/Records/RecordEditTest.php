@@ -88,9 +88,11 @@ class RecordEditTest extends TestCase
             ->assertDontSee('保存して続けて入力');
     }
 
-    public function test_ない番号の記録を開くと404(): void
+    public function test_ない番号の記録を開くと_エラーの画面でなく一覧で知らせる(): void
     {
-        $this->get('/records/999/edit')->assertNotFound();
+        $this->get('/records/999/edit')
+            ->assertRedirect(route('records.index'))
+            ->assertSessionHas('warning', 'この記録は、ほかの画面で削除されていました。');
     }
 
     public function test_直して保存すると_その記録の月の一覧に戻る(): void

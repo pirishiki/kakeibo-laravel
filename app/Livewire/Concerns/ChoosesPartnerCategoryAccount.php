@@ -289,12 +289,14 @@ trait ChoosesPartnerCategoryAccount
         // 2 つの画面から同じ新しい名前をほぼ同時に保存しても、エラーにならないようにする
         // （ない名前を押さえて探すと、同時に 2 つ作るときに押さえあいになるので、押さえずに探す）
         $partner = Partner::query()->where('name', $this->partnerName)->first();
-        if ($partner === null) {
+        for ($attempt = 1; $partner === null; $attempt++) {
             try {
                 $partner = Partner::create(['name' => $this->partnerName]);
-            } catch (UniqueConstraintViolationException) {
-                // ほかの画面が、いま同じ名前で作った。押さえて読むと、いちばん新しい中身（できたばかりの相手）が見える
-                $partner = Partner::query()->where('name', $this->partnerName)->sharedLock()->firstOrFail();
+            } catch (UniqueConstraintViolationException $e) {
+                // ほかの画面が、いま同じ名前で作った。押さえて読むと、いちばん新しい中身（できたばかりの相手）が見える。
+                // 読むまでに、その相手がまた削除・まとめられていたら（null）、もう一度作る
+                throw_if($attempt >= 3, $e);
+                $partner = Partner::query()->where('name', $this->partnerName)->sharedLock()->first();
             }
         }
 

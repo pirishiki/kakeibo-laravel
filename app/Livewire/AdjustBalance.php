@@ -27,6 +27,9 @@ class AdjustBalance extends Component
 {
     private const TOO_LARGE = '差が大きすぎます。一度に合わせられるのは、差が 99,999,999 円までです。';
 
+    /** 保存のとき、口座がほかの画面で削除されていたことを表す印 */
+    private const DELETED = 'deleted';
+
     /** 合わせる口座。画面の側から書きかえられないようにする（ほかの口座に調整を作られないように） */
     #[Locked]
     public int $accountId;
@@ -54,8 +57,7 @@ class AdjustBalance extends Component
 
     public function mount(Account $account): void
     {
-        // 「使わない」口座はいつも 0 円のまま、という前提を守るため、合わせられない（画面設計書 5.6）
-        abort_unless($account->is_active, 404);
+        // 「使わない」口座は合わせられない（画面設計書 5.6）。開く前に AccountController::adjust で止め、保存のときにも押さえて確かめ直す
 
         // 戻る先：「＋ つけ忘れを記録する」から戻ってきたときも、最初に開く前の画面へ戻れるように、URL の back を先に使う
         $back = request()->query('back');
@@ -76,7 +78,8 @@ class AdjustBalance extends Component
     {
         $until = FormInput::isDate($this->date) ? CarbonImmutable::parse($this->date) : today();
 
-        return $this->account()->balance($until);
+        // ほかの画面で口座が削除されていたときは 0（画面は出さずに口座の一覧へ戻す。render()）
+        return $this->account()?->balance($until) ?? 0;
     }
 
     /**
@@ -154,7 +157,10 @@ class AdjustBalance extends Component
         $error = DB::transaction(function () {
             // 口座を押さえてから、「使う」か・差をもう一度確かめる。
             // 画面を開いたあとに、ほかのタブで「使わない」にされたときや、ほかのタブで先に合わせたとき（差が変わる）に、二重に調整しないため
-            $account = Account::query()->whereKey($this->accountId)->lockForUpdate()->firstOrFail();
+            $account = Account::query()->whereKey($this->accountId)->lockForUpdate()->first();
+            if ($account === null) {
+                return self::DELETED;
+            }
             if (! $account->is_active) {
                 return 'この口座は、ほかの画面で『使わない』にされたので、合わせられません。';
             }
@@ -181,6 +187,9 @@ class AdjustBalance extends Component
 
             return null;
         }, 3);
+        if ($error === self::DELETED) {
+            return $this->leaveDeleted();
+        }
         if ($error !== null) {
             $this->addError('actual', $error);
 
@@ -192,13 +201,29 @@ class AdjustBalance extends Component
         return $this->redirect($this->backUrl);
     }
 
-    public function render(): View
+    public function render(): View|string
     {
+        $account = $this->account();
+        if ($account === null) {
+            // 日付や金額を打っているあいだに、ほかの画面で口座が削除された。エラーの画面のかわりに、口座の一覧へ戻して知らせる
+            $this->leaveDeleted();
+
+            return '<div></div>';
+        }
+
         // 画面に出す残高を覚えておく（保存のときに、いまの残高とくらべる）
         $this->shownBalance = $this->appBalance;
         $this->shownDate = $this->date;
 
-        return view('livewire.adjust-balance', ['account' => $this->account()]);
+        return view('livewire.adjust-balance', ['account' => $account]);
+    }
+
+    /** ほかの画面で口座が削除されていたとき：口座の一覧へ戻して知らせる */
+    private function leaveDeleted(): mixed
+    {
+        session()->flash('warning', 'この口座は、ほかの画面で削除されていたので、合わせていません。');
+
+        return $this->redirect(route('accounts.index'));
     }
 
     /** 差が、記録の金額に入れられる大きさ（±99,999,999 円）をこえているか */
@@ -207,8 +232,9 @@ class AdjustBalance extends Component
         return $this->difference !== null && abs($this->difference) > FormInput::MAX_AMOUNT;
     }
 
-    private function account(): Account
+    /** 合わせる口座。ほかの画面で削除されていたら null */
+    private function account(): ?Account
     {
-        return Account::query()->findOrFail($this->accountId);
+        return Account::query()->find($this->accountId);
     }
 }
