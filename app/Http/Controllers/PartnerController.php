@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -58,7 +59,14 @@ class PartnerController extends Controller
         try {
             // 相手を押さえて読み直してから保存する（ほかの画面で削除されていたら、何も保存していないのに「保存しました」と出さないように。
             // なければ一覧へ戻して知らせる。app/Support/DeletedElsewhere.php）
-            DB::transaction(fn () => Partner::query()->lockForUpdate()->findOrFail($partner->id)->update($data), 3);
+            DB::transaction(function () use ($partner, $data) {
+                $locked = Partner::query()->lockForUpdate()->findOrFail($partner->id);
+                // 入力のチェックのあと、押さえるまでに、ほかの画面で動いている予定がこの相手を使うようになっていたら、「使わない」にしない（4 章の 9）
+                if ($locked->is_active && ! ($data['is_active'] ?? true) && Recurring::usingPartner($locked->id)->running()->exists()) {
+                    throw ValidationException::withMessages(['is_active' => Recurring::IN_USE_MESSAGE]);
+                }
+                $locked->update($data);
+            }, 3);
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
         }
@@ -97,8 +105,20 @@ class PartnerController extends Controller
             return to_route('partners.edit', $partner)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
         }
 
-        // 押さえて読み直してから変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる）
-        DB::transaction(fn () => Partner::query()->lockForUpdate()->findOrFail($partner->id)->update(['is_active' => false]), 3);
+        // 押さえて読み直してから、もう一度確かめて変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる。
+        // 確かめたあとに、ほかの画面で動いている予定がこの相手を使うようになっていたら、「使わない」にしない）
+        $blocked = DB::transaction(function () use ($partner) {
+            $locked = Partner::query()->lockForUpdate()->findOrFail($partner->id);
+            if (Recurring::usingPartner($locked->id)->running()->exists()) {
+                return true;
+            }
+            $locked->update(['is_active' => false]);
+
+            return false;
+        }, 3);
+        if ($blocked) {
+            return to_route('partners.edit', $partner)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
+        }
 
         return to_route('partners.index')->with('status', '「使わない」にしました');
     }

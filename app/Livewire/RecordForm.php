@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Enums\RecordType;
 use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Record;
 use App\Models\Recurring;
@@ -219,6 +220,13 @@ class RecordForm extends Component
             }
             $ids = array_values(array_unique(array_filter([$values['account_id'], $values['to_account_id'], $locked?->account_id, $locked?->to_account_id])));
             $accounts = Account::query()->whereIn('id', $ids)->sharedLock()->get();
+            // 選んだ口座・分類が、ほかの画面で削除されていたら、エラーの画面にせずに選び直してもらう（押さえる順番は 記録→口座→分類→相手）
+            if (! $accounts->contains('id', $values['account_id']) || ($values['to_account_id'] !== null && ! $accounts->contains('id', $values['to_account_id']))) {
+                throw ValidationException::withMessages(['blocker' => '選んだ口座は、ほかの画面で削除されたので、選べません。口座を選び直してください']);
+            }
+            if ($values['category_id'] !== null && ! Category::query()->sharedLock()->whereKey($values['category_id'])->exists()) {
+                throw ValidationException::withMessages(['blocker' => '選んだ分類は、ほかの画面で削除されたので、選べません。分類を選び直してください']);
+            }
             $inactive = $accounts->first(fn (Account $a) => ! $a->is_active && ! in_array($a->id, $this->original()['accounts'], true)
                 && in_array($a->id, [$values['account_id'], $values['to_account_id']], true));
             if ($inactive !== null) {

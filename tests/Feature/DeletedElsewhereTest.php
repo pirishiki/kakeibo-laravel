@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Enums\CategoryKind;
+use App\Enums\RecordType;
 use App\Livewire\AdjustBalance;
+use App\Livewire\RecordForm;
+use App\Livewire\RecurringForm;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
@@ -13,6 +16,7 @@ use App\Models\User;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -81,7 +85,7 @@ class DeletedElsewhereTest extends TestCase
     {
         $this->put('/categories/999', ['name' => '外食', 'parent_id' => '998', 'is_active' => '1'])
             ->assertRedirect(route('categories.index'))
-            ->assertSessionHas('warning', 'この分類は、ほかの画面で削除されていました。何もしていません。');
+            ->assertSessionHas('warning', 'この分類は、ほかの画面で削除されていました。保存していません。打った名前は「外食」でした。');
 
         // 大分類の下に追加する画面で、その大分類が削除されていた（保存して戻ってきたときは、打った名前を出す）
         $this->withSession(['_old_input' => ['name' => 'ランチ']])
@@ -225,6 +229,152 @@ class DeletedElsewhereTest extends TestCase
 
         $component->call('save')->assertRedirect(route('accounts.index'));
         $this->assertSame(0, Record::query()->count());
+    }
+
+    /**
+     * Livewire の画面を開いたあと、本物のブラウザと同じ通り道（/livewire/update）で、打った・押したことを送る。
+     * Livewire::test はこの通り道を通らないので、URL の番号から行を探す処理がもう一度動くかは、これで確かめる
+     *
+     * @param  array<string, mixed>  $updates
+     * @param  list<array<string, mixed>>  $calls
+     */
+    private function livewireUpdate(string $html, array $updates, array $calls = []): TestResponse
+    {
+        preg_match('/wire:snapshot="([^"]+)"/', $html, $m);
+
+        return $this->withHeaders(['X-Livewire' => '1'])->postJson(route('default-livewire.update'), [
+            '_token' => csrf_token(),
+            'components' => [['snapshot' => html_entity_decode($m[1], ENT_QUOTES), 'updates' => $updates, 'calls' => $calls]],
+        ]);
+    }
+
+    public function test_livewireの画面を開いたまま行が削除されても_打つ_押すで404の小窓を出さない(): void
+    {
+        $account = Account::factory()->create(['name' => '財布']);
+        $html = $this->get(route('accounts.adjust', $account))->assertOk()->getContent();
+        Account::query()->whereKey($account->id)->delete();
+        $this->livewireUpdate((string) $html, ['actual' => '1000'])->assertOk()->assertJsonPath('components.0.effects.redirect', route('accounts.index'));
+
+        $record = Record::factory()->create();
+        $html = $this->get(route('records.edit', $record))->assertOk()->getContent();
+        $record->delete();
+        $this->livewireUpdate((string) $html, ['amount' => '2,000'], [['path' => '', 'method' => 'save', 'params' => []]])
+            ->assertOk();
+
+        $rent = Recurring::factory()->create();
+        $html = $this->get(route('recurrings.edit', $rent))->assertOk()->getContent();
+        $rent->delete();
+        $this->livewireUpdate((string) $html, ['name' => '家賃（直した）'])->assertOk();
+    }
+
+    public function test_打った内容を持って変更の画面へ戻る途中で削除されていたら_追加の画面へ持っていく(): void
+    {
+        // 入力のまちがい・時間切れで戻ってきた（old() がある）
+        $this->withSession(['_old_input' => ['name' => '旅行の財布', 'type' => 'cash', 'is_active' => '0']])
+            ->get('/accounts/999/edit')
+            ->assertRedirect(route('accounts.create'))
+            ->assertSessionHasInput('name', '旅行の財布')
+            ->assertSessionHas('warning', 'この口座は、ほかの画面で削除されていました。打った内容を入れておいたので、保存すると新しい口座として追加できます。「使わない」は、追加したあとに変更の画面で選んでください。');
+    }
+
+    public function test_ログインし直して変更の画面へ戻る途中で削除されていたら_取っておいた入力を追加の画面へ持っていく(): void
+    {
+        $this->withSession(['expired_input' => ['url' => url('/partners/999/edit'), 'input' => ['name' => 'パン屋'], 'at' => now()->timestamp]])
+            ->get('/partners/999/edit')
+            ->assertRedirect(route('partners.create'))
+            ->assertSessionHasInput('name', 'パン屋')
+            ->assertSessionMissing('expired_input');
+    }
+
+    public function test_まとめるを2回押したときは_まとめられていると伝える(): void
+    {
+        $this->post('/partners/999/merge', ['merge_target' => 'コンビニ'])
+            ->assertRedirect(route('partners.index'))
+            ->assertSessionHas('status', 'この相手は、もうまとめられているか、削除されています');
+    }
+
+    /** 押さえて読む（共有ロック）問い合わせが、ある表に届いた瞬間に、一度だけ $then を動かす */
+    private function onSharedLock(string $table, callable $then): void
+    {
+        $done = false;
+        DB::listen(function (QueryExecuted $query) use ($table, $then, &$done) {
+            if (! $done && str_contains($query->sql, '`'.$table.'`') && (str_contains($query->sql, 'lock in share mode') || str_contains($query->sql, 'for share'))) {
+                $done = true;
+                $then();
+            }
+        });
+    }
+
+    public function test_追加の保存の途中で大分類が削除されたら_エラーの画面にせずに選び直してもらう(): void
+    {
+        $food = Category::factory()->create(['name' => '趣味のもの', 'kind' => CategoryKind::Expense]);
+        Category::creating(fn () => Category::query()->whereKey($food->id)->delete());
+
+        $this->from(route('categories.create', ['parent' => $food->id]))
+            ->post('/categories', ['name' => 'ランチ', 'parent_id' => (string) $food->id])
+            ->assertSessionHasErrors(['parent_id' => '選んだ大分類は、ほかの画面で削除されていたので、保存していません。選び直してください']);
+    }
+
+    public function test_使わないにする確かめのあと_動いている予定が使うようになっていたら_使わないにしない(): void
+    {
+        $shop = Partner::factory()->create(['name' => 'パン屋']);
+        // 確かめ（押さえる前）のあと、押さえるまでに、ほかの画面で動いている予定がこの相手を使うようになった
+        $done = false;
+        DB::listen(function (QueryExecuted $query) use ($shop, &$done) {
+            if (! $done && str_contains($query->sql, 'for update') && str_contains($query->sql, '`partners`')) {
+                $done = true;
+                Recurring::factory()->create(['partner_id' => $shop->id]);
+            }
+        });
+
+        $this->patch(route('partners.deactivate', $shop))->assertSessionHasErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
+        $this->assertTrue((bool) $shop->fresh()?->is_active);
+    }
+
+    public function test_記録の保存の途中で分類や相手が削除されたら_エラーの画面にしない(): void
+    {
+        $account = Account::factory()->create();
+        $food = Category::factory()->create(['name' => '趣味のもの', 'kind' => CategoryKind::Expense]);
+        $form = Livewire::test(RecordForm::class)->set('amount', '500')->set('categoryId', $food->id)->set('accountId', $account->id)->set('partnerName', 'パン屋');
+
+        // 口座を押さえた瞬間に、分類がほかの画面で削除された
+        $this->onSharedLock('accounts', fn () => Category::query()->whereKey($food->id)->delete());
+        $form->call('save')->assertHasErrors(['blocker' => '選んだ分類は、ほかの画面で削除されたので、選べません。分類を選び直してください']);
+        $this->assertSame(0, Record::query()->count());
+    }
+
+    public function test_記録の保存の途中で打った名前の相手が削除されたら_作り直して保存する(): void
+    {
+        $account = Account::factory()->create();
+        $food = Category::factory()->create(['name' => '趣味のもの', 'kind' => CategoryKind::Expense]);
+        $shop = Partner::factory()->create(['name' => 'パン屋']);
+        $form = Livewire::test(RecordForm::class)->set('amount', '500')->set('categoryId', $food->id)->set('accountId', $account->id)->set('partnerName', 'パン屋');
+
+        // 名前で見つけたすぐあと（押さえる前）に、ほかの画面で削除された
+        $done = false;
+        DB::listen(function (QueryExecuted $query) use ($shop, &$done) {
+            if (! $done && str_contains($query->sql, 'from `partners` where `name`') && ! str_contains($query->sql, 'share')) {
+                $done = true;
+                Partner::query()->whereKey($shop->id)->delete();
+            }
+        });
+
+        $form->call('save')->assertHasNoErrors();
+        $this->assertTrue($done);
+        $this->assertSame('パン屋', Record::query()->sole()->partner?->name);
+    }
+
+    public function test_定期の保存の途中で分類が使わないにされたら_保存しない(): void
+    {
+        $food = Category::factory()->create(['name' => '趣味のもの', 'kind' => CategoryKind::Expense]);
+        $rent = Recurring::factory()->create(['type' => RecordType::Expense, 'to_account_id' => null, 'category_id' => $food->id,
+            'partner_id' => Partner::factory()->create(['name' => '大家さん'])->id]);
+        $form = Livewire::test(RecurringForm::class, ['recurring' => $rent])->set('name', '直した');
+        $categoryId = $food->id;
+
+        $this->onSharedLock('accounts', fn () => Category::query()->whereKey($categoryId)->update(['is_active' => false]));
+        $form->call('save')->assertHasErrors(['save' => '分類「趣味のもの」は、ほかの画面で『使わない』にされたので、選べません。分類を選び直してください']);
+        $this->assertNotSame('直した', $rent->fresh()?->name);
     }
 
     public function test_決まっていない種類の行は_今までどおり404(): void

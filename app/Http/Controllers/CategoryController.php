@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 /**
@@ -73,10 +74,21 @@ class CategoryController extends Controller
             $category = Category::create($data);
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
+        } catch (QueryException $e) {
+            // 確かめたあと、保存までに、親の大分類がほかの画面で削除された（データベースの外部キーで止まる）
+            throw_if($e->getCode() !== '23000', $e);
+
+            return back()->withInput()->withErrors(['parent_id' => self::PARENT_GONE_MESSAGE]);
         }
 
         return $this->toRow($category)->with('status', '保存しました');
     }
+
+    /** 選んだ大分類が、保存までにほかの画面で削除されていたときの文 */
+    private const PARENT_GONE_MESSAGE = '選んだ大分類は、ほかの画面で削除されていたので、保存していません。選び直してください';
+
+    /** 小分類を「使わない」大分類の下へ移せないときの文（CategoryRequest と同じ） */
+    private const MOVE_BLOCKED_MESSAGE = '「使う」の定期的な記録が使っているので、『使わない』の大分類の下へは移せません。先に定期的な記録を直してください';
 
     public function edit(Category $category): View
     {
@@ -105,6 +117,22 @@ class CategoryController extends Controller
                 $locked = Category::query()->lockForUpdate()->findOrFail($category->id);
                 $locked->fill($data);
 
+                // 入力のチェックのあと、押さえるまでに、ほかの画面で定期的な記録が変わっていることがあるので、押さえたあとに確かめ直す
+                // （動いている予定が「使わない」分類を使う形にしないため。画面設計書 4 章の 9）。押さえる順番は 小分類→大分類
+                $running = fn () => Recurring::usingCategory($locked)->running()->exists();
+                if ($locked->isDirty('is_active') && ! $locked->is_active && $running()) {
+                    throw ValidationException::withMessages(['is_active' => Recurring::IN_USE_MESSAGE]);
+                }
+                if (! $locked->isParent() && $locked->isDirty('parent_id')) {
+                    $parent = Category::query()->sharedLock()->find($locked->parent_id);
+                    if ($parent === null) {
+                        throw ValidationException::withMessages(['parent_id' => self::PARENT_GONE_MESSAGE]);
+                    }
+                    if (! $parent->is_active && $running()) {
+                        throw ValidationException::withMessages(['parent_id' => self::MOVE_BLOCKED_MESSAGE]);
+                    }
+                }
+
                 // 小分類を別の大分類へ移したときは、移した先のいちばん下に入れる。過去の記録も小分類についていくので、いっしょに移る
                 // 「使う」に戻したときも、使う分類のいちばん下に入れる（好きな場所へは、つまみで動かす）
                 if ($locked->isDirty('parent_id') || ($locked->isDirty('is_active') && $locked->is_active)) {
@@ -116,6 +144,11 @@ class CategoryController extends Controller
             }, 3);
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
+        } catch (QueryException $e) {
+            // 押さえて確かめたあとでも、データベースの決まり（外部キー）で止まったときは、エラーの画面にせずに戻す
+            throw_if($e->getCode() !== '23000', $e);
+
+            return back()->withInput()->withErrors(['parent_id' => self::PARENT_GONE_MESSAGE]);
         }
 
         return $this->toRow($category)->with('status', '保存しました');
@@ -156,8 +189,20 @@ class CategoryController extends Controller
             return to_route('categories.edit', $category)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
         }
 
-        // 押さえて読み直してから変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる）
-        DB::transaction(fn () => Category::query()->lockForUpdate()->findOrFail($category->id)->update(['is_active' => false]), 3);
+        // 押さえて読み直してから、もう一度確かめて変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる。
+        // 確かめたあとに、ほかの画面で動いている予定がこの分類を使うようになっていたら、「使わない」にしない）
+        $blocked = DB::transaction(function () use ($category) {
+            $locked = Category::query()->lockForUpdate()->findOrFail($category->id);
+            if (Recurring::usingCategory($locked)->running()->exists()) {
+                return true;
+            }
+            $locked->update(['is_active' => false]);
+
+            return false;
+        }, 3);
+        if ($blocked) {
+            return to_route('categories.edit', $category)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
+        }
 
         return $this->toRow($category)->with('status', '「使わない」にしました');
     }

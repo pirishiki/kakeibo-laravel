@@ -6,6 +6,7 @@ use App\Enums\RecordType;
 use App\Enums\RecurringShift;
 use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Recurring;
 use App\Models\RecurringSkip;
@@ -282,11 +283,29 @@ class RecurringForm extends Component
 
             // 口座を押さえてから「使う」かを確かめ直す。動いている予定（使うで、最後の月が今月か先）は、「使わない」口座を使えない（4 章の 9）
             $accounts = Account::query()->whereIn('id', array_filter([$values['account_id'], $values['to_account_id']]))->sharedLock()->get();
+            // 選んだ口座が、ほかの画面で削除されていたら、エラーの画面にせずに選び直してもらう
+            if ($accounts->count() !== count(array_unique(array_filter([$values['account_id'], $values['to_account_id']])))) {
+                throw ValidationException::withMessages(['save' => '選んだ口座は、ほかの画面で削除されたので、選べません。口座を選び直してください']);
+            }
             $end = $values['end_month'];
             $willRun = $values['is_active'] && ($end === null || CarbonImmutable::parse($end)->gte(today()->startOfMonth()));
             $inactive = $accounts->first(fn (Account $a) => ! $a->is_active);
             if ($willRun && $inactive !== null) {
                 throw ValidationException::withMessages(['save' => '口座「'.$inactive->name.'」は、ほかの画面で『使わない』にされたので、選べません。口座を選び直してください']);
+            }
+
+            // 分類も押さえて（小分類→大分類の順）確かめ直す。確かめたあと、保存までに、ほかの画面で分類が「使わない」にされた・削除されたとき、
+            // 動いている予定が「使わない」分類を使う形にしない・エラーの画面にしない（分類の「使わない」も、分類を押さえてから予定を確かめる）
+            if ($values['category_id'] !== null) {
+                $category = Category::query()->sharedLock()->find($values['category_id']);
+                $parent = $category?->parent_id === null ? $category : Category::query()->sharedLock()->find($category->parent_id);
+                if ($category === null || $parent === null) {
+                    throw ValidationException::withMessages(['save' => '選んだ分類は、ほかの画面で削除されたので、選べません。分類を選び直してください']);
+                }
+                $off = $category->is_active ? ($parent->is_active ? null : $parent) : $category;
+                if ($willRun && $off !== null) {
+                    throw ValidationException::withMessages(['save' => '分類「'.$off->name.'」は、ほかの画面で『使わない』にされたので、選べません。分類を選び直してください']);
+                }
             }
 
             if ($this->hasCategory()) {

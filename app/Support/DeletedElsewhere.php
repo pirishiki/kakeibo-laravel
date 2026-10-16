@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Http\Middleware\RestoreExpiredInput;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Goal;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 
 /**
  * 開いた・保存した口座や分類などが、ほかの画面で削除されていたとき（データベースに行がなく、Laravel が 404 にするとき）。
@@ -58,23 +60,72 @@ class DeletedElsewhere
         }
 
         $deleted = 'この'.$label.'は、ほかの画面で削除されていました。';
+        $keeps = in_array($prefix, self::KEEP_INPUT, true);
         if ($request->isMethod('GET')) {
+            // 保存できずに打った内容を持って変更の画面へ戻ってきた（入力のまちがい・時間切れ・ログインし直し）ときは、それを捨てずに追加の画面へ持っていく
+            $kept = $keeps && $request->routeIs($prefix.'.edit') ? self::keptInput($request) : null;
+            if ($kept !== null) {
+                return self::toCreate($prefix, $label, $kept, $deleted);
+            }
+
             return to_route($prefix.'.index')->with('warning', $deleted);
         }
         if ($request->isMethod('DELETE')) {
             // ほかの画面で削除されたか、削除を 2 回押して 2 回届いた。どちらでも、もうないことだけを伝える
             return to_route($prefix.'.index')->with('status', 'この'.$label.'は、もう削除されています');
         }
-        if ($request->routeIs($prefix.'.update') && in_array($prefix, self::KEEP_INPUT, true)) {
-            $create = self::createUrl($prefix, $request);
-            if ($create !== null) {
-                return redirect()->to($create)->withInput(self::input($request))
-                    ->with('warning', $deleted.'保存していません。打った内容を入れておいたので、保存すると新しい'.$label.'として追加できます。');
-            }
+        if ($request->routeIs('partners.merge')) {
+            // まとめるを 2 回押して 2 回届いたときもここ（1 回目でまとめて、この相手はなくなっている）。失敗したと思わせないように
+            return to_route('partners.index')->with('status', 'この相手は、もうまとめられているか、削除されています');
+        }
+        if ($request->routeIs($prefix.'.update') && $keeps) {
+            return self::toCreate($prefix, $label, self::input($request), $deleted.'保存していません。');
         }
 
-        // 「使わない」にする・まとめる、など。もう行がないので、何もしていないことを伝える
+        // 「使わない」にする、など。もう行がないので、何もしていないことを伝える
         return to_route($prefix.'.index')->with('warning', $deleted.'何もしていません。');
+    }
+
+    /**
+     * 打った内容を持って、追加の画面へ移る。持っていく先がないとき（小分類の元の大分類も削除されていた）は、一覧で打った名前を文に出す
+     *
+     * @param  array<string, mixed>  $input
+     */
+    private static function toCreate(string $prefix, string $label, array $input, string $message): RedirectResponse
+    {
+        $name = is_string($input['name'] ?? null) && $input['name'] !== '' ? $input['name'] : null;
+        $create = self::createUrl($prefix, $input);
+        if ($create === null) {
+            return to_route($prefix.'.index')->with('warning', $message.($name !== null ? '打った名前は「'.$name.'」でした。' : ''));
+        }
+        // 追加の画面には「使う・使わない」の欄がない（追加したものは「使う」から始まる）ので、選んでいたことを黙って捨てずに伝える
+        $inactive = ($input['is_active'] ?? null) === '0' ? '「使わない」は、追加したあとに変更の画面で選んでください。' : '';
+
+        return redirect()->to($create)->withInput($input)
+            ->with('warning', $message.'打った内容を入れておいたので、保存すると新しい'.$label.'として追加できます。'.$inactive);
+    }
+
+    /**
+     * 変更の画面へ持って戻ってきた、打った内容（入力のまちがい・時間切れで戻ったときは old()、ログインし直したときは取っておいた入力）。ないときは null。
+     * ログインし直したときの入力は、ふだんは RestoreExpiredInput が欄に戻すが、URL の番号で探せないとそこまで届かないので、ここで取り出す
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function keptInput(Request $request): ?array
+    {
+        $old = $request->session()->getOldInput();
+        if (is_array($old) && $old !== []) {
+            return Arr::except($old, ['_token', '_method', 'opened_at', 'originals']);
+        }
+        $saved = $request->session()->get('expired_input');
+        if (is_array($saved) && ($saved['at'] ?? 0) >= now()->timestamp - RestoreExpiredInput::KEEP_SECONDS
+            && RestoreExpiredInput::place((string) ($saved['url'] ?? '')) === RestoreExpiredInput::place($request->fullUrl())) {
+            $request->session()->forget('expired_input');
+
+            return Arr::except((array) ($saved['input'] ?? []), ['_token', '_method', 'opened_at', 'originals']);
+        }
+
+        return null;
     }
 
     /**
@@ -98,14 +149,15 @@ class DeletedElsewhere
     }
 
     /** 追加の画面の URL。小分類は、元の大分類がまだあるときだけ、その下に追加する画面へ（大分類も消えていたら、持っていく先がないので null） */
-    private static function createUrl(string $prefix, Request $request): ?string
+    /** @param  array<string, mixed>  $input */
+    private static function createUrl(string $prefix, array $input): ?string
     {
         if ($prefix !== 'categories') {
             return route($prefix.'.create');
         }
-        $parent = $request->input('parent_id');
+        $parent = $input['parent_id'] ?? null;
         if ($parent === null || $parent === '') {
-            return route('categories.create', ['kind' => $request->string('kind')->toString()]);
+            return route('categories.create', ['kind' => is_string($input['kind'] ?? null) ? $input['kind'] : '']);
         }
 
         return is_numeric($parent) && Category::query()->whereNull('parent_id')->whereKey((int) $parent)->exists()

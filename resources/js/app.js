@@ -353,6 +353,12 @@ document.addEventListener('livewire:init', () => {
                 keepFieldsForReload();
                 showPageAlert('画面を開いてから時間がたっていたので、操作できませんでした。［読みこみ直す］を押すと、入れた内容を欄に戻します（ログインが切れていたら、ログインし直したあとに戻します）。');
             }
+            // 見つからない（404）：ふつうは部品が自分で知らせるが、それでも届いたときに、英語の小窓のかわりに日本語で知らせる（入力は残す）
+            if (status === 404) {
+                preventDefault();
+                keepFieldsForReload();
+                showPageAlert('この画面で使っているものが、ほかの画面で削除されていたので、操作できませんでした。一覧から開き直してください。');
+            }
         });
     });
 });

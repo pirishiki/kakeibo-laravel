@@ -33,7 +33,7 @@ class RestoreExpiredInput
     }
 
     /** 画面の場所（パスとクエリ）。http/https やポートのちがい（CloudFront の前と後など）では、別の画面にしない */
-    private static function place(string $url): string
+    public static function place(string $url): string
     {
         $parts = parse_url($url);
 
