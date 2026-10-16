@@ -18,7 +18,7 @@
 
 ## 大事にしたこと：めんどくさがりでも続けられる
 
-家計簿は、続けないと意味がない。そこで「めんどくさがりでも続けられるアプリ」を目指し、機能や作りを選ぶときのものさしにした（以下は、これから作る予定のものを含む）。
+家計簿は、続けないと意味がない。そこで「めんどくさがりでも続けられるアプリ」を目指し、機能や作りを選ぶときのものさしにした。
 
 - **入力の手間を減らす**
   - 給料・ローン・電気代などの毎月のお金は、一度登録すれば自動で記録される
@@ -36,14 +36,14 @@
 
 ## 動いているところ
 
-デプロイは 2 回行う（第 1 段階のあと・完成後）。回ごとに、操作の動画・日付・段階・URL を書く。動くことを確かめたら AWS は destroy するので、URL はそのときだけ開ける。
+アプリは 3 つの段階に分けて作った（どの段階で何を作ったかは要件定義書 5.2）。デプロイは 2 回行う（第 1 段階のあと・完成後）。回ごとに、操作の動画・日付・段階・URL を書く。動くことを確かめたら AWS は destroy するので、URL はそのときだけ開ける。
 
 ### 1 回目（第 1 段階）
 
 - 日付：2026年10月15日
 - 段階：第 1 段階（ログイン・口座・分類・相手・記録の登録と一覧・残高を合わせる・月のまとめ・設定・ホーム）
 - URL：https://dbzl8cqvinyro.cloudfront.net （destroy したので、今は開けない）
-- 入れたデータ：テスト用のデータだけ（口座 5・分類 20・相手 50・記録 1 万件。`TestDataSeeder`）。ログインの人は `testing@example.com`
+- 入れたデータ：テスト用のデータだけ（口座 5・分類 20・相手 50・記録 1 万件。`TestDataSeeder`）。ログインに使った人は `testing@example.com`
 
 https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 
@@ -57,7 +57,7 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 
 ## 設計で大事にした判断
 
-ここは目次。くわしい理由と、比べて選ばなかった案（「ほかに考えた案」）は、それぞれの判断のすぐ横に書いている。
+くわしい理由と、比べて選ばなかった案（「ほかに考えた案」）は、次の文書で、それぞれの判断のすぐ横に書いている。
 
 - 何を作るかの判断（口座・相手・分類・ログインなど）と技術の選び方：[要件定義書](要件定義書.md) 4.1・5 章
 - データの持ち方の判断：[データベース設計書](データベース設計書.md)
@@ -84,7 +84,7 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
   - AWS は動くことを確かめたら数時間で destroy し、NAT ゲートウェイもふくめて、destroy 1 回で全部消える形にする（別に止める手順があると、止め忘れるため）
   - 料金の見張り（予算アラート）だけはアプリと別に残し、消し忘れにメールで気づけるようにする
 - **見やすい画面にする**
-  - ホームはカード型にし、使える額をいちばん大きなカードにする。その下に今月のカレンダーを入れる
+  - ホームはカード型にし、使える額をいちばん大きなカードにする。残高の合計・収支などの小さなカードを並べ、その下に今月のカレンダーを入れる
   - 赤は「気をつけて」（マイナス・予算こえ・入力のまちがい）だけに使い、ふだんの支出は赤くしない
   - 基本の色は、注意の赤とも収入の緑とも見まちがえない青緑にする
 
@@ -102,6 +102,8 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 | [画面の下書き](画面の下書き.html) | 画面がどんな見た目か。どの案と比べて選んだか（ダウンロードしてブラウザで開く） |
 | [開発環境の下書き](開発環境の下書き.html) | 開発環境（PHP・MySQL の置き方、ログイン、Livewire、Bootstrap、CI、Dependabot、バックアップ）をどの案と比べて選んだか（ダウンロードしてブラウザで開く） |
 
+3 つの下書き（.html）は、作るときに案を比べた記録で、そのときのまま残している。作る途中の言い回しや、あとで変えたことが入っているので、決めたことは設計書のほうが正しい。
+
 はじめて読むときは、要件定義書から読む。目的と、作るもの・作らないものがわかると、ほかの文書の判断の理由が追いやすい。
 
 ## 開発の進め方
@@ -117,7 +119,7 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 
 | 層 | 技術 |
 |---|---|
-| フロントエンド | Blade（Laravel の画面のひな形）+ Livewire（画面の一部だけを書きかえる）+ Alpine.js（小さな動き）、Bootstrap 5.3（Sass で色を変え、Vite でビルド） |
+| フロントエンド | Blade（Laravel の画面のひな形）+ Livewire（画面の一部だけを書きかえる）+ ふつうの JavaScript（サーバーに聞かなくてよい小さな動き）、Bootstrap 5.3（Sass で色を変え、Vite でビルド） |
 | バックエンド | PHP 8.5 + Laravel 13、ログインは Fortify（部品の管理は Composer） |
 | データベース | MySQL 8.4（LTS） |
 | インフラ | AWS（CloudFront・EC2・RDS）を Terraform で作る |
@@ -176,7 +178,7 @@ docker compose up -d --wait
 php artisan migrate
 ```
 
-- `docker compose up -d --wait` で、MySQL 8.4 の箱が動く（`compose.yaml`）。`--wait` は、MySQL が受けつけられる状態になるまで待つ（初めてのときは数十秒かかる。待たずに migrate を打つと、つなげずに失敗する）。初めて動かすときは、ふだん使う `kakeibo` と、テスト用の `kakeibo_testing` の 2 つのデータベースができる。
+- `docker compose up -d --wait` で、MySQL 8.4 の入ったコンテナ（Docker の箱）が動く（`compose.yaml`）。`--wait` は、MySQL が受けつけられる状態になるまで待つ（初めてのときは数十秒かかる。待たずに migrate を打つと、つなげずに失敗する）。初めて動かすときは、ふだん使う `kakeibo` と、テスト用の `kakeibo_testing` の 2 つのデータベースができる。
 - 止めるときは `docker compose stop`。データは Docker のボリュームに残る。
 
 ### 5. ログインするユーザーを作る（最初の 1 回だけ）
@@ -245,7 +247,7 @@ powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\ka
 - 戻すときは、戻す先のデータベースをいったん空にしてから戻すので、バックアップを取った瞬間とまったく同じ中身になる（空にしないと、あとで足した表が残り、マイグレーションの帳簿とちぐはぐになるため）。空にする前の中身は `backups\<名前>-<日時>-before-restore.sql` に自動で保存されるので、まちがえて戻しても、そのファイルから戻せる。
 - `backups\` は Git に入れない。中身は自分のお金の記録のため。
 - PowerShell の `>` でファイルに書くと文字の形が変わり、日本語が化ける。スクリプトは MySQL の箱の中でファイルを作り、PC に写している。
-- 戻したあとの確かめ方：`$env:DB_DATABASE = 'kakeibo_restore'; php artisan db:show --counts` で、表ごとの行の数が元と同じかを見る（ターミナルを閉じると元に戻る）。記録の機能ができたら、記録の件数と残高でも確かめる（要件定義書 10 章）。
+- 戻したあとの確かめ方：`$env:DB_DATABASE = 'kakeibo_restore'; php artisan db:show --counts` で、表ごとの行の数が元と同じかを見る（ターミナルを閉じると元に戻る）。記録の件数は、この一覧の records の行の数で見る。残高は、同じターミナルで `php artisan serve`（6）を動かすと戻したデータベースで画面が開くので、口座の管理の画面で元と同じかを見る（要件定義書 10.4）。
 
 ### 9. 部品の更新
 
@@ -281,8 +283,7 @@ $account = aws sts get-caller-identity --profile dothething --query Account --ou
 $budget = '{"BudgetName":"monthly-5usd","BudgetLimit":{"Amount":"5","Unit":"USD"},"TimeUnit":"MONTHLY","BudgetType":"COST","CostTypes":{"IncludeCredit":false,"IncludeRefund":false}}'
 $notify = '[{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":50,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"ACTUAL","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]},{"Notification":{"NotificationType":"FORECASTED","ComparisonOperator":"GREATER_THAN","Threshold":100,"ThresholdType":"PERCENTAGE"},"Subscribers":[{"SubscriptionType":"EMAIL","Address":"<メールアドレス>"}]}]'
 [IO.File]::WriteAllText("$PWD\budget.json", $budget)
-[IO.File]::WriteAllText("$PWD
-otify.json", $notify)
+[IO.File]::WriteAllText("$PWD\notify.json", $notify)
 aws budgets create-budget --profile dothething --account-id $account --budget file://budget.json --notifications-with-subscribers file://notify.json
 Remove-Item budget.json, notify.json
 ```
@@ -336,8 +337,8 @@ sudo -u kakeibo php /var/www/kakeibo/artisan db:seed --class=TestDataSeeder --fo
 | http で開くと https に移る（N-03） | 301 で https へ移った |
 | ログインしないと中が見えない（N-01） | ログイン画面へ移った（移り先も https） |
 | パスワードは元に戻せない形で保存される（N-02） | `$2y$12$…`（bcrypt）で保存されていた |
-| 記録 1 万件でも 1 秒以内に開く（N-12） | EC2 の中で画面を作る時間は 0.03〜0.11 秒（ホーム 108ms・記録の一覧 67ms・月のまとめ 82ms）。10.4 で決めた「ブラウザの開発者ツールではかる」方法では、はかっていない（2 回目のデプロイではかる） |
-| スマホとパソコンで使える（N-11・N-13） | パソコンの Chrome で、動画の画面を使えた。スマホの並べ方は、パソコンのブラウザの幅を細くして確かめた。実物のスマホでは、ログインだけ確かめた。スマホの Safari・Chrome での操作と、パソコンの Edge は、まだ確かめていない（2 回目のデプロイで確かめる） |
+| 記録 1 万件でも 1 秒以内に開く（N-12） | EC2 の中で画面を作る時間は 0.03〜0.11 秒（ホーム 108ms・記録の一覧 67ms・月のまとめ 82ms）。要件定義書 10.4 で決めた「ブラウザの開発者ツールではかる」方法では、はかっていない（2 回目のデプロイではかる） |
+| スマホとパソコンで使える（N-11・N-13） | パソコンの Chrome で、動画の画面を使えた。スマホの並べ方は、パソコンのブラウザの幅を細くして確かめた。実物のスマホでは、ログインだけ確かめた。実物のスマホ（Android の Chrome）での操作は、まだ確かめていない（2 回目のデプロイで確かめる。確かめるブラウザ（N-13）は、2026-10-17 に実際に使うものだけに変えた） |
 | EC2 から RDS へ暗号化（TLS）してつながる | RDS の証明書の元を指定した設定で、マイグレーションとテスト用のデータの書きこみができた |
 | CloudFront から EC2 へ、決めた入口（CloudFront の住所の一覧）で届く（全体構成設計書 3 章） | 届いた |
 
@@ -381,4 +382,9 @@ aws ec2 describe-network-interfaces --profile dothething --region ap-southeast-2
 
 コマンドの種類ごとの一覧（CloudFront の配信・VPC オリジン・CloudFront Functions・NAT ゲートウェイ・EC2・RDS・VPC・サブネット・セキュリティグループ・ネットワークインターフェース・出口の IP・金庫・IAM ロール）で、このアプリのものが 0 件なことを確かめた。名札で探すと、消したばかりの 9 件が出たが、1 つずつ見るとすべて消えていた。AWS のコンソールでも、EC2・NAT ゲートウェイ・VPC・RDS（DB インスタンスとスナップショット）・CloudFront が残っていないことを見た。残したのは予算アラート（コンソールでも monthly-5usd があることを見た）と、手元の台帳（中身は空）だけ。
 
-1 回目のデプロイで見つかったこと（直してある）：EC2 の最初の準備で Composer が止まった（HOME が空のため）、デプロイ用のスクリプトの最初の回だけ止まる手順（optimize:clear）、セッションの Cookie の名前、nginx の注意。
+1 回目のデプロイで見つかったこと（どれも直してある）：
+
+- EC2 の最初の準備で、Composer が止まった（HOME の場所が空だったため。HOME を渡すようにした）
+- デプロイ用のスクリプトが、最初の 1 回だけ止まった（`optimize:clear` が、まだないキャッシュの表を消そうとしたため。消すものをしぼった）
+- セッションの Cookie の名前が「-session」になっていた（名前を決めていなかったので、アプリの名前「家計簿」から作られ、日本語の字が消えたため。`kakeibo_session` にした）
+- nginx を動かすたびに注意（warning）が出た（ファイルの種類の表を読む大きさが足りなかったため。`types_hash_max_size` を足した）
