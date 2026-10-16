@@ -301,6 +301,11 @@ class RecurringForm extends Component
                 $parentId = Category::query()->whereKey($values['category_id'])->value('parent_id');
                 $rows = Category::query()->whereKey(array_filter([$values['category_id'], $parentId]))->orderBy('id')->sharedLock()->get()->keyBy('id');
                 $category = $rows->get($values['category_id']);
+                // 読んでから押さえるまでに、小分類がほかの画面で別の大分類へ移されていた（押さえたので、もう移らない）。
+                // 移した先の大分類も押さえる。順番がずれて押さえあいになったときは、やり直しで新しい大分類から id の順に押さえ直す
+                if ($category?->parent_id !== null && ! $rows->has($category->parent_id)) {
+                    $rows->put($category->parent_id, Category::query()->sharedLock()->find($category->parent_id));
+                }
                 $parent = $category?->parent_id === null ? $category : $rows->get($category->parent_id);
                 if ($category === null || $parent === null) {
                     throw ValidationException::withMessages(['save' => '選んだ分類は、ほかの画面で削除されたので、選べません。分類を選び直してください']);
