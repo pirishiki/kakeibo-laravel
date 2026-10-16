@@ -63,5 +63,5 @@
     @error('deadline_month')
         <div class="text-danger small mt-1">{{ $message }}</div>
     @enderror
-    <div class="form-text">今月より前は選べません</div>
+    <div class="form-text">今月より前にはできません。年を「なし」にすると期限なし</div>
 </fieldset>

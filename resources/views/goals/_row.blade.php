@@ -10,7 +10,8 @@
             @endif
         </span>
         <span class="text-nowrap">
-            <x-money :amount="$row['balance']" /> / {{ number_format($goal->target_amount) }}（{{ $row['percent'] }}%）
+            {{-- 達成した目標は % を出さない（100% をこえた数より、「✓ 達成」で伝えるほうがわかりやすいため。画面設計書 5.13 の図） --}}
+            <x-money :amount="$row['balance']" /> / {{ number_format($goal->target_amount) }}@unless ($row['achieved'])（{{ $row['percent'] }}%）@endunless
             <span class="text-secondary ms-1" aria-hidden="true">›</span>
         </span>
     </div>
@@ -24,7 +25,7 @@
     <div class="small text-secondary">
         {{ $goal->account->name }}・{{ $goal->deadline_month !== null ? $goal->deadline_month->format('Y年n月').'まで' : '期限なし' }}
         @if ($row['monthsLeft'] !== null)
-            <br>（あと {{ $row['monthsLeft'] }} か月、1 か月あたり {{ number_format($row['perMonth']) }}）
+            <br>（あと {{ $row['monthsLeft'] }} か月、1 か月あたり {{ number_format($row['perMonth']) }} 円）
         @endif
     </div>
     @if ($row['overdue'])

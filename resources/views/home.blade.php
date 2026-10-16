@@ -4,7 +4,7 @@
 
 @section('title', 'ホーム')
 
-{{-- ホーム（画面設計書 5.2）。カード型（6.1）で、上から お知らせ → 使える額 → 今月のカレンダー → 小さなカード（残高・収支・多く使った分類・貯金の目標）→ 最近の記録 --}}
+{{-- ホーム（画面設計書 5.2）。カード型（6.1）で、上から お知らせ → 使える額と小さなカード（残高・収支・多く使った分類・貯金の目標）→ 今月のカレンダー → 最近の記録 --}}
 @section('content')
     <h1 class="visually-hidden">ホーム</h1>
 
@@ -14,8 +14,8 @@
 
         {{-- 使える額（第 2 段階）：いちばん大きな、色つきのカード。1 日あたり・1 週間あたりと、押すと開く内訳 3 行 --}}
         @if ($accounts->isNotEmpty())
-            <div class="col-12">
-                <section class="card home-card home-available">
+            <div class="col-12 col-lg-6">
+                <section class="card home-card home-available h-100">
                     <div class="card-body">
                         <h2 class="home-label">使える額</h2>
                         <p class="home-available-value mb-1"><x-money :amount="$available['available']" /></p>
@@ -66,6 +66,110 @@
                 </section>
             </div>
         @endif
+
+        {{-- 小さなカード（今の残高の合計・今月の収支・多く使った分類・貯金の目標）：使える額といっしょに、カレンダーより上で見られるように並べる（本人の希望）。
+             スマホでは使える額の下に 2 列、パソコンでは使える額の右に 2×2。使える額がないとき（口座がまだないとき）は横いっぱいに --}}
+        <div @class(["col-12", "col-lg-6" => $accounts->isNotEmpty()])>
+            <div class="row g-3">
+        {{-- 今の残高の合計：今日までの記録で計算する。「口座ごと」を押すと、その場で口座ごとの残高が開く --}}
+        <div class="col-6">
+            <section class="card home-card h-100">
+                <div class="card-body">
+                    <h2 class="home-label">今の残高の合計</h2>
+                    @if ($accounts->isEmpty())
+                        <p class="small mb-2">まだ口座がありません</p>
+                        <a href="{{ route('accounts.create') }}" class="btn btn-sm btn-outline-primary">口座を追加する</a>
+                    @else
+                        <p class="home-value mb-1"><x-money :amount="array_sum($balances)" /></p>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-inline-flex align-items-center gap-1"
+                            data-bs-toggle="collapse" data-bs-target="#home-accounts" aria-expanded="false" aria-controls="home-accounts">
+                            口座ごと <x-chevron />
+                        </button>
+                    @endif
+                </div>
+                @if ($accounts->isNotEmpty())
+                    {{-- 行を押すと、残高を合わせる画面へ --}}
+                    <div class="collapse" id="home-accounts">
+                        <div class="list-group list-group-flush border-top">
+                            @foreach ($accounts as $account)
+                                <a href="{{ route('accounts.adjust', $account) }}"
+                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-baseline gap-2 small">
+                                    <span class="text-break">
+                                        {{ $account->name }}
+                                        @include('accounts._reserve')
+                                    </span>
+                                    <x-money :amount="$balances[$account->id]" class="text-nowrap" />
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            </section>
+        </div>
+
+        {{-- 今月の収支：移動と調整は入れない（記録の一覧・月のまとめと同じ計算）。カードを押すと、月のまとめの今月へ --}}
+        <div class="col-6">
+            <section class="card home-card h-100">
+                <div class="card-body">
+                    <h2 class="home-label">
+                        <a href="{{ route('summary.index') }}" class="stretched-link text-reset text-decoration-none">今月の収支</a>
+                    </h2>
+                    <p class="home-value mb-1"><x-money :amount="$income - $expense" /></p>
+                    <p class="small mb-0">
+                        収入 <x-money :amount="$income" class="fw-bold text-success" /><br>
+                        支出 <x-money :amount="$expense" />
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        {{-- 多く使った分類：今月の支出の大分類を、多い順に 3 つ。カードを押すと、月のまとめの今月へ --}}
+        <div class="col-6">
+            <section class="card home-card h-100">
+                <div class="card-body">
+                    <h2 class="home-label">
+                        <a href="{{ route('summary.index') }}" class="stretched-link text-reset text-decoration-none">多く使った分類</a>
+                    </h2>
+                    @if ($topCategories->isEmpty())
+                        <p class="small text-secondary mb-0">今月の支出はまだありません</p>
+                    @else
+                        <ul class="list-unstyled small mb-0">
+                            @foreach ($topCategories as $row)
+                                <li class="d-flex justify-content-between align-items-baseline gap-2">
+                                    <span class="text-truncate">{{ $row['category']->name }}</span>
+                                    <x-money :amount="$row['amount']" class="text-nowrap" />
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </section>
+        </div>
+
+        {{-- 貯金の目標（第 3 段階）：達成していない目標ごとの進み具合（%）を、一覧と同じ順で。達成したものは出さない。カードを押すと貯金の目標へ --}}
+        <div class="col-6">
+            <section class="card home-card h-100">
+                <div class="card-body">
+                    <h2 class="home-label">
+                        <a href="{{ route('goals.index') }}" class="stretched-link text-reset text-decoration-none">貯金の目標</a>
+                    </h2>
+                    @if ($goals === [])
+                        <p class="small text-secondary mb-0">{{ $hasGoals ? '全部の目標を達成しました' : 'まだ目標がありません。押すと追加できます' }}</p>
+                    @else
+                        <ul class="list-unstyled small mb-0">
+                            @foreach ($goals as $row)
+                                <li class="d-flex justify-content-between align-items-baseline gap-2">
+                                    <span class="text-truncate">{{ $row['goal']->name }}</span>
+                                    <span class="text-nowrap">{{ $row['percent'] }}%</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </section>
+        </div>
+            </div>
+        </div>
 
         {{-- 今月のカレンダー：今月だけ（ホームでは月を切りかえない）。マスには、その日の支出（ふつうの字）と収入（緑の太字に「+」）。移動と調整は出さない --}}
         <div class="col-12">
@@ -132,104 +236,6 @@
                     <p class="small text-secondary mb-0 mt-2">
                         ふつうの字＝支出　<span class="fw-bold text-success">緑の太字（+）</span>＝収入　灰色＝これからの予定　日を押すと、その日の記録へ
                     </p>
-                </div>
-            </section>
-        </div>
-
-        {{-- 今の残高の合計：今日までの記録で計算する。「口座ごと」を押すと、その場で口座ごとの残高が開く --}}
-        <div class="col-6 col-lg-4">
-            <section class="card home-card h-100">
-                <div class="card-body">
-                    <h2 class="home-label">今の残高の合計</h2>
-                    @if ($accounts->isEmpty())
-                        <p class="small mb-2">まだ口座がありません</p>
-                        <a href="{{ route('accounts.create') }}" class="btn btn-sm btn-outline-primary">口座を追加する</a>
-                    @else
-                        <p class="home-value mb-1"><x-money :amount="array_sum($balances)" /></p>
-                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none d-inline-flex align-items-center gap-1"
-                            data-bs-toggle="collapse" data-bs-target="#home-accounts" aria-expanded="false" aria-controls="home-accounts">
-                            口座ごと <x-chevron />
-                        </button>
-                    @endif
-                </div>
-                @if ($accounts->isNotEmpty())
-                    {{-- 行を押すと、残高を合わせる画面へ --}}
-                    <div class="collapse" id="home-accounts">
-                        <div class="list-group list-group-flush border-top">
-                            @foreach ($accounts as $account)
-                                <a href="{{ route('accounts.adjust', $account) }}"
-                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-baseline gap-2 small">
-                                    <span class="text-break">
-                                        {{ $account->name }}
-                                        @include('accounts._reserve')
-                                    </span>
-                                    <x-money :amount="$balances[$account->id]" class="text-nowrap" />
-                                </a>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-            </section>
-        </div>
-
-        {{-- 今月の収支：移動と調整は入れない（記録の一覧・月のまとめと同じ計算）。カードを押すと、月のまとめの今月へ --}}
-        <div class="col-6 col-lg-4">
-            <section class="card home-card h-100">
-                <div class="card-body">
-                    <h2 class="home-label">
-                        <a href="{{ route('summary.index') }}" class="stretched-link text-reset text-decoration-none">今月の収支</a>
-                    </h2>
-                    <p class="home-value mb-1"><x-money :amount="$income - $expense" /></p>
-                    <p class="small mb-0">
-                        収入 <x-money :amount="$income" class="fw-bold text-success" /><br>
-                        支出 <x-money :amount="$expense" />
-                    </p>
-                </div>
-            </section>
-        </div>
-
-        {{-- 多く使った分類：今月の支出の大分類を、多い順に 3 つ。カードを押すと、月のまとめの今月へ --}}
-        <div class="col-6 col-lg-4">
-            <section class="card home-card h-100">
-                <div class="card-body">
-                    <h2 class="home-label">
-                        <a href="{{ route('summary.index') }}" class="stretched-link text-reset text-decoration-none">多く使った分類</a>
-                    </h2>
-                    @if ($topCategories->isEmpty())
-                        <p class="small text-secondary mb-0">今月の支出はまだありません</p>
-                    @else
-                        <ul class="list-unstyled small mb-0">
-                            @foreach ($topCategories as $row)
-                                <li class="d-flex justify-content-between align-items-baseline gap-2">
-                                    <span class="text-truncate">{{ $row['category']->name }}</span>
-                                    <x-money :amount="$row['amount']" class="text-nowrap" />
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
-                </div>
-            </section>
-        </div>
-
-        {{-- 貯金の目標（第 3 段階）：達成していない目標ごとの進み具合（%）を、一覧と同じ順で。達成したものは出さない。カードを押すと貯金の目標へ --}}
-        <div class="col-6 col-lg-4">
-            <section class="card home-card h-100">
-                <div class="card-body">
-                    <h2 class="home-label">
-                        <a href="{{ route('goals.index') }}" class="stretched-link text-reset text-decoration-none">貯金の目標</a>
-                    </h2>
-                    @if ($goals === [])
-                        <p class="small text-secondary mb-0">{{ $hasGoals ? '全部の目標を達成しました' : 'まだ目標がありません' }}</p>
-                    @else
-                        <ul class="list-unstyled small mb-0">
-                            @foreach ($goals as $row)
-                                <li class="d-flex justify-content-between align-items-baseline gap-2">
-                                    <span class="text-truncate">{{ $row['goal']->name }}</span>
-                                    <span class="text-nowrap">{{ $row['percent'] }}%</span>
-                                </li>
-                            @endforeach
-                        </ul>
-                    @endif
                 </div>
             </section>
         </div>

@@ -69,6 +69,19 @@ class Goal extends Model
     }
 
     /**
+     * 中身が、送られた中身と同じか（保存を 2 回押して 2 回届いたかを見分ける）
+     *
+     * @param  array{name: string, target_amount: int, account_id: int, deadline_month: string|null}  $data
+     */
+    public function hasContent(array $data): bool
+    {
+        return $this->name === $data['name']
+            && $this->target_amount === $data['target_amount']
+            && $this->account_id === $data['account_id']
+            && $this->deadline_month?->toDateString() === $data['deadline_month'];
+    }
+
+    /**
      * 目標が使っている口座を、削除・「使わない」・クレジットカードにしようとしたときの文（4 章の 9）。
      * $what は「削除できません」「『使わない』にできません」など
      */

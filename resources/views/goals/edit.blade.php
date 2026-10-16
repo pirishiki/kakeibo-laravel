@@ -17,8 +17,9 @@
                 @csrf
                 @method('PUT')
                 {{-- 開いたときの中身の印（古い画面の中身で上書きしないため。app/Models/Goal.php の fingerprint）。
-                     まちがいで戻ったときも、今の中身の印を入れる（old() は使わない） --}}
-                <input type="hidden" name="opened_at" value="{{ $goal->fingerprint() }}">
+                     入力のまちがい・時間切れ（419）・ログインし直しで戻ったときは、開いたときの印のまま（そのあいだに直されていたら、次の保存で気づけるように）。
+                     ほかの画面で直されたと知らせたときだけ、今の中身の印にする（もう一度保存すると、打った内容で上書きできる） --}}
+                <input type="hidden" name="opened_at" value="{{ $errors->has('save') ? $goal->fingerprint() : old('opened_at', $goal->fingerprint()) }}">
                 @include('goals._form')
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">保存</button>

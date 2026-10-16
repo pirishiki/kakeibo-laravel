@@ -27,7 +27,8 @@ class GoalController extends Controller
 
     public function index(): View
     {
-        $rows = collect(Goals::list(CarbonImmutable::today()));
+        // ホームと同じく、1 つのトランザクションの中で読む（読んでいるあいだに移動の記録などが入っても、片方の口座にだけ入った残高を出さないように）
+        $rows = collect(DB::transaction(fn () => Goals::list(CarbonImmutable::today())));
 
         return view('goals.index', [
             'active' => $rows->where('achieved', false),
@@ -45,7 +46,13 @@ class GoalController extends Controller
         $data = $request->goalData();
         try {
             DB::transaction(function () use ($data) {
-                $this->lockAccount($data['account_id'], null);
+                $account = Account::query()->lockForUpdate()->find($data['account_id']);
+                // 保存を 2 回押して 2 回届いたとき：1 回目で同じ中身の目標ができていれば、2 回目は作らずに「保存しました」にする
+                $existing = Goal::query()->where('account_id', $data['account_id'])->first();
+                if ($existing !== null && $existing->hasContent($data)) {
+                    return;
+                }
+                $this->checkAccount($account, null);
                 Goal::create($data);
             }, 3);
         } catch (UniqueConstraintViolationException) {
@@ -77,6 +84,10 @@ class GoalController extends Controller
                 if ($locked === null) {
                     return 'deleted';
                 }
+                // 保存を 2 回押して 2 回届いたとき：今の中身が送った中身と同じなら、もう保存できているので何もしない
+                if ($locked->hasContent($data)) {
+                    return 'saved';
+                }
                 // 開いたあとに、ほかの画面でこの目標が直されていたら、古い画面の中身で上書きしない
                 if (is_string($opened) && $locked->fingerprint() !== $opened) {
                     // 打った内容は欄に残し、今の内容を文で見せる（画面の印は今の中身のものになるので、もう一度保存すると打った内容で上書きできる）
@@ -87,7 +98,7 @@ class GoalController extends Controller
                         .'」です。打った内容は欄に残しているので、確かめてからもう一度保存すると、打った内容で上書きします']);
                 }
                 if ($locked->account_id !== $data['account_id']) {
-                    $this->lockAccount($data['account_id'], $locked->id);
+                    $this->checkAccount(Account::query()->lockForUpdate()->find($data['account_id']), $locked->id);
                 }
                 $locked->update($data);
 
@@ -98,7 +109,10 @@ class GoalController extends Controller
         }
 
         if ($result === 'deleted') {
-            return to_route('goals.index')->with('warning', self::DELETED_MESSAGE.'保存していません。');
+            // 打った内容を捨てないように、追加の画面へ持っていく（そのまま保存すれば、新しい目標として追加できる）
+            return to_route('goals.create')
+                ->withInput($request->except(['opened_at', '_token', '_method']))
+                ->with('warning', self::DELETED_MESSAGE.'保存していません。打った内容を入れておいたので、保存すると新しい目標として追加できます。');
         }
 
         return to_route('goals.index')->with('status', '保存しました');
@@ -109,21 +123,21 @@ class GoalController extends Controller
     {
         $deleted = Goal::query()->whereKey((int) $goal)->delete();
         if ($deleted === 0) {
-            return to_route('goals.index')->with('warning', self::DELETED_MESSAGE);
+            // ほかの画面で削除されたか、削除を 2 回押して 2 回届いた。どちらでも、もうないことだけを伝える
+            return to_route('goals.index')->with('status', 'この目標は、もう削除されています');
         }
 
         return to_route('goals.index')->with('status', '削除しました');
     }
 
     /**
-     * 口座を押さえてから、目標に使えるかを確かめ直す（入力チェックのあと、保存までのあいだに、
+     * 押さえた口座が、目標に使えるかを確かめ直す（入力チェックのあと、保存までのあいだに、
      * ほかの画面で口座が「使わない」・クレジットカードになった・削除されたときに、そのまま保存しないように）。
      * 口座の管理も、同じ口座を押さえてから目標を確かめるので、どちらかが先に終わるまで待つ
      */
-    private function lockAccount(int $accountId, ?int $goalId): void
+    private function checkAccount(?Account $locked, ?int $goalId): void
     {
-        $account = Account::query()->lockForUpdate()->find($accountId);
-        $problem = GoalRequest::accountProblem($account, $goalId);
+        $problem = GoalRequest::accountProblem($locked, $goalId);
         if ($problem !== null) {
             throw ValidationException::withMessages(['account_id' => $problem]);
         }
@@ -154,9 +168,11 @@ class GoalController extends Controller
             ->ordered()
             ->get();
 
-        // 期限の年：今年から 40 年先まで。期限を過ぎた目標は、その年も選べるようにしておく（期限を変えずにほかの欄だけ直せるように）
+        // 期限の年：今年から 40 年先まで。期限を過ぎた目標は、その年も選べるようにしておく（期限を変えずにほかの欄だけ直せるように）。
+        // 年をまたいで開いたままの画面から保存してまちがいで戻ったときも、打った年が欄から黙って外れないように、その年も入れる
         $thisYear = CarbonImmutable::today()->year;
-        $from = min($thisYear, $goal->deadline_month->year ?? $thisYear);
+        $oldYear = old('deadline_year');
+        $from = min($thisYear, $goal->deadline_month->year ?? $thisYear, is_numeric($oldYear) && (int) $oldYear >= 1900 ? (int) $oldYear : $thisYear);
 
         return [
             'goal' => $goal,

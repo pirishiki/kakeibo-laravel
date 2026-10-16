@@ -79,6 +79,13 @@ class GoalRequest extends FormRequest
                 if ($validator->errors()->has('account_id')) {
                     return;
                 }
+                // 保存を 2 回押して 2 回届いたとき：1 回目でできた同じ中身の目標が口座を使っているが、まちがいにはしない（GoalController で「保存しました」にする）
+                $same = ! $validator->errors()->hasAny(['name', 'target_amount', 'deadline_year', 'deadline_month'])
+                    && $this->goal() === null
+                    && Goal::query()->where('account_id', $this->integer('account_id'))->first()?->hasContent($this->goalData()) === true;
+                if ($same) {
+                    return;
+                }
                 $message = self::accountProblem(Account::query()->find($this->integer('account_id')), $this->goal()?->id);
                 if ($message !== null) {
                     $validator->errors()->add('account_id', $message);

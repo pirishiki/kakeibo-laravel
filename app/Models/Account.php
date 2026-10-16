@@ -66,11 +66,12 @@ class Account extends Model
 
     /**
      * この口座を使っている貯金の目標（1 つの口座は 1 つの目標だけ。データベース設計書 3.10）。
-     * 目標の行を共有ロックで読む：目標の保存は口座を押さえてからするので、口座を押さえたあとに読めば、そのあいだに目標は変わらない
+     * 目標をこの口座に入れる保存は、いつも先にこの口座を押さえる（GoalController）。なので、口座を押さえたあとにふつうに読めば、
+     * 保存し終えるまで目標は変わらない。目標の行は押さえない（押さえる順を「目標 → 口座」の 1 つにそろえ、押さえあいを防ぐため）
      */
     public function goal(): ?Goal
     {
-        return Goal::query()->where('account_id', $this->id)->sharedLock()->first();
+        return Goal::query()->where('account_id', $this->id)->first();
     }
 
     /** この口座を使っている記録が 1 件でもあるか（削除・最初の残高の決まりに使う。画面設計書 5.6） */
@@ -88,7 +89,6 @@ class Account extends Model
     public function deactivationBlocker(?int $initialBalance = null): ?string
     {
         // 貯金の目標が使っている口座は、残高にかかわらず「使わない」にできない（4 章の 9。第 3 段階）。
-        // 口座を押さえたあとに呼ばれるときは、目標の行も押さえて読む（読んだあと、保存までに目標ができないように）
         $goal = $this->goal();
         if ($goal !== null) {
             return $goal->blockedMessage('『使わない』にできません');
