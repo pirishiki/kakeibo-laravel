@@ -84,7 +84,7 @@ class MonthlyAmounts extends Component
         DB::transaction(function () use ($changed, $values) {
             // 先に、保存する予定の行を全部、id の小さい順に押さえる（押さえる順番の決まり：予定→記録→口座。1 行目の記録・口座を押さえたまま
             // 2 行目の予定を押さえに行くと、残高を合わせる画面などと、たがいを待ちつづけることがあるため）
-            Recurring::query()->whereKey(array_map(fn (array $row) => $row['recurring']->id, $changed))->orderBy('id')->lockForUpdate()->pluck('id');
+            RecurringMonthly::lockForSaving(array_map(fn (array $row) => $row['recurring'], $changed));
             foreach ($changed as $row) {
                 $text = $values[$row['recurring']->id];
                 RecurringMonthly::saveAmount($row['recurring'], $row['month'], $text === '' ? null : (int) $text);

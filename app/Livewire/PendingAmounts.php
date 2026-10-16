@@ -106,7 +106,7 @@ class PendingAmounts extends Component
         $filled = array_values(array_filter($this->items, fn (array $item) => $values[self::key($item['recurring'], $item['month'])] !== ''));
         DB::transaction(function () use ($filled, $values) {
             // 先に、保存する予定の行を全部、id の小さい順に押さえる（押さえる順番の決まり：予定→記録→口座。MonthlyAmounts と同じ）
-            Recurring::query()->whereKey(array_unique(array_map(fn (array $item) => $item['recurring']->id, $filled)))->orderBy('id')->lockForUpdate()->pluck('id');
+            RecurringMonthly::lockForSaving(array_map(fn (array $item) => $item['recurring'], $filled));
             foreach ($filled as $item) {
                 RecurringMonthly::saveAmount($item['recurring'], $item['month'], (int) $values[self::key($item['recurring'], $item['month'])]);
             }
