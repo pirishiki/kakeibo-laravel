@@ -2,7 +2,7 @@
 
 @section('title', '月のまとめ')
 
-{{-- 月のまとめ（画面設計書 5.5）。切りかえ（タブ）は使わず、上から 収支 → 支出の分類 → 収入の分類 → 相手 の順に全部並べる --}}
+{{-- 月のまとめ（画面設計書 5.5）。切りかえ（タブ）は使わず、上から 収支 → 支出の分類 → 収入の分類 → 相手 → グラフ の順に全部並べる --}}
 @section('content')
     <h1 class="visually-hidden">月のまとめ</h1>
 
@@ -43,14 +43,21 @@
             <div class="col-12 col-md-6">
                 <section class="card h-100">
                     <h3 class="card-header h6 mb-0">支出の分類</h3>
-                    @include('summary._categories', ['rows' => $expenseCategories, 'prefix' => 'expense', 'empty' => 'この月の支出はありません'])
+                    {{-- 円グラフ（第 3 段階）：支出の分類の表のすぐ上。多い順に 5 つと「ほか」。合計は下の表の合計と同じ --}}
+                    @if ($pie !== [])
+                        @include('summary._pie')
+                    @endif
+                    @include('summary._categories', ['rows' => $expenseCategories, 'budgets' => $budgets, 'prefix' => 'expense', 'empty' => 'この月の支出はありません'])
+                    <div class="card-footer bg-white text-end border-top-0">
+                        <a href="{{ route('budgets.index') }}" class="small text-decoration-none">予算を決める <span aria-hidden="true">›</span></a>
+                    </div>
                 </section>
             </div>
 
             <div class="col-12 col-md-6">
                 <section class="card h-100">
                     <h3 class="card-header h6 mb-0">収入の分類</h3>
-                    @include('summary._categories', ['rows' => $incomeCategories, 'prefix' => 'income', 'empty' => 'この月の収入はありません'])
+                    @include('summary._categories', ['rows' => $incomeCategories, 'budgets' => [], 'prefix' => 'income', 'empty' => 'この月の収入はありません'])
                 </section>
             </div>
 
@@ -81,5 +88,11 @@
                 </section>
             </div>
         </div>
+    @endif
+
+    {{-- 月ごとの収入・支出（棒グラフ）と、全体の残高の移り変わり（折れ線グラフ）。第 3 段階。
+         選んだ月に記録がなくても、前の月の分があれば出す。使い始めた月より前しかないときは出さない --}}
+    @if ($chartMonths !== [])
+        @include('summary._charts')
     @endif
 @endsection

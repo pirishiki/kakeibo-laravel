@@ -441,3 +441,53 @@ function showPageAlert(message, withReload = true) {
     document.querySelector('main')?.prepend(alert);
     alert.scrollIntoView({ block: 'nearest' });
 }
+
+// 月のまとめのグラフ（画面設計書 5.5）。グラフがある画面だけ、グラフの部品（Chart.js）を読みこむ（ほかの画面を重くしないため）
+const chartCanvases = document.querySelectorAll('canvas[data-chart]');
+if (chartCanvases.length > 0) {
+    import('./charts.js').then(({ drawCharts }) => drawCharts(chartCanvases));
+}
+
+// 選ぶ欄が決まった値のときだけ出す文（例：小分類の親を、予算のある大分類へ選び直したとき。画面設計書 5.8）
+// data-show-when-field に欄の id、data-show-when-value に出すときの値を書く
+document.querySelectorAll('[data-show-when-field]').forEach((note) => {
+    const field = document.getElementById(note.dataset.showWhenField);
+    if (!field) {
+        return;
+    }
+    const update = () => {
+        note.hidden = field.value !== note.dataset.showWhenValue;
+    };
+    field.addEventListener('change', update);
+    update();
+});
+
+// 予算を決める画面（画面設計書 5.11）：小分類の予算の合計が、大分類の予算をこえたら、その大分類の下に赤い字の注意を出す（保存はできる）。
+// 打っているあいだも変える。特別な月では、空の欄はふだんの予算（data-usual）で数える
+const budgetAmount = (row) => {
+    const input = row.querySelector('input[data-amount]');
+    const text = input.value.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/[,，\s]/g, '');
+    if (text === '') {
+        return row.dataset.usual !== undefined ? Number(row.dataset.usual) : null;
+    }
+    return /^\d+$/.test(text) ? Number(text) : null;
+};
+document.querySelectorAll('[data-budget-group]').forEach((group) => {
+    const parent = group.querySelector('[data-budget-row="parent"]');
+    const children = group.querySelectorAll('[data-budget-row="child"]');
+    const note = group.querySelector('[data-budget-over]');
+    if (!parent || children.length === 0 || !note) {
+        return;
+    }
+    const update = () => {
+        const parentAmount = budgetAmount(parent);
+        const sum = [...children].reduce((total, row) => total + (budgetAmount(row) ?? 0), 0);
+        const over = parentAmount !== null && sum > parentAmount;
+        note.hidden = !over;
+        note.textContent = over
+            ? `小分類の予算の合計（${sum.toLocaleString('ja-JP')}）が、${note.dataset.parentName}の予算（${parentAmount.toLocaleString('ja-JP')}）をこえています`
+            : '';
+    };
+    group.addEventListener('input', update);
+    update();
+});

@@ -7,6 +7,8 @@ use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Recurring;
+use App\Support\Budgets;
+use Carbon\CarbonImmutable;
 use Illuminate\View\View;
 
 /**
@@ -30,6 +32,8 @@ class SettingsController extends Controller
             'partnerCount' => Partner::query()->where('is_active', true)->count(),
             // 定期的な記録は、「使う」でまだ終わっていないものだけ数える
             'recurringCount' => Recurring::query()->running()->count(),
+            // 予算は、今月に使われる予算がある分類の数（月のまとめ・お知らせと同じく、「使わない」分類の予算は数えない）
+            'budgetCount' => count(Budgets::amountsFor(CarbonImmutable::today(), CarbonImmutable::today())),
         ]);
     }
 }

@@ -310,6 +310,38 @@ $bottom-menu-height: 64px;
     flex: 0 0 16px;
 }
 
+// 予算の状況（画面設計書 5.5）：分類の行のすぐ下に、同じ行のつづきとして出す（あいだの線を消す）
+.list-group-item:has(+ .summary-budget) {
+    border-bottom-width: 0;
+}
+
+.summary-budget-bar {
+    height: 0.5rem;
+    min-width: 3rem;
+}
+
+// 円グラフの色の見本（凡例の四角）
+.chart-swatch {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+}
+
+// グラフの大きさ：Chart.js は、入れ物の大きさに合わせて描く
+.chart-box {
+    position: relative;
+    height: 220px;
+}
+
+.chart-box-pie {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    flex: 0 0 auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .chevron {
         transition: none;

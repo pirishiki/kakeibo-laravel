@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\CategoryKind;
 use App\Http\Requests\CategoryRequest;
+use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Recurring;
 use Illuminate\Database\QueryException;
@@ -79,6 +80,9 @@ class CategoryController extends Controller
             // この分類（大分類なら、その下の小分類も）を使っている定期的な記録。削除・「使わない」にできない理由として、リンクつきで出す
             'usedBy' => Recurring::usingCategory($category)->orderBy('day')->orderBy('id')->get(),
             'runningUsedBy' => Recurring::usingCategory($category)->running()->orderBy('day')->orderBy('id')->get(),
+            // 予算がある（過ぎた月の分もふくむ）大分類の id。小分類を移す元か移す先に予算があると、過去の月の予算の状況も変わるので、保存の前に知らせる
+            'budgetedParentIds' => $category->isParent() ? [] : Budget::query()->whereIn('category_id', Category::query()->whereNull('parent_id')->select('id'))
+                ->distinct()->pluck('category_id')->map(fn ($id) => (int) $id)->all(),
         ]);
     }
 

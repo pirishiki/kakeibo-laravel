@@ -6,6 +6,7 @@ use App\Enums\RecordType;
 use App\Models\Account;
 use App\Models\Record;
 use App\Support\AvailableAmount;
+use App\Support\Budgets;
 use App\Support\HomeCalendar;
 use App\Support\MonthlySummary;
 use Carbon\CarbonImmutable;
@@ -14,7 +15,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 /**
- * ホーム（画面設計書 5.2）：お知らせ・使える額・今月のカレンダー（予定もふくむ）・今の残高の合計・今月の収支・多く使った分類・最近の記録。
+ * ホーム（画面設計書 5.2）：お知らせ（予算もふくむ）・使える額・今月のカレンダー（予定もふくむ）・今の残高の合計・今月の収支・多く使った分類・最近の記録。
  * 貯金の目標（第 3 段階）は、その段階で足す
  */
 class HomeController extends Controller
@@ -39,6 +40,7 @@ class HomeController extends Controller
         $accounts = Account::query()->where('is_active', true)->ordered()->get();
         $balances = Account::balances($today, $accounts->modelKeys());
         $available = AvailableAmount::calculate($today);
+        $expenseCategories = MonthlySummary::categoryTotals($month, RecordType::Expense);
 
         return view('home', [
             'today' => $today,
@@ -53,6 +55,8 @@ class HomeController extends Controller
             // 取っておく額を下回っている口座（お知らせ）：id → 名前
             'shortages' => $accounts->filter(fn (Account $a) => $available['reserves'][$a->id]['short'] ?? false)
                 ->mapWithKeys(fn (Account $a) => [$a->id => $a->name])->all(),
+            // 今月、予算の 80% 以上になった分類（お知らせ。第 3 段階）
+            'budgetAlerts' => Budgets::alerts($today, $expenseCategories),
             // 今月の先の日付の記録も、カレンダー・収支・多く使った分類には、その日の分として入る（記録の一覧・月のまとめと同じ数え方）
             'days' => MonthlySummary::dailyIncomeExpense($month),
             // カレンダーの日を押したときに動いていく先を決めるための、記録がある日（移動・調整だけの日もふくむ。記録の一覧に見出しが出るため）
@@ -61,7 +65,7 @@ class HomeController extends Controller
             'accounts' => $accounts,
             'balances' => $balances,
             ...MonthlySummary::incomeExpense($month),
-            'topCategories' => MonthlySummary::categoryTotals($month, RecordType::Expense)->take(3),
+            'topCategories' => $expenseCategories->take(3),
             // 最後に入力した 5 件。記録の日付（date）ではなく、入力した日時（created_at）の新しい順。同じ日時なら、あとで保存したもの（id が大きいもの）が上
             'recentRecords' => Record::query()
                 ->with(['account', 'toAccount', 'category.parent', 'partner'])
