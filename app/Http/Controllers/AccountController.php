@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AccountType;
 use App\Http\Requests\AccountRequest;
 use App\Models\Account;
 use App\Models\Recurring;
@@ -52,6 +53,8 @@ class AccountController extends Controller
             'blocker' => $account->is_active ? $account->deactivationBlocker() : null,
             // この口座を使っている定期的な記録（削除できない理由として、リンクつきで出す）
             'usedBy' => Recurring::usingAccount($account->id)->orderBy('day')->orderBy('id')->get(),
+            // この口座を使っている貯金の目標（削除・「使わない」・クレジットカードにできない理由として、リンクつきで出す）
+            'goal' => $account->goal(),
         ]);
     }
 
@@ -65,6 +68,13 @@ class AccountController extends Controller
                 // チェックのあと、押さえるまでに記録ができていたら、最初の残高は変えない（黙って書きかえないで知らせる）
                 if (isset($data['initial_balance']) && (int) $data['initial_balance'] !== $locked->initial_balance && $locked->hasRecords()) {
                     return ['initial_balance', '開いたあとにこの口座の記録ができたので、最初の残高は変えられません。今の残高を直すときは「残高を合わせる」を使ってください。'];
+                }
+                // 貯金の目標が使っている口座は、クレジットカードに変えられない（残高がマイナスで貯金にならないため。画面設計書 5.6）
+                if ($data['type'] === AccountType::CreditCard->value && $locked->type !== AccountType::CreditCard) {
+                    $goal = $locked->goal();
+                    if ($goal !== null) {
+                        return ['type', $goal->blockedMessage('クレジットカードにできません')];
+                    }
                 }
                 if ($locked->is_active && ! ($data['is_active'] ?? true)) {
                     $blocker = $locked->deactivationBlocker(isset($data['initial_balance']) ? (int) $data['initial_balance'] : null);
@@ -89,14 +99,12 @@ class AccountController extends Controller
     /** 削除。記録がある口座は削除できない（4 章の 9）。画面の小窓でも止めるが、ここでも確かめる */
     public function destroy(Account $account): RedirectResponse
     {
-        if ($account->hasRecords()) {
-            return to_route('accounts.edit', $account)->withErrors(['delete' => '記録があるので削除できません']);
-        }
-        if (Recurring::usingAccount($account->id)->exists()) {
-            return to_route('accounts.edit', $account)->withErrors(['delete' => Recurring::DELETE_BLOCKED_MESSAGE]);
+        $blocked = $this->deleteBlocker($account);
+        if ($blocked !== null) {
+            return to_route('accounts.edit', $account)->withErrors(['delete' => $blocked]);
         }
 
-        // 確かめてから削除するまでのあいだに記録ができたときも、データベースが止めるので、同じ文で戻す
+        // 確かめてから削除するまでのあいだに記録・定期的な記録・目標ができたときも、データベースが止めるので、何が使っているかを確かめ直して戻す
         // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
         try {
             Account::query()->whereKey($account->id)->delete();
@@ -104,10 +112,23 @@ class AccountController extends Controller
             // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
             throw_if($e->getCode() !== '23000', $e);
 
-            return to_route('accounts.edit', $account)->withErrors(['delete' => '記録があるので削除できません']);
+            return to_route('accounts.edit', $account)->withErrors(['delete' => $this->deleteBlocker($account) ?? '記録があるので削除できません']);
         }
 
         return to_route('accounts.index')->with('status', '削除しました');
+    }
+
+    /** 口座を削除できない理由（記録 → 定期的な記録 → 貯金の目標の順に確かめる）。削除できるときは null */
+    private function deleteBlocker(Account $account): ?string
+    {
+        if ($account->hasRecords()) {
+            return '記録があるので削除できません';
+        }
+        if (Recurring::usingAccount($account->id)->exists()) {
+            return Recurring::DELETE_BLOCKED_MESSAGE;
+        }
+
+        return $account->goal()?->blockedMessage('削除できません');
     }
 
     /** 残高を合わせる（画面設計書 5.7）。入力欄と保存は Livewire の部品（app/Livewire/AdjustBalance.php） */
