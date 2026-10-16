@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RestoreExpiredInput;
+use App\Support\ConcurrencyError;
 use App\Support\DeletedElsewhere;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -70,6 +71,21 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return redirect()->to($back)->withInput($input)
                 ->with('warning', '画面を開いてから時間がたっていたので、操作できませんでした。入れた内容は残してあるので、もう一度押してください。');
+        });
+
+        // ほかの画面の保存と押さえあって、やり直しを使い切ったとき。エラーの画面のかわりに、入力を残して前の画面で知らせる
+        // （app/Support/ConcurrencyError.php。Livewire の画面は AppServiceProvider で知らせる）
+        // （ふだんは QueryException。トランザクションの中のトランザクションでは、やり直さずに DeadlockException が届く。どちらも PDOException の仲間）
+        $exceptions->render(function (PDOException $e, Request $request) {
+            if (! ConcurrencyError::is($e) || $request->hasHeader('X-Livewire')) {
+                return null;
+            }
+            if ($request->expectsJson()) {
+                return response()->json(['message' => ConcurrencyError::MESSAGE], 409);
+            }
+
+            return back()->withInput($request->except(['_token', '_method', 'password', 'password_confirmation']))
+                ->with('warning', ConcurrencyError::MESSAGE);
         });
 
         // 開いた・保存した口座や分類などが、ほかの画面で削除されていたとき（404）。エラーの画面のかわりに、一覧へ戻して知らせる

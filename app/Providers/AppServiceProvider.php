@@ -2,10 +2,15 @@
 
 namespace App\Providers;
 
+use App\Support\ConcurrencyError;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Component;
 use Livewire\Livewire;
+use Throwable;
+
+use function Livewire\on;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -34,5 +39,14 @@ class AppServiceProvider extends ServiceProvider
         // 「もう削除されていました」と知らせる前に 404 の小窓が出てしまうので、これだけ外す（ログインの確かめは残す）。
         // 部品は、どれも番号から自分で行を探し、ないときの知らせを持っている
         Livewire::setPersistentMiddleware(array_values(array_diff(Livewire::getPersistentMiddleware(), [SubstituteBindings::class])));
+
+        // Livewire の画面で、ほかの画面の保存と押さえあって、やり直しを使い切ったとき（app/Support/ConcurrencyError.php）。
+        // エラーの小窓のかわりに、入力を残したまま、画面の上に知らせを出す（resources/js/app.js の page-alert）
+        on('exception', function (mixed $component, Throwable $e, callable $stopPropagation) {
+            if ($component instanceof Component && ConcurrencyError::is($e)) {
+                $stopPropagation();
+                $component->dispatch('page-alert', message: ConcurrencyError::MESSAGE);
+            }
+        });
     }
 }

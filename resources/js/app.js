@@ -338,6 +338,10 @@ document.addEventListener('submit', (event) => {
         markSubmitted();
     }
 });
+// Livewire の部品からの知らせ（ほかの画面の保存と重なって保存できなかったときなど。app/Providers/AppServiceProvider.php）
+window.addEventListener('page-alert', (event) => {
+    showPageAlert(event.detail?.message ?? '', false);
+});
 document.addEventListener('livewire:init', () => {
     window.Livewire.hook('effect', ({ effects }) => {
         if (effects?.redirect) {

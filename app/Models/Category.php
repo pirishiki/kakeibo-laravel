@@ -117,8 +117,16 @@ class Category extends Model
                 return false;
             }
 
-            // id の小さい順に押さえる（予算の保存・分類の変更と順番をそろえて、たがいを待ちつづけないように）
-            $level = self::query()->sameLevelAs($first)->reorder()->orderBy('id')->lockForUpdate()->pluck('id')->all();
+            // 押さえずに同じ段の id を読んでから、主キーで id の小さい順に押さえる（予算の保存・分類の変更と順番をそろえて、たがいを待ちつづけないように。
+            // 段の条件のまま押さえると、データベースが名前の索引を使って名前の順に押さえることがあるため）。
+            // 押さえたあと、今の同じ段（押さえて読むので、いちばん新しい中身）が、渡された id とそろっているかを確かめ直す
+            $before = self::query()->sameLevelAs($first)->pluck('id')->all();
+            $locked = self::query()->whereKey(array_values(array_unique([...$before, ...$ids])))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $lockedFirst = $locked->get($first->id);
+            if ($lockedFirst === null) {
+                return false;
+            }
+            $level = self::query()->sameLevelAs($lockedFirst)->sharedLock()->pluck('id')->all();
 
             if (count($level) !== count($ids) || array_diff($level, $ids) !== []) {
                 return false;

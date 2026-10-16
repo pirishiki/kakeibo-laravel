@@ -13,11 +13,14 @@ use App\Models\Partner;
 use App\Models\Record;
 use App\Models\Recurring;
 use App\Models\User;
+use App\Support\ConcurrencyError;
 use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
+use PDOException;
 use Tests\TestCase;
 
 /**
@@ -404,6 +407,43 @@ class DeletedElsewhereTest extends TestCase
             ->get('/partners/999/edit')
             ->assertRedirect(route('partners.index'))
             ->assertSessionHas('warning', 'この相手は、ほかの画面で削除されていました。');
+    }
+
+    /** ほかの画面の保存と押さえあって、データベースに止められたことにする */
+    private static function deadlock(): QueryException
+    {
+        return new QueryException('mysql', 'update', [], new PDOException('Deadlock found when trying to get lock; try restarting transaction'));
+    }
+
+    public function test_押さえあいでやり直しを使い切ったら_エラーの画面でなく入力を残して知らせる(): void
+    {
+        $shop = Partner::factory()->create(['name' => 'パン屋']);
+        $tries = 0;
+        Partner::updating(function () use (&$tries) {
+            $tries++;
+            throw self::deadlock();
+        });
+
+        $this->from(route('partners.edit', $shop))
+            ->put(route('partners.update', $shop), ['name' => 'パン屋さん', 'is_active' => '1'])
+            ->assertRedirect(route('partners.edit', $shop))
+            ->assertSessionHas('warning', ConcurrencyError::MESSAGE)
+            ->assertSessionHasInput('name', 'パン屋さん');
+        $this->assertGreaterThanOrEqual(1, $tries);
+        $this->assertSame('パン屋', $shop->fresh()?->name);
+    }
+
+    public function test_livewireの画面で押さえあいでやり直しを使い切ったら_小窓でなく画面の上で知らせる(): void
+    {
+        $account = Account::factory()->create();
+        $food = Category::factory()->create(['name' => '趣味のもの', 'kind' => CategoryKind::Expense]);
+        Record::creating(fn () => throw self::deadlock());
+
+        Livewire::test(RecordForm::class)->set('amount', '500')->set('categoryId', $food->id)->set('accountId', $account->id)->set('partnerName', 'パン屋')
+            ->call('save')
+            ->assertDispatched('page-alert', message: ConcurrencyError::MESSAGE)
+            ->assertSet('amount', '500');
+        $this->assertSame(0, Record::query()->count());
     }
 
     public function test_決まっていない種類の行は_今までどおり404(): void
