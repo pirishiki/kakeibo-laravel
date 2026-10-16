@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\CategoryKind;
 use App\Models\Account;
 use App\Models\Category;
+use App\Models\Goal;
 use App\Models\Partner;
 use App\Models\Recurring;
 use App\Support\Budgets;
@@ -34,6 +35,8 @@ class SettingsController extends Controller
             'recurringCount' => Recurring::query()->running()->count(),
             // 予算は、今月に使われる予算がある分類の数（月のまとめ・お知らせと同じく、「使わない」分類の予算は数えない）
             'budgetCount' => count(Budgets::amountsFor(CarbonImmutable::today(), CarbonImmutable::today())),
+            // 貯金の目標は、達成したものもふくめて全部数える（一覧に出る数と同じ。目標には「使わない」がない）
+            'goalCount' => Goal::query()->count(),
         ]);
     }
 }

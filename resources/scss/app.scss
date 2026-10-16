@@ -323,6 +323,11 @@ $bottom-menu-height: 64px;
     min-width: 3rem;
 }
 
+// 貯金の目標の棒（画面設計書 5.13）。色は基本の青緑のまま
+.goal-bar {
+    height: 0.5rem;
+}
+
 // 予算の 80% 以上で、まだこえていないとき（こえたら赤。画面設計書 6.3）
 .text-caution {
     color: $caution !important;

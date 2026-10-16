@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\GoalController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\RecordController;
@@ -62,6 +63,9 @@ Route::middleware('auth')->group(function () {
     // 予算を決める（画面設計書 5.11）。特別な月は ?month=2026-12。全部の欄を 1 回でまとめて保存する
     Route::get('/budgets', [BudgetController::class, 'index'])->name('budgets.index');
     Route::put('/budgets', [BudgetController::class, 'update'])->name('budgets.update');
+
+    // 貯金の目標（画面設計書 5.13）。1 つの目標だけを見る画面（show）はない。行を押すと変更の画面へ行く
+    Route::resource('goals', GoalController::class)->except(['show']);
 
     // 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');

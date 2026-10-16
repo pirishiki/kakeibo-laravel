@@ -2,8 +2,7 @@
 
 @section('title', '設定')
 
-{{-- 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる。
-     貯金の目標（第 3 段階の 2 回目）は、そのときに「毎月の予定と目標」に足す --}}
+{{-- 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる --}}
 @section('content')
     <h1 class="h4 mb-3">設定</h1>
 
@@ -38,6 +37,11 @@
             'href' => route('budgets.index'),
             'label' => '予算',
             'detail' => '分類ごとの毎月の予算（今月 '.$budgetCount.' 件）',
+        ])
+        @include('settings._row', [
+            'href' => route('goals.index'),
+            'label' => '貯金の目標',
+            'detail' => '旅行・車の買いかえなど（'.$goalCount.' 件）',
         ])
     </div>
 

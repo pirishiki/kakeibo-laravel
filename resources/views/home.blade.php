@@ -4,8 +4,7 @@
 
 @section('title', 'ホーム')
 
-{{-- ホーム（画面設計書 5.2）。カード型（6.1）で、上から お知らせ → 今月のカレンダー → 小さなカード（残高・収支・多く使った分類）→ 最近の記録。
-     お知らせ・使える額（第 2 段階）と貯金の目標（第 3 段階）は、その段階で足す --}}
+{{-- ホーム（画面設計書 5.2）。カード型（6.1）で、上から お知らせ → 使える額 → 今月のカレンダー → 小さなカード（残高・収支・多く使った分類・貯金の目標）→ 最近の記録 --}}
 @section('content')
     <h1 class="visually-hidden">ホーム</h1>
 
@@ -204,6 +203,29 @@
                                 <li class="d-flex justify-content-between align-items-baseline gap-2">
                                     <span class="text-truncate">{{ $row['category']->name }}</span>
                                     <x-money :amount="$row['amount']" class="text-nowrap" />
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </div>
+            </section>
+        </div>
+
+        {{-- 貯金の目標（第 3 段階）：達成していない目標ごとの進み具合（%）を、一覧と同じ順で。達成したものは出さない。カードを押すと貯金の目標へ --}}
+        <div class="col-6 col-lg-4">
+            <section class="card home-card h-100">
+                <div class="card-body">
+                    <h2 class="home-label">
+                        <a href="{{ route('goals.index') }}" class="stretched-link text-reset text-decoration-none">貯金の目標</a>
+                    </h2>
+                    @if ($goals === [])
+                        <p class="small text-secondary mb-0">{{ $hasGoals ? '全部の目標を達成しました' : 'まだ目標がありません' }}</p>
+                    @else
+                        <ul class="list-unstyled small mb-0">
+                            @foreach ($goals as $row)
+                                <li class="d-flex justify-content-between align-items-baseline gap-2">
+                                    <span class="text-truncate">{{ $row['goal']->name }}</span>
+                                    <span class="text-nowrap">{{ $row['percent'] }}%</span>
                                 </li>
                             @endforeach
                         </ul>
