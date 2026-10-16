@@ -380,7 +380,7 @@ code{font-family:var(--font-mono);font-size:.85em;background:var(--bg);padding:1
   <span class="tag">③ 決定</span>
   <h2>画面の一部が動くところを、何で作るか（Livewire を使うか）</h2>
   <div class="note" style="background:var(--accent-soft)">
-    <b>決定：ア　Blade ＋ Livewire。サーバーに聞かなくてよい小さな動き（5.7 の差の計算など）は、Livewire に入っている Alpine.js で書く。</b>
+    <b>決定：ア　Blade ＋ Livewire。サーバーに聞かなくてよい小さな動き（5.7 の差の計算など）は、Livewire に入っている Alpine.js で書く。</b><br>※ 2026-10-13 に、ふつうの JavaScript（resources/js/app.js）で書くことに変えた。理由は要件定義書 4.1。
     <ul>
       <li>動くところの多くが「サーバーに聞く」もので、PHP の関数 1 つで書けるため、書く量が少ない。</li>
       <li>つまずいたときに追いにくい点は、原因を理解するのもエンジニアの仕事と考えて受け入れる。追うときにはブラウザの通信（Network）も読むので、JavaScript 側の力も使う。</li>

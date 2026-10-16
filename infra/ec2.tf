@@ -109,7 +109,7 @@ data "aws_ssm_parameter" "al2023_arm64" {
 
 resource "aws_instance" "app" {
   ami = data.aws_ssm_parameter.al2023_arm64.value
-  # いちばん小さい種類（メモリ 1GB）。部品をそろえるときに足りない分は、user_data で作る swap（2GB）で補う
+  # メモリ 1GB（ひとつ下の t4g.nano は 0.5GB で足りない）。部品をそろえるときに足りない分は、user_data で作る swap（2GB）で補う
   instance_type = "t4g.micro"
 
   # 置き場所：外から入れない場所。パブリック IP はつけない
