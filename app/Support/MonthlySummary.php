@@ -19,13 +19,14 @@ class MonthlySummary
     /**
      * ?month=2026-09 から、見る月の 1 日を出す。書いていないとき・形がちがうときは今月
      */
-    public static function month(mixed $value): CarbonImmutable
+    public static function month(mixed $value, ?CarbonImmutable $today = null): CarbonImmutable
     {
         if (is_string($value) && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value) === 1) {
             return CarbonImmutable::createFromFormat('!Y-m', $value);
         }
 
-        return CarbonImmutable::today()->startOfMonth();
+        // 今日を先に決めてある画面（月のまとめ）は、その今日の月にする（0 時をまたいでも、見る月と今日がずれないように）
+        return ($today ?? CarbonImmutable::today())->startOfMonth();
     }
 
     /**

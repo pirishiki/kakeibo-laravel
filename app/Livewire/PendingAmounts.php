@@ -32,6 +32,13 @@ class PendingAmounts extends Component
     #[Locked]
     public array $shortages = [];
 
+    /**
+     * @var list<array{name: string, status: array{budget: int, spent: int, percent: int, warn: bool, over: bool, rest: int}}>
+     *                                                                                                                         今月、予算の 80% 以上になった分類（画面設計書 5.2 のお知らせ。app/Support/Budgets.php）。ホームから渡す
+     */
+    #[Locked]
+    public array $budgetAlerts = [];
+
     /** 入力欄を開いたまま出すか（「今回はなし」のあと、ホームを出し直したとき） */
     public bool $open = false;
 
@@ -43,10 +50,12 @@ class PendingAmounts extends Component
      * 持っていくものは、札（draft）ごとにセッションに入れてある。札を使うので、ほかのタブの通信で先に使われて消えることがない
      *
      * @param  array<int, string>  $shortages
+     * @param  list<array{name: string, status: array{budget: int, spent: int, percent: int, warn: bool, over: bool, rest: int}}>  $budgetAlerts
      */
-    public function mount(array $shortages = [], ?string $today = null, ?string $draft = null): void
+    public function mount(array $shortages = [], array $budgetAlerts = [], ?string $today = null, ?string $draft = null): void
     {
         $this->shortages = $shortages;
+        $this->budgetAlerts = $budgetAlerts;
         $this->firstDay = $today !== null ? CarbonImmutable::parse($today) : null;
 
         $saved = $draft !== null && preg_match('/^[A-Za-z0-9]{1,64}$/', $draft) === 1 ? session()->pull('pending.draft.'.$draft) : null;

@@ -12,8 +12,9 @@
         'accounts' => request()->routeIs('accounts.*'),
         'categories' => request()->routeIs('categories.*'),
         'partners' => request()->routeIs('partners.*'),
+        'budgets' => request()->routeIs('budgets.*'),
     ];
-    $menu['settings'] = request()->routeIs('settings.*') || $menu['recurrings'] || $menu['accounts'] || $menu['categories'] || $menu['partners'];
+    $menu['settings'] = request()->routeIs('settings.*') || $menu['recurrings'] || $menu['accounts'] || $menu['categories'] || $menu['partners'] || $menu['budgets'];
 @endphp
 
 @section('body')
@@ -48,7 +49,7 @@
 
     <div class="d-lg-flex">
         {{-- パソコンのメニュー：画面の左。全部の画面をここに出すので、設定の画面を開かなくても行ける。
-             予算・貯金の目標（第 3 段階）は、その段階で足す --}}
+             貯金の目標（第 3 段階の 2 回目）は、そのときに足す --}}
         <nav class="side-menu d-none d-lg-block" aria-label="メニュー">
             <div class="list-group list-group-flush">
                 @foreach ([
@@ -67,6 +68,7 @@
                     ['accounts', 'accounts.index', '口座'],
                     ['categories', 'categories.index', '分類'],
                     ['partners', 'partners.index', '相手'],
+                    ['budgets', 'budgets.index', '予算'],
                 ] as [$key, $route, $label])
                     <a href="{{ route($route) }}" @class(['list-group-item list-group-item-action', 'active' => $menu[$key]])
                         @if ($menu[$key]) aria-current="page" @endif>{{ $label }}</a>

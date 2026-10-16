@@ -51,6 +51,17 @@
             <div class="form-text text-primary" data-show-when-changed="parent_id" data-original="{{ $category->parent_id }}" hidden>
                 この小分類の記録 {{ number_format($recordCount) }} 件もいっしょに移ります
             </div>
+            {{-- 移す元か移す先の大分類に予算があるときは、過去の月の予算の状況も数え直されることを知らせる（選んだ先ごとに文を用意しておく。第 3 段階） --}}
+            @foreach ($parentOptions as $option)
+                @php($budgetNames = $option->id === $category->parent_id ? [] : $parentOptions
+                    ->filter(fn ($p) => in_array($p->id, [$category->parent_id, $option->id], true) && in_array($p->id, $budgetedParentIds ?? [], true))
+                    ->pluck('name')->all())
+                @if ($budgetNames !== [])
+                    <div class="form-text text-primary" data-show-when-field="parent_id" data-show-when-value="{{ $option->id }}" hidden>
+                        過去の月のまとめも新しい分け方で出るので、{{ implode('・', $budgetNames) }} の過去の月の予算の状況（こえた・こえていない）も変わります
+                    </div>
+                @endif
+            @endforeach
         @endif
     </div>
 @endif

@@ -2,19 +2,31 @@
      「金額がまだ」は、ふだんは 1 行で、押すとその場で入力欄が開く。「取っておく額を下回っています」は押すと口座の管理へ。
      お知らせが 1 つもないときは、カードごと出さない --}}
 {{-- ホームの横並び（row）の 1 つとして、横いっぱいに出す。お知らせがないときは、すき間もできないように隠す --}}
-<div @class(['col-12', 'd-none' => $this->items === [] && $shortages === [] && $notice === ''])>
+<div @class(['col-12', 'd-none' => $this->items === [] && $shortages === [] && $budgetAlerts === [] && $notice === ''])>
     {{-- 入れた金額を使えなかったときは、黙らずに知らせる（お知らせが全部なくなったときも出す） --}}
     @if ($notice !== '')
         <div class="alert alert-warning" role="alert">{{ $notice }}</div>
     @endif
 
-    @if ($this->items !== [] || $shortages !== [])
+    @if ($this->items !== [] || $shortages !== [] || $budgetAlerts !== [])
         <section class="card home-card border-primary">
             <div class="card-body">
                 <h2 class="home-label">お知らせ</h2>
                 {{-- 取っておく額を下回っている口座（「金額」の口座で、今月末の見込みの残高が足りないとき） --}}
                 @foreach ($shortages as $name)
                     <a href="{{ route('accounts.index') }}" class="d-block text-decoration-none mb-1">{{ $name }} が取っておく額を下回っています <span aria-hidden="true">›</span></a>
+                @endforeach
+                {{-- 今月、予算の 80% 以上になった分類（第 3 段階）。押すと月のまとめへ。% は 1 % 未満を切り捨て、「こえました」は予算より多く使ったときだけ --}}
+                @foreach ($budgetAlerts as $alert)
+                    {{-- こえたら赤、まだこえていない 80% 以上はオレンジ（月のまとめの棒と同じ） --}}
+                    <a href="{{ route('summary.index') }}" @class(['d-block text-decoration-none mb-1', 'text-danger' => $alert['status']['over'], 'text-caution' => ! $alert['status']['over']])>
+                        @if ($alert['status']['over'])
+                            {{ $alert['name'] }} が予算をこえました（+{{ number_format(-$alert['status']['rest']) }} 円）
+                        @else
+                            {{ $alert['name'] }} が予算の {{ $alert['status']['percent'] }}% です（あと {{ number_format($alert['status']['rest']) }} 円）
+                        @endif
+                        <span aria-hidden="true">›</span>
+                    </a>
                 @endforeach
 
                 @if ($this->items !== [])

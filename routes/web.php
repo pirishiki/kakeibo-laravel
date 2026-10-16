@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PartnerController;
@@ -57,6 +58,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/recurrings', [RecurringController::class, 'index'])->name('recurrings.index');
     Route::view('/recurrings/create', 'recurrings.create')->name('recurrings.create');
     Route::get('/recurrings/{recurring}/edit', [RecurringController::class, 'edit'])->name('recurrings.edit');
+
+    // 予算を決める（画面設計書 5.11）。特別な月は ?month=2026-12。全部の欄を 1 回でまとめて保存する
+    Route::get('/budgets', [BudgetController::class, 'index'])->name('budgets.index');
+    Route::put('/budgets', [BudgetController::class, 'update'])->name('budgets.update');
 
     // 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
