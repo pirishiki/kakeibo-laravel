@@ -126,7 +126,8 @@ class Category extends Model
             if ($lockedFirst === null) {
                 return false;
             }
-            $level = self::query()->sameLevelAs($lockedFirst)->sharedLock()->pluck('id')->all();
+            // 親の索引で読ませる（中身が id の順にならぶので、押さえるのもその段の行だけ・id の順になる。名前の索引だと、名前の順に、ほかの段まで押さえてしまう）
+            $level = self::query()->forceIndex('categories_parent_id_foreign')->sameLevelAs($lockedFirst)->sharedLock()->pluck('id')->all();
 
             if (count($level) !== count($ids) || array_diff($level, $ids) !== []) {
                 return false;

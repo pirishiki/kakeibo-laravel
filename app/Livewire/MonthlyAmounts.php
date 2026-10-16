@@ -6,6 +6,7 @@ use App\Models\Recurring;
 use App\Support\FormInput;
 use App\Support\RecurringMonthly;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -77,20 +78,26 @@ class MonthlyAmounts extends Component
             $this->validate($rules, $messages);
         }
 
-        $problems = [];
-        foreach ($variable as $row) {
-            $text = $values[$row['recurring']->id];
-            if ($text !== ($this->opened[$row['recurring']->id] ?? '')) {
-                $amount = $text === '' ? null : (int) $text;
-                RecurringMonthly::saveAmount($row['recurring'], $row['month'], $amount);
-                $problems[] = $amount === null
-                    ? ($row['recurring']->records()->where('recurring_month', $row['month']->toDateString())->exists()
-                        ? '「'.$row['recurring']->name.'」は、開いたあとに記録されていたので、金額を消していません。記録済みの金額を押して記録を直してください。'
-                        : null)
-                    : RecurringMonthly::recordProblem($row['recurring'], $row['month'], $amount);
+        // 全部の行を 1 つのトランザクションで保存する（途中の行で、ほかの画面の保存と押さえあってやり直しを使い切ったときに、
+        // 前の行だけ保存・記録されたのに「保存できませんでした」と出さないように。全部やるか、何もしないか）
+        $opened = $this->opened;
+        $problems = DB::transaction(function () use ($variable, $values, $opened) {
+            $problems = [];
+            foreach ($variable as $row) {
+                $text = $values[$row['recurring']->id];
+                if ($text !== ($opened[$row['recurring']->id] ?? '')) {
+                    $amount = $text === '' ? null : (int) $text;
+                    RecurringMonthly::saveAmount($row['recurring'], $row['month'], $amount);
+                    $problems[] = $amount === null
+                        ? ($row['recurring']->records()->where('recurring_month', $row['month']->toDateString())->exists()
+                            ? '「'.$row['recurring']->name.'」は、開いたあとに記録されていたので、金額を消していません。記録済みの金額を押して記録を直してください。'
+                            : null)
+                        : RecurringMonthly::recordProblem($row['recurring'], $row['month'], $amount);
+                }
             }
-        }
-        $problems = array_values(array_filter($problems));
+
+            return array_values(array_filter($problems));
+        }, 3);
 
         // 開いたあとに、ほかで記録されたか「今回はなし」になって欄がなくなった行で、金額を変えていたもの（例：0 時 5 分の自動の記録）。
         // 入れた金額は使えないので、黙って「保存しました」とせず、名前をつけて知らせる（残高が知らないうちにずれないように）

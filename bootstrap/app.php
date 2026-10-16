@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\RestoreExpiredInput;
+use App\Http\Middleware\UseFormOrigin;
 use App\Support\ConcurrencyError;
 use App\Support\DeletedElsewhere;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -27,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_FOR);
         // ログインが切れて保存できなかった入力を、ログインし直したあとに欄へ戻す（画面設計書 4 章の 12）
         $middleware->web(append: RestoreExpiredInput::class);
+        // ブラウザが Referer を送らないときも、フォームを送った画面へ戻せるようにする（app/Http/Middleware/UseFormOrigin.php）
+        $middleware->web(prepend: UseFormOrigin::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -44,10 +47,9 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->expectsJson() || $request->hasHeader('X-Livewire')) {
                 return null;
             }
-            $input = $request->except(['_token', '_method', 'password', 'password_confirmation']);
-            // 戻り先は、このアプリの中の画面だけ（ほかのサイトの URL が Referer に入っていても、そこへは移さない）
-            $previous = url()->previous();
-            $back = parse_url($previous, PHP_URL_HOST) === $request->getHost() ? $previous : route('home');
+            $input = $request->except(['_token', '_method', '_from', 'password', 'password_confirmation']);
+            // 戻り先は、フォームを送った画面（Referer。ないときは UseFormOrigin が _from から入れる）で、このアプリの中の画面だけ。
+            // どちらもわからないときは、ほかのタブで最後に開いた画面の欄に入れてしまわないように、入れた内容を持たずにホームで知らせる
             if ($request->is('login')) {
                 // ほかのタブでもうログインしていたときは、ログインの画面ではなくホームで知らせる（ログインの画面はホームへ移すため、知らせが消える）
                 if (auth()->check()) {
@@ -57,11 +59,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 return redirect()->route('login')->withInput($input)
                     ->with('warning', '画面を開いてから時間がたっていたので、ログインできませんでした。もう一度ログインしてください。');
             }
+            // ログアウトを押したときは、もうログインが切れているので、そのままログインの画面へ
+            if (! auth()->check() && $request->is('logout')) {
+                return redirect()->route('login');
+            }
+            $back = UseFormOrigin::origin($request);
+            if ($back === null) {
+                return redirect()->route(auth()->check() ? 'home' : 'login')
+                    ->with('warning', '画面を開いてから時間がたっていたので、操作できませんでした。画面を開き直して、もう一度入れてください。');
+            }
             if (! auth()->check()) {
-                // ログアウトを押したときは、もうログインが切れているので、そのままログインの画面へ
-                if ($request->is('logout')) {
-                    return redirect()->route('login');
-                }
                 $request->session()->put('expired_input', ['url' => $back, 'input' => $input, 'at' => now()->timestamp]);
                 redirect()->setIntendedUrl($back);
 
@@ -84,7 +91,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json(['message' => ConcurrencyError::MESSAGE], 409);
             }
 
-            return back()->withInput($request->except(['_token', '_method', 'password', 'password_confirmation']))
+            // 戻り先がわからないときは、ほかのタブで最後に開いた画面の欄に入れてしまわないように、入れた内容を持たずにホームで知らせる
+            $back = UseFormOrigin::origin($request);
+            if ($back === null) {
+                return redirect()->route('home')->with('warning', 'ほかの画面の保存と重なったので、保存できませんでした。画面を開き直して、もう一度入れてください。');
+            }
+
+            return redirect()->to($back)->withInput($request->except(['_token', '_method', '_from', 'password', 'password_confirmation']))
                 ->with('warning', ConcurrencyError::MESSAGE);
         });
 

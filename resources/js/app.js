@@ -338,6 +338,23 @@ document.addEventListener('submit', (event) => {
         markSubmitted();
     }
 });
+// フォームを送るとき、送った画面の場所を _from に入れる。ブラウザが Referer を送らない設定でも、入力のまちがいなどで
+// この画面へ戻せるように（app/Http/Middleware/UseFormOrigin.php。ほかのタブで最後に開いた画面へ戻って、その欄に入れないように）
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.hasAttribute('wire:submit') || (form.method || '').toLowerCase() === 'get') {
+        return;
+    }
+    let from = form.querySelector('input[name="_from"]');
+    if (!from) {
+        from = document.createElement('input');
+        from.type = 'hidden';
+        from.name = '_from';
+        form.append(from);
+    }
+    from.value = location.pathname + location.search;
+}, true);
+
 // Livewire の部品からの知らせ（ほかの画面の保存と重なって保存できなかったときなど。app/Providers/AppServiceProvider.php）
 window.addEventListener('page-alert', (event) => {
     showPageAlert(event.detail?.message ?? '', false);

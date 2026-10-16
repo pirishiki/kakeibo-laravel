@@ -7,6 +7,7 @@ use App\Models\RecurringSkip;
 use App\Support\FormInput;
 use App\Support\RecurringMonthly;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
@@ -100,17 +101,23 @@ class PendingAmounts extends Component
             $this->validate($rules, $messages);
         }
 
-        $saved = 0;
-        $problems = [];
-        foreach ($this->items as $item) {
-            $text = $values[self::key($item['recurring'], $item['month'])];
-            if ($text !== '') {
-                RecurringMonthly::saveAmount($item['recurring'], $item['month'], (int) $text);
-                $problems[] = RecurringMonthly::recordProblem($item['recurring'], $item['month'], (int) $text);
-                $saved++;
+        // 全部の予定を 1 つのトランザクションで保存する（途中の予定で、ほかの画面の保存と押さえあってやり直しを使い切ったときに、
+        // 前の予定だけ保存・記録されたのに「保存できませんでした」と出さないように。全部やるか、何もしないか）
+        $items = $this->items;
+        [$saved, $problems] = DB::transaction(function () use ($items, $values) {
+            $saved = 0;
+            $problems = [];
+            foreach ($items as $item) {
+                $text = $values[self::key($item['recurring'], $item['month'])];
+                if ($text !== '') {
+                    RecurringMonthly::saveAmount($item['recurring'], $item['month'], (int) $text);
+                    $problems[] = RecurringMonthly::recordProblem($item['recurring'], $item['month'], (int) $text);
+                    $saved++;
+                }
             }
-        }
-        $problems = array_values(array_filter($problems));
+
+            return [$saved, array_values(array_filter($problems))];
+        }, 3);
 
         // 開いたあとに、ほかの画面で記録されたか「今回はなし」になってお知らせから消えた予定に入れた金額は、使えない。黙らずに名前をつけて知らせる
         $unused = [];

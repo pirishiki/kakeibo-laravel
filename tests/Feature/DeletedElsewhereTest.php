@@ -446,6 +446,29 @@ class DeletedElsewhereTest extends TestCase
         $this->assertSame(0, Record::query()->count());
     }
 
+    public function test_refererがなくても_入力のまちがいはフォームを送った画面へ戻す(): void
+    {
+        $shop = Partner::factory()->create(['name' => 'パン屋']);
+        // ほかのタブで、最後に口座の画面を開いていた
+        $this->get(route('accounts.create'));
+
+        $this->put(route('partners.update', $shop), ['name' => '', 'is_active' => '1', '_from' => '/partners/'.$shop->id.'/edit'])
+            ->assertRedirect(url('/partners/'.$shop->id.'/edit'))
+            ->assertSessionHasErrors('name');
+    }
+
+    public function test_押さえあいで戻り先がわからないときは_入力を持たずにホームで知らせる(): void
+    {
+        $shop = Partner::factory()->create(['name' => 'パン屋']);
+        Partner::updating(fn () => throw self::deadlock());
+        $this->get(route('accounts.create'));
+
+        $this->put(route('partners.update', $shop), ['name' => 'パン屋さん', 'is_active' => '1'])
+            ->assertRedirect(route('home'))
+            ->assertSessionHas('warning', 'ほかの画面の保存と重なったので、保存できませんでした。画面を開き直して、もう一度入れてください。')
+            ->assertSessionMissing('_old_input');
+    }
+
     public function test_決まっていない種類の行は_今までどおり404(): void
     {
         // 記録・口座などの行の番号ではない、ないページ
