@@ -313,7 +313,7 @@ class RareCasesTest extends TestCase
 
         // 画面の「今月から」とちがうので、黙らずに知らせる
         $this->put('/budgets', ['opened' => '2026-10', 'amounts' => [$food->id => '35000'], 'originals' => [$food->id => '30000']])
-            ->assertSessionHas('warning', '11月から新しい予算にしました（10月は前の予算のままです）。');
+            ->assertSessionHas('warning', '11月から変えました（10月は前の予算のままです）。');
 
         $this->assertSame('2026-10-01', $row->fresh()?->end_month?->toDateString());
         $this->assertDatabaseHas('budgets', ['category_id' => $food->id, 'start_month' => '2026-11-01', 'amount' => 35000]);

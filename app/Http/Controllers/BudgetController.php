@@ -104,7 +104,7 @@ class BudgetController extends Controller
         // ふだんの予算を、月末に開いて月初めに保存したとき：「今月から」は保存したときの月になるので、黙らずに知らせる
         $opened = self::isMonthText($request->input('opened')) ? CarbonImmutable::createFromFormat('!Y-m', (string) $request->input('opened')) : null;
         if ($special === null && $savedAny && $opened !== null && ! $opened->equalTo($today->startOfMonth())) {
-            $messages[] = $today->format('n月').'から新しい予算にしました（'.$opened->format('n月').'は前の予算のままです）。';
+            $messages[] = $today->format('n月').'から変えました（'.$opened->format('n月').'は前の予算のままです）。';
         }
 
         if ($messages === []) {
