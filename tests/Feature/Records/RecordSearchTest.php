@@ -273,6 +273,39 @@ class RecordSearchTest extends TestCase
             ->assertSee('edit?back='.urlencode(url('/records').'?item='.rawurlencode('おに')), false);
     }
 
+    public function test_関係ないクエリは行の戻る先にも続きの_ur_lにも入れない(): void
+    {
+        $long = str_repeat('x', 6000);
+
+        $this->get('/records?item=おに&x='.$long)
+            ->assertOk()
+            ->assertSee('edit?back='.urlencode(url('/records').'?item='.rawurlencode('おに')).'"', false)
+            ->assertDontSee($long);
+
+        $this->addManyRecords();
+        $this->get('/records?month=2026-09&x='.$long)
+            ->assertOk()
+            ->assertSee('edit?back='.urlencode(url('/records').'?month=2026-09').'"', false)
+            ->assertSee('data-records-more', false)
+            ->assertDontSee($long);
+    }
+
+    public function test_続きのページの行の戻る先には読めた続きの印だけを入れる(): void
+    {
+        $this->addManyRecords();
+        $first = Record::query()->where('date', '2026-09-01')->orderByDesc('id')->firstOrFail();
+
+        $this->get('/records?month=2026-09&before=2026-09-01.'.$first->id)
+            ->assertOk()
+            ->assertSee('edit?back='.urlencode(url('/records').'?month=2026-09&before=2026-09-01.'.$first->id).'"', false);
+
+        // 形のちがう印は読まずに 1 ページ目を出すので、戻る先にも入れない
+        $this->get('/records?month=2026-09&before='.str_repeat('x', 3000))
+            ->assertOk()
+            ->assertSee('edit?back='.urlencode(url('/records').'?month=2026-09').'"', false)
+            ->assertDontSee(str_repeat('x', 3000));
+    }
+
     public function test_小分類のidを大分類の欄に入れると知らせを出す(): void
     {
         $child = Category::factory()->create(['name' => '外食', 'kind' => CategoryKind::Expense, 'parent_id' => $this->food->id]);

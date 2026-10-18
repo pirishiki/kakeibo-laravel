@@ -67,6 +67,10 @@ class AdjustBalance extends Component
         $this->backUrl = FormInput::backUrl(
             is_string($back) && $back !== '' ? $back : url()->previous(),
             ['#^/accounts/\d+/adjust#', '#^/records/create#', '#^/records/\d+/edit#'],
+            // この画面の URL（戻る先を入れたもの）を、さらに記録の画面の戻る先に入れるので、2 回エンコードした長さで比べ、
+            // 記録の画面の上限（6,200 字）に、この画面の場所の分を足しても入るようにする。開く元はホーム・口座の一覧などで、ふつうは短い
+            5800,
+            2,
         );
     }
 
