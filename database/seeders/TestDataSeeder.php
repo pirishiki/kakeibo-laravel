@@ -12,6 +12,7 @@ use App\Models\Record;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
  * デプロイした環境に入れるテスト用のデータ（php artisan db:seed --class=TestDataSeeder --force）。
@@ -27,10 +28,16 @@ class TestDataSeeder extends Seeder
     /** 何か月分か（5 年） */
     private const MONTHS = 60;
 
-    /** 相手の名前：お店の種類 × 場所。最初からある「その他」と合わせて 50 にする（服屋だけ 4 つ） */
+    /**
+     * 相手の名前：お店の種類 × 場所（44）と、毎月決まった記録・電車代の相手（5）。最初からある「その他」と合わせて 50 にする。
+     * 支出・収入の相手は必須（要件定義書 5.3）。ここでは画面のチェックを通らないので、相手なしの支出・収入を作らないようにする
+     */
     private const SHOPS = ['コンビニ', 'スーパー', 'ドラッグストア', 'カフェ', 'パン屋', '定食屋', '本屋', '100円ショップ', 'ホームセンター', '服屋'];
 
     private const PLACES = ['駅前', '本町', '川沿い', '北口', '南口'];
+
+    /** 場所を最初の 3 つ（駅前・本町・川沿い）だけにするお店 */
+    private const FEW_PLACES = ['本屋', 'ホームセンター', '服屋'];
 
     public function run(): void
     {
@@ -68,13 +75,16 @@ class TestDataSeeder extends Seeder
 
             $partners = [];
             foreach (self::SHOPS as $shop) {
-                foreach (self::PLACES as $place) {
-                    if ($shop === '服屋' && $place === '南口') {
-                        continue;
-                    }
+                $places = in_array($shop, self::FEW_PLACES, true) ? array_slice(self::PLACES, 0, 3) : self::PLACES;
+                foreach ($places as $place) {
                     $partners[$shop][] = Partner::create(['name' => $shop.' '.$place])->id;
                 }
             }
+            $company = Partner::create(['name' => 'あおぞら商事'])->id;
+            $landlord = Partner::create(['name' => '大家さん'])->id;
+            $power = Partner::create(['name' => '電力会社'])->id;
+            $mobile = Partner::create(['name' => '携帯電話会社'])->id;
+            $railway = Partner::create(['name' => '鉄道会社'])->id;
 
             // 何か月目か（最初の月が 0）。カードの引き落としで「前の月に使った分」を数えるのに使う
             $monthIndex = fn (CarbonImmutable $date) => ($date->year - $first->year) * 12 + $date->month - $first->month;
@@ -85,23 +95,23 @@ class TestDataSeeder extends Seeder
             for ($m = 0; $m < self::MONTHS; $m++) {
                 $month = $first->addMonthsNoOverflow($m);
                 foreach ([
-                    [25, RecordType::Income, 250000, $bank, null, $salary],
+                    [25, RecordType::Income, 250000, $bank, null, $salary, $company],
                     // 賞与は 6 月と 12 月だけ
-                    ...(in_array($month->month, [6, 12], true) ? [[10, RecordType::Income, 300000, $bank, null, $bonus]] : []),
-                    [27, RecordType::Expense, 72000, $bank, null, $housing],
-                    [20, RecordType::Expense, intdiv(mt_rand(6000, 14000), 10) * 10, $bank, null, $utility],
-                    [15, RecordType::Expense, 4800, $bank, null, $phone],
-                    [1, RecordType::Transfer, 50000, $bank, $cash, null],
-                    [26, RecordType::Transfer, 10000, $bank, $savings, null],
+                    ...(in_array($month->month, [6, 12], true) ? [[10, RecordType::Income, 300000, $bank, null, $bonus, $company]] : []),
+                    [27, RecordType::Expense, 72000, $bank, null, $housing, $landlord],
+                    [20, RecordType::Expense, intdiv(mt_rand(6000, 14000), 10) * 10, $bank, null, $utility, $power],
+                    [15, RecordType::Expense, 4800, $bank, null, $phone, $mobile],
+                    [1, RecordType::Transfer, 50000, $bank, $cash, null, null],
+                    [26, RecordType::Transfer, 10000, $bank, $savings, null, null],
                     // 金額は、ふだんの記録を作ったあとで決める（下）
-                    [10, RecordType::Transfer, 0, $bank, $card, null],
-                ] as [$d, $type, $amount, $account, $toAccount, $category]) {
+                    [10, RecordType::Transfer, 0, $bank, $card, null, null],
+                ] as [$d, $type, $amount, $account, $toAccount, $category, $partner]) {
                     $date = $month->setDay($d);
                     // まだ来ていない日と、最初の月のカードの引き落とし（前の月がない）は入れない
                     if ($date->greaterThan($today) || ($m === 0 && $toAccount?->is($card))) {
                         continue;
                     }
-                    $fixed[] = [$date, $type, $amount, $account, $toAccount, $category, null];
+                    $fixed[] = [$date, $type, $amount, $account, $toAccount, $category, $partner];
                 }
             }
 
@@ -138,7 +148,7 @@ class TestDataSeeder extends Seeder
                     continue;
                 }
                 if ($i % 20 === 1) {
-                    $rows[] = [$date, RecordType::Expense, 178 * mt_rand(1, 3), $ic, null, $transport, null];
+                    $rows[] = [$date, RecordType::Expense, 178 * mt_rand(1, 3), $ic, null, $transport, $railway];
 
                     continue;
                 }
@@ -151,10 +161,14 @@ class TestDataSeeder extends Seeder
                 }
             }
 
-            // カードの引き落とし：前の月にカードで使った分を、銀行口座からカードへ移す
+            // カードの引き落とし：前の月にカードで使った分を、銀行口座からカードへ移す。
+            // 前の月に使っていないと 0 円の移動になる（移動は 1 円以上の決まり）。金額を変えるとカードの残高がずれるので、止めて知らせる
             foreach ($fixed as $i => $row) {
                 if ($row[4]?->is($card)) {
-                    $fixed[$i][2] = max(1, $cardTotals[$monthIndex($row[0]) - 1] ?? 0);
+                    $fixed[$i][2] = $cardTotals[$monthIndex($row[0]) - 1] ?? 0;
+                    if ($fixed[$i][2] === 0) {
+                        throw new RuntimeException($row[0]->format('Y年n月').'のカードの引き落としが 0 円になるので、テスト用のデータを作れません。ふだんの記録の並びを見直してください。');
+                    }
                 }
             }
 
