@@ -42,9 +42,37 @@ class FormInput
      * URL の形（http・https）と場所（このアプリ）を確かめ、場所の部分だけを取り出して、このアプリの URL として組み立て直す
      * （「javascript:」で始まる URL などで、保存したときに危ない動きをさせないため）
      *
+     * 戻る先は、次の画面の URL の back にエンコードして入れる（残高を合わせる画面では、入れ子になって 2 回エンコードされる）。
+     * 長すぎると、そのリンク・移り先が CloudFront・nginx の長さの上限（約 8 KB）をこえてエラーの画面になるので、
+     * $encodeTimes 回エンコードしたときの長さが $maxLength 字をこえたら、条件（? のあと）を外す。
+     * 字数で比べないのは、記号や日本語はエンコードすると 1 字が 3 字になり、字数が少なくても長くなるため。
+     * ふつうの画面でいちばん長いのは、品物に絵文字を 255 字入れ、全部の条件をつけて探した記録の一覧（エンコードして約 5.5 KB）
+     *
      * @param  list<string>  $exclude  戻る先にしない画面の、場所（パス）の形（正規表現）。保存したあとに同じ画面へ戻ってしまわないように
      */
-    public static function backUrl(string $previous, array $exclude = []): string
+    public static function backUrl(string $previous, array $exclude = [], int $maxLength = 6200, int $encodeTimes = 1): string
+    {
+        $fits = function (string $url) use ($maxLength, $encodeTimes): bool {
+            for ($i = 0; $i < $encodeTimes; $i++) {
+                $url = rawurlencode($url);
+            }
+
+            return strlen($url) <= $maxLength;
+        };
+
+        $url = self::appUrl($previous, $exclude);
+        if ($fits($url)) {
+            return $url;
+        }
+        $withoutQuery = strtok($url, '?');
+
+        return is_string($withoutQuery) && $fits($withoutQuery) ? $withoutQuery : route('home');
+    }
+
+    /**
+     * @param  list<string>  $exclude
+     */
+    private static function appUrl(string $previous, array $exclude): string
     {
         $parts = parse_url($previous);
         $path = $parts['path'] ?? '/';

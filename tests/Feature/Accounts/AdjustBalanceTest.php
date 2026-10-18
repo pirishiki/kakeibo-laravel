@@ -307,6 +307,35 @@ class AdjustBalanceTest extends TestCase
         }
     }
 
+    public function test_長すぎる戻る先は条件を外して_記録の画面へのリンクが長くなりすぎない(): void
+    {
+        // 2 回エンコードすると上限（5,800 字）をこえる戻る先は、条件を外す（記号や日本語の生の字は、エンコードで 3 倍になる）
+        foreach (['?x='.rawurlencode(str_repeat('あ', 300)), '?x='.str_repeat('/', 1200), '?x='.str_repeat('あ', 400)] as $query) {
+            Livewire::withQueryParams(['back' => url('/accounts').$query])
+                ->test(AdjustBalance::class, ['account' => $this->cash])
+                ->assertSet('backUrl', url('/accounts'));
+        }
+
+        // 戻る先がいちばん長いとき（どの形でも）、記録の画面へのリンク（戻る先が入れ子になる）は 8 KB に入り、
+        // 記録の画面でも戻る先として使える（条件が外れない）
+        Record::factory()->create(['account_id' => $this->cash->id, 'date' => today()]);
+        $base = url('/accounts').'?x=';
+        // 2 回エンコードしたときの 1 つ分の長さ：a は 1 字、/ は %252F の 5 字、%E3%81%82 は %2525E3%252581%252582 の 21 字
+        foreach (['a' => 1, '/' => 5, '%E3%81%82' => 21] as $unit => $growth) {
+            $longest = $base.str_repeat($unit, intdiv(5800 - strlen(rawurlencode(rawurlencode($base))), $growth));
+            $component = Livewire::withQueryParams(['back' => $longest])->test(AdjustBalance::class, ['account' => $this->cash])
+                ->assertSet('backUrl', $longest);
+            preg_match_all('#href="([^"]*/records/[^"]*)"#', $component->html(), $links);
+            $this->assertCount(2, $links[1], '最近の記録の行と、つけ忘れを記録する');
+            foreach ($links[1] as $link) {
+                $link = html_entity_decode($link);
+                $this->assertLessThan(8000, strlen($link));
+                parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+                Livewire::withQueryParams(['back' => $query['back']])->test(RecordForm::class)->assertSet('backUrl', $query['back']);
+            }
+        }
+    }
+
     public function test_戻る先は画面の側から変えられない(): void
     {
         $this->expectException(CannotUpdateLockedPropertyException::class);

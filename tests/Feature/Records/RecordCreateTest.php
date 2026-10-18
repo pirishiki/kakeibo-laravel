@@ -12,6 +12,7 @@ use App\Models\Partner;
 use App\Models\Record;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Arr;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -324,6 +325,49 @@ class RecordCreateTest extends TestCase
 
         $this->expectException(CannotUpdateLockedPropertyException::class);
         Livewire::test(RecordForm::class)->set('backUrl', 'https://example.com');
+    }
+
+    public function test_長すぎる戻る先は条件を外す(): void
+    {
+        // ふつうの画面でいちばん長い戻る先（品物に絵文字を 255 字入れ、全部の条件と続きの印をつけて探した一覧）は、そのまま使う
+        $id = '123456789012345678';
+        $longest = url('/records').'?'.Arr::query([
+            'from' => '2026-01-01', 'to' => '2026-12-31', 'type' => 'expense', 'account' => $id, 'category' => $id,
+            'sub' => $id, 'partner' => $id, 'item' => str_repeat('😀', 255), 'search' => '1', 'before' => '2026-10-01.'.$id,
+        ]);
+        Livewire::withQueryParams(['back' => $longest])->test(RecordForm::class)->assertSet('backUrl', $longest);
+
+        // それより長いと、次の画面の URL が長さの上限をこえてエラーの画面になるので、条件を外す。
+        // 記号や日本語の生の字は、エンコードすると 3 倍になるので、字数が少なくても外す
+        foreach (['?x='.str_repeat('a', 6200), '?x='.str_repeat('/', 2100), '?x='.str_repeat('あ', 700)] as $query) {
+            Livewire::withQueryParams(['back' => url('/records').$query])->test(RecordForm::class)->assertSet('backUrl', url('/records'));
+        }
+
+        // 境目：エンコードした長さが 6,200 字ならそのまま、6,201 字なら外す
+        $base = url('/records').'?x=';
+        $exact = $base.str_repeat('a', 6200 - strlen(rawurlencode($base)));
+        Livewire::withQueryParams(['back' => $exact])->test(RecordForm::class)->assertSet('backUrl', $exact);
+        Livewire::withQueryParams(['back' => $exact.'a'])->test(RecordForm::class)->assertSet('backUrl', url('/records'));
+
+        // 場所だけでも長すぎるときは、ホームに戻る
+        Livewire::withQueryParams(['back' => url('/'.str_repeat('a', 6300))])->test(RecordForm::class)->assertSet('backUrl', route('home'));
+    }
+
+    public function test_続けて記録するときの移り先も長さの上限に入る(): void
+    {
+        $back = url('/records').'?'.Arr::query(['item' => str_repeat('😀', 255), 'partner' => '123456789012345678']);
+
+        $component = Livewire::withQueryParams(['back' => $back])
+            ->test(RecordForm::class)
+            ->set('amount', '500')
+            ->set('partnerName', 'コンビニ')
+            ->set('categoryId', $this->food->id)
+            ->set('accountId', $this->cash->id)
+            ->call('save', true)
+            ->assertHasNoErrors()
+            ->assertRedirect(route('records.create', ['type' => 'expense', 'date' => today()->toDateString(), 'account' => $this->cash->id, 'back' => $back]));
+
+        $this->assertLessThan(8000, strlen((string) $component->effects['redirect']));
     }
 
     public function test_ur_lの値がおかしくても画面は開けて最初の値になる(): void

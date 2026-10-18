@@ -14,6 +14,7 @@ use App\Support\RecordSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\MessageBag;
 use Illuminate\View\View;
@@ -63,11 +64,11 @@ class RecordController extends Controller
             'dayExpenses' => $list['dayExpenses'],
             // 何件目から出しているか（1 から数える）と、続きを開く URL（続きがないときは null）
             'start' => $list['start'],
-            'nextUrl' => $list['next'] === null ? null : $request->fullUrlWithQuery([...$pageQuery, 'before' => $list['next']]),
+            'nextUrl' => $list['next'] === null ? null : self::pageUrl($request, [...$pageQuery, 'before' => $list['next']]),
             // 続きの印を読めたとき（続きのページを出しているとき）だけ。形のちがう印は読まずに 1 ページ目を出すので、「最初から見る」は出さない
             // 行から編集を開いたときの戻る先（今のページ。月ごとの一覧では見ている月も入れる。続きの URL と同じ理由）
-            'backUrl' => $request->fullUrlWithQuery($pageQuery),
-            'firstUrl' => $cursor === null ? null : $request->fullUrlWithQuery([...$pageQuery, 'before' => null]),
+            'backUrl' => self::pageUrl($request, [...$pageQuery, 'before' => $cursor === null ? null : $cursor['date'].'.'.$cursor['id']]),
+            'firstUrl' => $cursor === null ? null : self::pageUrl($request, [...$pageQuery, 'before' => null]),
             'firstDayContinued' => $list['firstDayContinued'],
             'lastDayContinues' => $list['lastDayContinues'],
             ...$this->searchOptions(),
@@ -79,6 +80,26 @@ class RecordController extends Controller
      * （何年分もの記録を 1 ページに出すと、とても遅くなったり、エラーの画面になったりするため。要件定義書 N-12）
      */
     private const LIST_LIMIT = 500;
+
+    /**
+     * この一覧の URL を、探す条件と探すしるしだけを今の URL から引き継いで作り、$change を足す（null は入れない）。
+     * 月と続きの印は、読めた形のものだけを $change で渡す（形のちがう長い字をそのまま引き継がないため）。
+     * 今の URL のクエリを全部引き継ぐと、関係ないもの（?x=… など）が全部の行の戻る先に二重にエンコードされてくり返し入り、
+     * 行のリンクが CloudFront・nginx の長さの上限をこえてエラーの画面になったり、一覧がいくらでも大きくなったりするため
+     * （探す条件は形を確かめていて、まちがいがあるときは行を出さない）
+     *
+     * @param  array<string, string|null>  $change
+     */
+    private static function pageUrl(Request $request, array $change): string
+    {
+        $query = collect([...RecordSearch::FIELDS, RecordSearch::MARK])
+            ->mapWithKeys(fn (string $key) => [$key => is_string($value = $request->query($key)) ? $value : null])
+            ->merge($change)
+            ->reject(fn (?string $value) => $value === null)
+            ->all();
+
+        return $query === [] ? $request->url() : $request->url().'?'.Arr::query($query);
+    }
 
     /**
      * 続きの印（?before=2026-09-01.1234）を読む。「この日付・この番号の記録より前（古いほう）から出す」という意味。
