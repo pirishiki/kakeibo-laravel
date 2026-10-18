@@ -53,7 +53,16 @@ https://github.com/user-attachments/assets/6fe70426-3b0c-4ad2-9628-f63edfd3e84f
 
 ### 2 回目（完成後）
 
-（デプロイ後に書く）
+- 日付：2026年10月18日
+- 段階：完成後（第 1〜第 3 段階のすべて。第 2 段階で足した定期的な記録・自動で記録する・お知らせ・カレンダー・使える額・探す、第 3 段階で足した予算・グラフ・貯金の目標をふくむ）
+- URL：https://d3kboypxgz3zpn.cloudfront.net （destroy したので、今は開けない）
+- 入れたデータ：テスト用のデータ（口座 5・分類 20・相手 50・記録 1 万件。`TestDataSeeder`）と、画面から入れた定期的な記録・取っておく額・予算・貯金の目標。ログインに使った人は `testing@example.com`
+
+https://github.com/user-attachments/assets/eae96651-df03-4358-a343-502f34b47451
+
+動画の中身：アドレス（https）→ ログイン → ホーム（お知らせ・使える額の内訳・カレンダー）→ 記録の一覧 → 貯金の目標 → 予算 → 相手・分類・口座 → 定期的な記録（月ごとの金額）→ 月のまとめ（円グラフ・予算の状況）→ 記録する → ブラウザの幅を細くしてスマホの形（下のメニュー）→ ログアウト。ブラウザのツールバーとパスワードマネージャーの小窓は、ぼかしてある。動画は、デプロイの途中で見つけた 2 つの直し（下の「2 回目のデプロイで見つかったこと」の #65・#67）を入れる前に撮った。
+
+確かめたことの結果と、destroy のあとに確かめたことは、下の「[AWS へのデプロイ](#aws-へのデプロイ)」の手順 5・6 に書いている。
 
 ## 設計で大事にした判断
 
@@ -319,6 +328,8 @@ cloud-init status --wait
 sudo bash /var/www/kakeibo/scripts/deploy.sh https://〇〇〇.cloudfront.net
 
 # 最初の 1 回だけ：ログインする人を作る（パスワードは画面に出ない）
+# Windows から入ると Backspace が効かず、^H という字が入ってしまうので、先に Backspace を「1 字消す」にする
+stty erase '^H'
 sudo -u kakeibo php /var/www/kakeibo/artisan user:create
 
 # 最初の 1 回だけ：テスト用のデータ（口座 5・分類 20・相手 50・記録 1 万件）を入れる。本物の記録は入れない
@@ -337,10 +348,27 @@ sudo -u kakeibo php /var/www/kakeibo/artisan db:seed --class=TestDataSeeder --fo
 | http で開くと https に移る（N-03） | 301 で https へ移った |
 | ログインしないと中が見えない（N-01） | ログイン画面へ移った（移り先も https） |
 | パスワードは元に戻せない形で保存される（N-02） | `$2y$12$…`（bcrypt）で保存されていた |
-| 記録 1 万件でも 1 秒以内に開く（N-12） | EC2 の中で画面を作る時間は 0.03〜0.11 秒（ホーム 108ms・記録の一覧 67ms・月のまとめ 82ms）。要件定義書 10.4 で決めた「ブラウザの開発者ツールではかる」方法では、はかっていない（2 回目のデプロイではかる） |
-| スマホとパソコンで使える（N-11・N-13） | パソコンの Chrome で、動画の画面を使えた。スマホの並べ方は、パソコンのブラウザの幅を細くして確かめた。実物のスマホでは、ログインだけ確かめた。実物のスマホ（Android の Chrome）での操作は、まだ確かめていない（2 回目のデプロイで確かめる。確かめるブラウザ（N-13）は、2026-10-17 に実際に使うものだけに変えた） |
+| 記録 1 万件でも 1 秒以内に開く（N-12） | EC2 の中で画面を作る時間は 0.03〜0.11 秒（ホーム 108ms・記録の一覧 67ms・月のまとめ 82ms）。要件定義書 10.4 で決めた「ブラウザの開発者ツールではかる」方法では、はかっていない（2 回目のデプロイではかった。下の「2 回目の結果」） |
+| スマホとパソコンで使える（N-11・N-13） | パソコンの Chrome で、動画の画面を使えた。スマホの並べ方は、パソコンのブラウザの幅を細くして確かめた。実物のスマホでは、ログインだけ確かめた。実物のスマホ（Android の Chrome）での操作は、1 回目では確かめていない（2 回目のデプロイで確かめた。下の「2 回目の結果」。確かめるブラウザ（N-13）は、2026-10-17 に実際に使うものだけに変えた） |
 | EC2 から RDS へ暗号化（TLS）してつながる | RDS の証明書の元を指定した設定で、マイグレーションとテスト用のデータの書きこみができた |
 | CloudFront から EC2 へ、決めた入口（CloudFront の住所の一覧）で届く（全体構成設計書 3 章） | 届いた |
+
+**2 回目の結果**（2026年10月18日・完成後。動画と URL は上の「[動いているところ](#動いているところ)」にある）
+
+| 確かめたこと | 結果 |
+|---|---|
+| destroy のあと、README の手順どおりに同じ環境がもう一度できる（N-15） | `terraform apply` で、設計図（`infra/`）にある 28 個がすべてできた。EC2 の最初の準備（user_data）と `deploy.sh` は、どちらも最初から 1 回で最後まで通った（1 回目に止まったところは直してある） |
+| コードを新しくするときは `deploy.sh` をもう一度動かす（手順 4） | デプロイの途中で見つけた直し（#63・#65・#67）を master にマージしたあと、`deploy.sh` をもう一度動かして入れた（3 回）。どれも最後まで通った |
+| http で開くと https に移る（N-03） | 301 で https へ移った |
+| ログインしないと中が見えない（N-01） | ログイン画面へ移った（移り先も https） |
+| パスワードは元に戻せない形で保存される（N-02） | `$2y$12$…`（bcrypt）で保存されていた |
+| 記録 1 万件でも 1 秒以内に開く（N-12） | パソコンの Chrome の開発者ツールで、2 回目以降に開いたときの読みこみ（Load）の時間をはかった：ホーム 729ms・記録の一覧 777ms・月のまとめ 549ms。3 つとも 1 秒以内。速さの制限はなし（No throttling）。開発者ツールを開いて画面の幅がせまくなったので、スマホの形の表示（開発者ツールのスマホの表示、Galaxy A55）のままはかった。nginx の直し（#65）の前にはかった |
+| スマホ（Android の Chrome）とパソコンの Chrome で使える（N-11・N-13） | パソコンの Chrome で、ログイン・ホーム・記録する・記録の一覧と探す・記録を直す画面（開いて「やめる」で戻る）・月のまとめ・口座・分類・相手・定期的な記録・予算・貯金の目標・ログアウトを使えた（動画と、そのあとの確かめ）。実物のスマホ（Android の Chrome）で、ログイン・ホーム・記録する・探す・月のまとめ・設定・定期的な記録・予算・貯金の目標を使えた。残高を合わせる画面は、2 回目では開いていない（1 回目に確かめた。そのあと変えたのは戻る先の作り方だけで〔#67〕、手元の自動テストで確かめた） |
+| EC2 から RDS へ暗号化（TLS）してつながる | 1 回目と同じ設定で、マイグレーションとテスト用のデータの書きこみができた |
+| CloudFront から EC2 へ、決めた入口（CloudFront の住所の一覧）で届く（全体構成設計書 3 章） | 届いた |
+| 定期的な記録を自動で記録するしくみが動く（全体構成設計書 5 章） | 目覚まし（`kakeibo-schedule.timer`）が毎分 Laravel のスケジューラーを動かしていた（30 分で 30 回）。次に記録するのは日本時間の 0 時 5 分と出た。記録するコマンドを手で動かすと、エラーなく終わった（記録する日が来ていないので 0 件） |
+| 第 2・第 3 段階の画面（受け入れ基準 10.2・10.3） | 定期的な記録・取っておく額・予算・貯金の目標を画面から入れ、ホームのお知らせ・使える額・カレンダーの予定、月のまとめのグラフと予算の色、記録の「探す」が、決めたとおりの数字で出ることを確かめた |
+| ブラウザの Console にエラーが出ない | アプリのエラー・注意は出なかった（出ていた注意 1 つは、ブラウザに入れているセキュリティの拡張機能のもの） |
 
 ### 6. destroy して、残っていないことを確かめる
 
@@ -363,6 +391,7 @@ aws cloudfront list-vpc-origins --profile dothething --query "VpcOriginList.Item
 aws ec2 describe-nat-gateways --profile dothething --region ap-southeast-2 --filter Name=state,Values=pending,available --query "NatGateways[].NatGatewayId"
 aws ec2 describe-instances --profile dothething --region ap-southeast-2 --filters Name=instance-state-name,Values=pending,running,stopping,stopped --query "Reservations[].Instances[].InstanceId"
 aws rds describe-db-instances --profile dothething --region ap-southeast-2 --query "DBInstances[].DBInstanceIdentifier"
+aws rds describe-db-snapshots --profile dothething --region ap-southeast-2 --query "DBSnapshots[].DBSnapshotIdentifier"
 aws ec2 describe-vpcs --profile dothething --region ap-southeast-2 --filters Name=tag:Project,Values=kakeibo --query "Vpcs[].VpcId"
 aws ec2 describe-addresses --profile dothething --region ap-southeast-2 --query "Addresses[].PublicIp"
 aws secretsmanager list-secrets --profile dothething --region ap-southeast-2 --query "SecretList[?starts_with(Name, 'rds!')].Name"
@@ -388,3 +417,15 @@ aws ec2 describe-network-interfaces --profile dothething --region ap-southeast-2
 - デプロイ用のスクリプトが、最初の 1 回だけ止まった（`optimize:clear` が、まだないキャッシュの表を消そうとしたため。消すものをしぼった）
 - セッションの Cookie の名前が「-session」になっていた（名前を決めていなかったので、アプリの名前「家計簿」から作られ、日本語の字が消えたため。`kakeibo_session` にした）
 - nginx を動かすたびに注意（warning）が出た（ファイルの種類の表を読む大きさが足りなかったため。`types_hash_max_size` を足した）
+
+**2 回目の結果**
+
+`terraform destroy` で 28 個を消した（CloudFront をふくめて 19 分）。コマンドの種類ごとの一覧（CloudFront の配信・VPC オリジン・CloudFront Functions・NAT ゲートウェイ・EC2・RDS と、そのスナップショット・VPC・サブネット・セキュリティグループ・ネットワークインターフェース・出口の IP・金庫・IAM ロール）で、このアプリのものが 0 件なことを確かめた。名札で探すと、消したばかりの 8 件が出たが、1 つずつ見るとすべて消えていた（EC2 は終了済み、NAT ゲートウェイは削除済み、ディスク・セキュリティグループ・そのルールはもうない）。AWS のコンソールでも、EC2（終了済みだけ）・NAT ゲートウェイ（削除済みだけ）・VPC・RDS（削除のイベント）・CloudFront が残っていないことを見た。残したのは予算アラート（コンソールでも monthly-5usd があることを見た）と、手元の台帳（中身は空）だけ。2 回目のデプロイ（作ってから消すまで約 2 時間 50 分）で使ったお金は 0.43 ドルほどだった（AWS のコンソールの Billing and Cost Management の予算の画面に出る、このプロジェクトの今月の使った額。1 回目は記録していない）。
+
+2 回目のデプロイで見つかったこと（どれも直してある）：
+
+- テスト用のデータ（`TestDataSeeder`）の給料・賞与・家賃・電気代・携帯代・電車代に、相手が入っていなかった（画面を通さずにデータベースへ直接入れるので、相手は必須という決まりのチェックを通らずに入ったため。相手を入れ、種類ごとの決まりをテストで確かめるようにした。#63）。直したあと、データベースを空にして入れ直してから確かめた。1 回目のデプロイも直す前のデータで確かめていたが、件数と速さの結果には関係しない（相手が空の行があっただけ）
+- Session Manager で Windows から EC2 に入ると、Backspace が効かず、`user:create` でメールアドレスを打ち直せなかった（手順 4 に `stty erase '^H'` を足した）
+- 全体構成設計書に、VPC に最初からついてくるセキュリティグループを閉じることが書かれていなかった（Terraform では閉じていた。設計書の 3 章に足した）
+- 記録の一覧を開くたびに、nginx の注意（warning）が出た（nginx が PHP から受け取る画面の中身が約 127 KB あり、nginx がメモリで受け取れる大きさ〔最初の設定で 32〜64 KB〕をこえて、いったん一時ファイルに書いていたため。画面は出ていて、エラーではなかった。受け取る大きさを 4 MB にした。#65）。直したあと、514 KB・708 KB の探した結果を開いても、注意は出なかった
+- 記録の一覧の各行のリンクに入れる戻る先（直したあとに戻る画面のアドレス）に、今のアドレスの条件（? のあと）を全部入れていた。ふつうに使うだけでは起きないが、アドレスに家計簿が使わない長い条件をつけて開くと、それが全部の行のリンクにくり返し入り、リンクが CloudFront・nginx の長さの上限（約 8 KB）をこえて、押すとエラーの画面になる（nginx の直しのレビューで見つけた。家計簿が使う条件だけで作り、戻る先に長さの上限をつけた。#67）。直したあと、探した結果から記録を開いて「やめる」で戻ると、条件が残ったまま戻ることを確かめた
