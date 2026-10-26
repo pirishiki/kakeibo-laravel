@@ -9,8 +9,8 @@
     "devDependencies": {
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",
-        "sass": "^1.105.1",
-        "vite": "^8.0.0"
+        "sass": "^1.106.1",
+        "vite": "^8.3.5"
     },
     "optionalDependencies": {
         "@laravel/multiplex": "^0.4.1"
@@ -18,7 +18,7 @@
     "dependencies": {
         "@popperjs/core": "^2.11.8",
         "bootstrap": "^5.3.8",
-        "chart.js": "^4.5.1",
+        "chart.js": "^4.6.1",
         "sortablejs": "^1.15.7"
     }
 }
