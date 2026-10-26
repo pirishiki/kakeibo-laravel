@@ -89,7 +89,7 @@ class Budgets
      * 月のまとめの支出の分類（MonthlySummary::categoryTotals）から、分類ごとの使った額を出す。
      * 大分類の使った額には、その小分類で使った額もふくまれる（月のまとめと同じ数え方）
      *
-     * @param  Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: non-negative-int}>}>  $rows
+     * @param  Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: int}>}>  $rows
      * @return array<int, int> 分類の id → 使った額
      */
     public static function spentByCategory(Collection $rows): array
@@ -111,7 +111,7 @@ class Budgets
      * ホームのお知らせ（画面設計書 5.2）：今月、予算の 80% 以上（80% ちょうどもふくむ）になった分類。
      * 大分類と小分類の両方が当てはまるときは両方出す。並びは分類の管理の順（大分類のすぐ下にその小分類）
      *
-     * @param  Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: non-negative-int}>}>  $expenseRows  今月の支出の分類
+     * @param  Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: int}>}>  $expenseRows  今月の支出の分類
      * @return list<array{name: string, status: array{budget: int, spent: int, percent: int, warn: bool, over: bool, rest: int}}>
      */
     public static function alerts(CarbonImmutable $today, Collection $expenseRows): array

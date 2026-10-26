@@ -99,7 +99,7 @@ class MonthlySummary
      * 大分類の金額 ＝ その小分類の合計 ＋ 小分類を選ばなかった記録の合計。children の category が null の行は「小分類なし」
      * 「使わない」分類も、その月に記録があれば入れる
      *
-     * @return Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: non-negative-int}>}>
+     * @return Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: int}>}>
      */
     public static function categoryTotals(CarbonImmutable $month, RecordType $type): Collection
     {
@@ -142,7 +142,7 @@ class MonthlySummary
     /**
      * その月の、相手ごとの支出の合計。金額の多い順で、同じ金額なら追加した順。「使わない」相手も、その月に記録があれば入れる
      *
-     * @return Collection<int, array{partner: Partner, amount: non-negative-int}>
+     * @return Collection<int, array{partner: Partner, amount: int}>
      */
     public static function partnerExpenses(CarbonImmutable $month): Collection
     {
