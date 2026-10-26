@@ -32,7 +32,7 @@ class MonthlyCharts
     /**
      * 円グラフ：支出の大分類ごとの割合。多い順に 5 つと、残りをまとめた「ほか」。合計は支出の分類の表の合計と同じ
      *
-     * @param  Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: non-negative-int}>}>  $expenseRows  MonthlySummary::categoryTotals の支出
+     * @param  Collection<int, array{category: Category, amount: int, children: Collection<int, array{category: Category|null, amount: int}>}>  $expenseRows  MonthlySummary::categoryTotals の支出
      * @return list<array{name: string, amount: int, color: string}>
      */
     public static function pie(Collection $expenseRows): array
