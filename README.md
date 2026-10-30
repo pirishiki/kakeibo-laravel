@@ -258,6 +258,30 @@ powershell -ExecutionPolicy Bypass -File scripts\db-restore.ps1 -File backups\ka
 - PowerShell の `>` でファイルに書くと文字の形が変わり、日本語が化ける。スクリプトは MySQL の箱の中でファイルを作り、PC に写している。
 - 戻したあとの確かめ方：`$env:DB_DATABASE = 'kakeibo_restore'; php artisan db:show --counts` で、表ごとの行の数が元と同じかを見る（ターミナルを閉じると元に戻る）。記録の件数は、この一覧の records の行の数で見る。残高は、同じターミナルで `php artisan serve`（6）を動かすと戻したデータベースで画面が開くので、口座の管理の画面で元と同じかを見る（要件定義書 10.4）。
 
+#### 自動で取る・外付けドライブにもコピーする
+
+実際に使うときは、取り忘れと PC の故障に備えて、1 日 1 回自動で取り、外付けドライブにもコピーする。クラウドは使わない（家計のデータを外のサービスに預けないため）。
+
+```powershell
+# 登録する（ドライブの名前は、エクスプローラーに出る名前）
+powershell -ExecutionPolicy Bypass -File scripts\db-backup-schedule.ps1 -ExternalLabel 'ドライブの名前'
+
+# 今すぐ動かして試す
+Start-ScheduledTask -TaskName kakeibo-db-backup
+
+# 登録をやめる
+powershell -ExecutionPolicy Bypass -File scripts\db-backup-schedule.ps1 -Remove
+```
+
+- 動くのは、PC にログオンしたときと毎日 12 時。12 時に PC が止まっていたら、次に使えるようになったときに動く。同じ日にすでに取れていれば、取らずに終わる。
+- Docker の MySQL がまだ動いていないときは、動くまで最大 10 分待つ。
+- 自動のバックアップ（ファイル名の終わりが `-auto`）は、30 日分を残して古いものを消す（新しい 1 件は残す）。手で取ったものと、戻す前のもの（`before-restore`）は消さない。
+- 外付けドライブは、ドライブ文字（D: など）が変わるので、名前で探す。ドライブの中の `kakeibo-backup` フォルダに、まだ無いファイルをコピーする。
+- 黙って古いままにならないよう、次のときは画面で知らせが出る。理由は `backups\daily.log` と `backups\backup-problem.txt` に残る。
+  - 自動のバックアップが取れなかったとき
+  - 外付けドライブに、7 日以上コピーできていないとき（差し忘れ）
+- ドライブの名前を変えたり、PC を買いかえたりしたら、もう一度上の「登録する」を動かす。
+
 ### 9. 部品の更新
 
 部品の新しい版が出ると、Dependabot が更新の PR を毎週月曜 9 時に作る（`.github/dependabot.yml`、N-17）。イシューは作らない。CI の 3 つが通ったのを見てマージする。あぶない穴が見つかったときの PR は、曜日に関係なくすぐ来る。
