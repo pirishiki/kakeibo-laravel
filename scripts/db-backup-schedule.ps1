@@ -34,6 +34,12 @@ if ($ExternalLabel -match '["`$]') {
     throw 'ドライブの名前に使えない文字（" ` $）が入っています'
 }
 
+# 時刻は「時:分」（24 時間）。まちがえていると、登録のときにわかりにくいエラーになるため、先に確かめる
+$parsedAt = [datetime]::MinValue
+if (-not [datetime]::TryParseExact($At, 'H:mm', [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$parsedAt)) {
+    throw "-At は 24 時間の「時:分」で書いてください（例：12:00、21:30）：$At"
+}
+
 $script = Join-Path $PSScriptRoot 'db-backup-daily.ps1'
 $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`""
 if ($ExternalLabel) {
@@ -44,18 +50,18 @@ $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
 
 # ログオンしたときと、毎日 12 時
 $triggers = @(
-    (New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME),
+    (New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"),
     (New-ScheduledTaskTrigger -Daily -At $At)
 )
 
 # StartWhenAvailable：12 時に PC が止まっていたら、次に使えるようになったときに動かす
 # バッテリーでも動かす／電源を抜いても止めない（ノート PC で取りそこねないため）
-# ExecutionTimeLimit：Docker を待つ時間（最大 10 分）より長くしておく
+# ExecutionTimeLimit：鍵を待つ時間（最大 15 分）と Docker を待つ時間（最大 10 分）より長くしておく
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -MultipleInstances IgnoreNew
+    -ExecutionTimeLimit (New-TimeSpan -Hours 1) -MultipleInstances IgnoreNew
 
 # 今ログオンしている自分として動かす（画面での知らせを出すため）
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $triggers -Settings $settings -Principal $principal `
     -Description '家計簿の DB を 1 日 1 回保存し、外付けドライブにもコピーする' -Force | Out-Null

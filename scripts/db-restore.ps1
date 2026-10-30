@@ -23,6 +23,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'db-backup-common.ps1')
+
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
@@ -38,6 +40,10 @@ if (-not (Test-Path $File -PathType Leaf)) {
 }
 if ((Get-Item $File).Length -eq 0) {
     throw "ファイルが空です：$File"
+}
+# 途中で切れたファイルでは戻さない（戻す先を空にしたあとで、中身が足りないとわかるのを防ぐ）
+if (-not (Test-DumpComplete $File)) {
+    throw "ファイルが最後まで書けていません（終わりの印がありません）。ほかのバックアップを使ってください：$File"
 }
 # データベースの名前は、英数字と _ だけにする（コマンドの中にそのまま入れるため）
 if ($Database -notmatch '^[A-Za-z0-9_]+$') {
@@ -64,14 +70,17 @@ if (-not $Force) {
     }
 }
 
+# ここから先は、自動のバックアップなどと同時に動かさない（確認を待つあいだは鍵を持たない）。
+# 鍵は、このスクリプトが終わるとき（成功でも失敗でも）に手放される
+$lock = Enter-BackupLock
+
 # 消す前に、今の中身を保存しておく（まちがえて戻しても、すぐ元にもどせるように）
 $beforeFile = $null
 if ($exists) {
-    & (Join-Path $PSScriptRoot 'db-backup.ps1') -Database $Database -Suffix 'before-restore'
-    # いま保存したファイル（いちばん新しい before-restore）の名前を覚えておく。失敗したときに案内するため
-    $beforeFile = Get-ChildItem (Join-Path $root 'backups') -Filter "$Database-*-before-restore.sql" |
-        Sort-Object LastWriteTime | Select-Object -Last 1 |
-        ForEach-Object { "backups\$($_.Name)" }
+    # db-backup.ps1 が最後に返す、いま保存したファイルの場所を覚えておく。失敗したときに案内するため
+    $beforePath = & (Join-Path $PSScriptRoot 'db-backup.ps1') -Database $Database -Suffix 'before-restore' -AlreadyLocked |
+        Select-Object -Last 1
+    $beforeFile = "backups\$(Split-Path -Leaf $beforePath)"
 }
 
 $tmpInBox = '/tmp/restore.sql'
@@ -104,6 +113,7 @@ try {
 } finally {
     # 成功しても失敗しても、箱の中の一時ファイルは消す（消すのに失敗しても止めない）
     docker compose exec -T mysql rm -f $tmpInBox
+    Exit-BackupLock $lock
 }
 
 Write-Host "戻しました：$File → データベース $Database"
