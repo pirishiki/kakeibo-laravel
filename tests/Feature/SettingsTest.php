@@ -8,7 +8,9 @@ use App\Models\Category;
 use App\Models\Partner;
 use App\Models\Recurring;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -87,17 +89,46 @@ class SettingsTest extends TestCase
             ->assertSee('href="'.route('goals.index').'"', false);
     }
 
-    public function test_定期的な記録は毎月の予定と目標に出て_使うで終わっていないものだけ数える(): void
+    /**
+     * 先月の作り方は startOfMonth() を先にする。今日が 31 日のとき、today()->subMonth() は
+     * 「先月の 31 日」がない月で今月 1 日にあふれ、先月で終わったものが今月まで続くことになってしまう（#80）。
+     * 31 日のある月の末（今日が 29〜31 日）でも、同じ数になることを確かめる
+     */
+    #[DataProvider('todays')]
+    public function test_定期的な記録は毎月の予定と目標に出て_使うで終わっていないものだけ数える(?string $today): void
     {
+        if ($today !== null) {
+            $this->travelTo(CarbonImmutable::parse($today.' 12:00'));
+        }
         $this->actingAs(User::factory()->create());
         Recurring::factory()->count(2)->create();
         Recurring::factory()->create(['is_active' => false]);
         // 先月で終わったもの
-        Recurring::factory()->create(['start_month' => today()->subMonths(3)->startOfMonth(), 'end_month' => today()->subMonth()->startOfMonth()]);
+        Recurring::factory()->create(['start_month' => today()->startOfMonth()->subMonths(3), 'end_month' => today()->startOfMonth()->subMonth()]);
 
         $this->get('/settings')
             ->assertSeeInOrder(['お金の入れ物と分け方', '相手', '毎月の予定と目標', '定期的な記録', 'ログイン'])
             ->assertSee('給料・家賃・ローンなど（2 件）')
             ->assertSee(route('recurrings.index'), false);
+    }
+
+    /**
+     * @return array<string, array{?string}>
+     */
+    public static function todays(): array
+    {
+        return [
+            '実際の今日' => [null],
+            // 先月に同じ日がない（30 日までの月の翌月の 31 日）
+            '3 月 31 日' => ['2026-03-31'],
+            '5 月 31 日' => ['2026-05-31'],
+            '10 月 31 日' => ['2026-10-31'],
+            '12 月 31 日' => ['2026-12-31'],
+            // うるう年でない 2 月の末の次の月（2 月が 28 日まで）
+            '3 月 29 日' => ['2026-03-29'],
+            // 先月に同じ日がある月の末
+            '8 月 31 日' => ['2026-08-31'],
+            '1 月 1 日' => ['2026-01-01'],
+        ];
     }
 }
