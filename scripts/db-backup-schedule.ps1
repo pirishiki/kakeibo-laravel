@@ -5,12 +5,15 @@
 #   外付けなし：powershell -ExecutionPolicy Bypass -File scripts\db-backup-schedule.ps1
 #   やめる　：powershell -ExecutionPolicy Bypass -File scripts\db-backup-schedule.ps1 -Remove
 #
-# 動くとき：ログオンしたとき（PC を使い始めたとき）と、毎日 12 時。
+# 動くとき：ログオンしたとき（PC を使い始めたとき）と、毎日 12 時（-At '21:00' のように変えられる）。
 # 同じ日に取れていれば、db-backup-daily.ps1 のほうが取らずに終わるので、何回動いても困らない。
 
 param(
     # 外付けドライブの名前（エクスプローラーに出る名前）。空なら外付けへのコピーはしない
     [string]$ExternalLabel = '',
+
+    # 毎日動かす時刻（24 時間の「時:分」）。ログオンしたときにも動くので、PC をつけっぱなしにした日の保険
+    [string]$At = '12:00',
 
     # 登録をやめる
     [switch]$Remove
@@ -42,7 +45,7 @@ $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
 # ログオンしたときと、毎日 12 時
 $triggers = @(
     (New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME),
-    (New-ScheduledTaskTrigger -Daily -At '12:00')
+    (New-ScheduledTaskTrigger -Daily -At $At)
 )
 
 # StartWhenAvailable：12 時に PC が止まっていたら、次に使えるようになったときに動かす
