@@ -61,10 +61,35 @@ try {
 
     # 取る・戻す・整理が同時に動かないよう、鍵を取る（取れなければ、待っても取れなかったと知らせる）
     $lock = Enter-BackupLock
+    if ($BackupLockWasAbandoned) {
+        # 前に鍵を持っていた作業（取る・戻す）が、最後まで行かずに止まった（窓を閉じた・強制終了した）
+        Add-Problem '前のバックアップか、戻す作業が、途中で止まった形跡があります。戻す作業の途中だった場合は、データベースが空か途中までかもしれません'
+    }
+
+    # --- 0. 壊れたバックアップを、別のフォルダへ避ける ---
+    # 最後まで書けていない .sql が backups\ に残っていると、外付けへコピーできない知らせが毎日出つづけ、
+    # 本物の問題に埋もれてしまう。消さずに backups\broken\ へ移し、移したことを一度だけ知らせる
+    try {
+        $brokenDir = Join-Path $backups 'broken'
+        foreach ($file in @(Get-ChildItem $backups -File | Where-Object { $_.Name -match '^kakeibo-.*\.sql$' })) {
+            if (-not (Test-DumpComplete $file.FullName)) {
+                New-Item -ItemType Directory -Force $brokenDir | Out-Null
+                Move-Item -LiteralPath $file.FullName -Destination (Join-Path $brokenDir $file.Name) -Force
+                Add-Problem "最後まで書けていないバックアップを、backups\broken\ に移しました：$($file.Name)"
+            }
+        }
+    } catch {
+        Add-Problem "壊れたバックアップを避ける処理に失敗しました：$($_.Exception.Message)"
+    }
 
     # --- 1. 今日の自動バックアップ ---
     try {
         $today = Get-Date -Format 'yyyyMMdd'
+        # 戻している途中で止まっていると、いまのデータベースは空か途中まで。それを今日のバックアップにしてしまわない
+        $restoreMarker = Join-Path $backups 'restore-in-progress-kakeibo.txt'
+        if (Test-Path -LiteralPath $restoreMarker) {
+            throw "戻す作業が途中で止まったままです。自動バックアップは取りません。中身を確かめて、戻し直してください（$restoreMarker）"
+        }
         # 名前だけでなく、最後まで書けているファイルだけを「取れている」と数える
         $already = @(Get-ChildItem $backups -File |
             Where-Object { $_.Name -match "^kakeibo-$today-\d{6}-auto\.sql$" -and (Test-DumpComplete $_.FullName) })
@@ -98,10 +123,16 @@ try {
     # 日付は、ファイルの名前から読む（PC の時計がずれても、ファイルの更新日時にまどわされないため）
     try {
         $autos = @(Get-ChildItem $backups -File | ForEach-Object {
-            if ($_.Name -match '^kakeibo-(\d{8})-\d{6}-auto\.sql$') {
-                [pscustomobject]@{
-                    File = $_
-                    Date = [datetime]::ParseExact($Matches[1], 'yyyyMMdd', [cultureinfo]::InvariantCulture)
+            $item = $_
+            if ($item.Name -match '^kakeibo-(\d{8})-\d{6}-auto\.sql$') {
+                try {
+                    [pscustomobject]@{
+                        File = $item
+                        Date = [datetime]::ParseExact($Matches[1], 'yyyyMMdd', [cultureinfo]::InvariantCulture)
+                    }
+                } catch {
+                    # 日付として読めない名前（99999999 など）は、整理の対象にせず残す。整理全体は止めない
+                    Write-Log "日付が読めない名前のため、整理の対象にしません：$($item.Name)"
                 }
             }
         })
@@ -215,12 +246,17 @@ if ($problems.Count -gt 0) {
         Write-Log "問題のファイルを書けませんでした：$($_.Exception.Message)"
     }
     if (-not $NoPopup) {
-        # 窓は別のプロセスで出し、「OK」を待たずにこのスクリプトを終わらせる
+        # 窓は別のプロセスで出し、「OK」を待たずにこのスクリプトを終わらせる。
+        # 文は、backups\ の問題のファイルではなく、専用の一時ファイルで渡す
+        # （問題のファイルを書けなかった・前の古い文が残っているときでも、今回の文を出すため。窓を出したあと、窓の側で消す）
         try {
+            $noticeFile = Join-Path $env:TEMP "kakeibo-backup-notice-$([guid]::NewGuid().ToString('N')).txt"
+            Set-Content -Path $noticeFile -Value $text -Encoding UTF8
             Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList @(
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden',
                 '-File', "`"$(Join-Path $PSScriptRoot 'db-backup-notify.ps1')`"",
-                '-TextFile', "`"$problemFile`""
+                '-TextFile', "`"$noticeFile`"",
+                '-LogFile', "`"$logFile`""
             )
         } catch {
             Write-Log "知らせの窓を出せませんでした：$($_.Exception.Message)"
