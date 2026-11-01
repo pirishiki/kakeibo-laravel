@@ -14,6 +14,10 @@
                     <label class="btn btn-outline-primary" for="type-{{ $value }}">{{ $label }}</label>
                 @endforeach
             </div>
+            {{-- 種類を移動に切りかえたあと、保存されなくなる相手が欄に残っているときの知らせ（画面設計書 5.10）。保存は止めない --}}
+            @foreach ($this->unsavedNotices as $notice)
+                <div class="alert alert-warning py-2 small" role="status">{{ $notice }}</div>
+            @endforeach
 
             <form wire:submit="save" novalidate>
                 <div class="mb-3">
@@ -220,6 +224,10 @@
                     @if ($skipNotice !== '')
                         <p>{{ $skipNotice }}</p>
                         <p class="small text-secondary">記録したい月は、あとで月ごとの金額の「もどす」で記録できます</p>
+                    @endif
+                    @if ($fixedNotice !== '')
+                        {{-- 「毎月変わる」から「決まっている」に変えるとき：消える金額・決まった金額で記録される月 --}}
+                        <p class="mb-2" style="white-space: pre-line">{{ $fixedNotice }}</p>
                     @endif
                     @if ($passedNotice !== '')
                         <p class="mb-0">{{ $passedNotice }}</p>

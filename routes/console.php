@@ -13,3 +13,6 @@ Artisan::command('inspire', function () {
 // 前の回がまだ動いていたら、重ねて動かさない（同じ月の分を 2 回記録しない守りは、データベースのユニーク制約）。
 // 途中で止まったときに残る鍵は 60 分で切れるようにする（最初の 24 時間のままだと、翌日の 0 時 5 分も動かないため）
 Schedule::command('recurrings:record')->dailyAt('00:05')->withoutOverlapping(60);
+
+// 期限が切れたキャッシュの行（登録の画面の送信用の合言葉など）を、毎日 0 時 10 分に消す。データベースのキャッシュは自動では消さないため
+Schedule::command('cache:prune-expired')->dailyAt('00:10')->withoutOverlapping(60);

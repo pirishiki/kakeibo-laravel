@@ -19,12 +19,15 @@ class AccountController extends Controller
 {
     public function index(): View
     {
-        $accounts = Account::query()->ordered()->get();
+        // 口座の一覧と残高は 1 つのトランザクションの中で読む（ホーム・貯金の目標・月のまとめと同じ）。
+        // 残高は「出た分」「入った分」「最初の残高」を別々に問い合わせて足すので、外で読むと、読んでいる途中で別のタブの移動の保存が
+        // 入ったときに、出た側は移動の前、入った側は移動のあとの数字になり、お金が増えたり減ったりして見える
+        [$accounts, $balances] = DB::transaction(fn () => [Account::query()->ordered()->get(), Account::balances()]);
 
         return view('accounts.index', [
             'active' => $accounts->where('is_active', true),
             'inactive' => $accounts->where('is_active', false),
-            'balances' => Account::balances(),
+            'balances' => $balances,
         ]);
     }
 

@@ -5,10 +5,13 @@ namespace App\Livewire;
 use App\Enums\RecordType;
 use App\Enums\RecurringShift;
 use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
+use App\Livewire\Concerns\PreventsDoubleSubmit;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
+use App\Models\Record;
 use App\Models\Recurring;
+use App\Models\RecurringAmount;
 use App\Models\RecurringSkip;
 use App\Support\FormInput;
 use App\Support\RecurringDate;
@@ -33,14 +36,15 @@ use Livewire\Component;
 class RecurringForm extends Component
 {
     use ChoosesPartnerCategoryAccount;
+    use PreventsDoubleSubmit;
 
     /** 変更している予定の id。登録のときは null。画面の側から書きかえられないようにする */
     #[Locked]
     public ?int $recurringId = null;
 
-    /** 変更の画面を開いたときの、予定の最後に変えた日時。保存のときにちがえば、ほかの画面で直されている */
+    /** 変更の画面を開いたときの、予定の中身の印（Recurring::fingerprint）。保存のときにちがえば、ほかの画面で直されている */
     #[Locked]
-    public ?string $openedAt = null;
+    public ?string $openedFingerprint = null;
 
     /** @var list<string> 確認の小窓で知らせた月（「今回はなし」にする月・日付が過ぎた月）。押したときに変わっていたら、小窓を出し直す */
     #[Locked]
@@ -103,6 +107,12 @@ class RecurringForm extends Component
     /** 保存の前の確認の小窓に出す文（日付の変更で、今月の分の日付がもう過ぎた日になるとき）。出さないときは空 */
     public string $passedNotice = '';
 
+    /**
+     * 保存の前の確認の小窓に出す文（「毎月変わる」から「決まっている」に変えるとき：入れておいた金額が消える・
+     * 金額がまだだった過ぎた月が決まった金額で記録される）。出さないときは空
+     */
+    public string $fixedNotice = '';
+
     /** その小窓の「○月○日で記録する」ボタンの字 */
     public string $passedRecordLabel = '';
 
@@ -114,11 +124,15 @@ class RecurringForm extends Component
         if ($recurring !== null) {
             $this->fillFrom($recurring);
             $this->recurringId = $recurring->id;
-            $this->openedAt = $recurring->updated_at?->toDateTimeString();
+            $this->openedFingerprint = $recurring->fingerprint();
+            $this->openedPartnerId = $recurring->partner_id;
             $this->rememberOpenedYears();
 
             return;
         }
+
+        // 新しく登録する画面：保存が 2 回届いても 1 件だけ作るための合言葉（PreventsDoubleSubmit）
+        $this->startSubmitToken();
 
         // 「金額を変えて続きを作る」から開いたとき：もとの予定と同じ内容で、最初の月を最後の月の次の月にする
         $from = request()->query('from');
@@ -156,6 +170,23 @@ class RecurringForm extends Component
             $this->shift = RecurringShift::defaultFor(RecordType::from($this->type))->value;
             $this->fillDefaultStart();
         }
+    }
+
+    /**
+     * 種類を移動に切りかえたあと、欄が消えても相手の名前が残っていて、保存すると黙って消えてしまうときの知らせ
+     * （画面設計書 5.10。記録の登録 5.4 の RecordForm::unsavedNotices と同じ。保存は止めない）。
+     * 定期的な記録には品物がないので、相手だけ
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function unsavedNotices(): array
+    {
+        $partner = trim($this->partnerName);
+
+        return $this->type === 'transfer' && $partner !== ''
+            ? ['種類を『移動』にすると、相手『'.$partner.'』は保存されません']
+            : [];
     }
 
     public function updatedDay(): void
@@ -231,7 +262,7 @@ class RecurringForm extends Component
         if ($this->recurringId !== null && $before === null) {
             return null;
         }
-        if ($before !== null && $this->openedAt !== null && $before->updated_at?->toDateTimeString() !== $this->openedAt) {
+        if ($before !== null && $this->openedFingerprint !== null && ($before->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($before->partner_id))) {
             $this->addError('save', 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
 
             return null;
@@ -243,12 +274,20 @@ class RecurringForm extends Component
         $passedMonths = $before === null ? [] : $after->monthsPassedOnSave($before);
         // 小窓を出したあとに日付が変わるなどして、知らせた月と、いま計算した月がちがうときは、小窓を出し直す（知らせていない月を黙って今回はなしにしない）
         $months = array_map(fn (CarbonImmutable $m) => $m->toDateString(), [...$skips, ...$passedMonths]);
+        // 「毎月変わる」から「決まっている」に変えるときに、消える金額・決まった金額で記録される月（知らせないと黙って起きるため）
+        // （「今回はなし」にする月・日付が過ぎた月は、別の知らせで伝えるので、ここからは外す）
+        $others = [...$skips, ...$passedMonths];
+        $fixed = $before === null ? ['erase' => [], 'record' => []] : $this->fixedChange($before, $after, $others);
+        $fixedTokens = $this->fixedTokens($fixed);
+        $months = [...$months, ...$fixedTokens];
+        $hasFixedChange = $fixed['erase'] !== [] || $fixed['record'] !== [];
         if ($confirmed && $months !== $this->noticedMonths) {
             $confirmed = false;
             $passed = '';
         }
-        if (($skips !== [] && ! $confirmed) || ($passedMonths !== [] && ! in_array($passed, ['skip', 'record'], true))) {
+        if ((($skips !== [] || $hasFixedChange) && ! $confirmed) || ($passedMonths !== [] && ! in_array($passed, ['skip', 'record'], true))) {
             $this->noticedMonths = $months;
+            $this->fixedNotice = $this->fixedNoticeText($fixed, $after);
             $this->skipNotice = $skips === [] ? '' : self::monthsLabel($skips).'の分は記録せず、『今回はなし』にします';
             $this->passedNotice = implode('', array_map(
                 fn (CarbonImmutable $month) => $month->month.'月の分（'.self::dateLabel($after->scheduledDate($month)).'）は、日付がもう過ぎています。',
@@ -267,15 +306,27 @@ class RecurringForm extends Component
 
         $values = $after->only($after->getFillable());
         // 押さえあい（デッドロック）でやり直すときも、同じ結果になるように、毎回、押さえた行から作り直す（前の回の中身を使わない）
-        $recorded = DB::transaction(function () use ($before, $values, $skips) {
+        // 新しく登録するときは、保存が 2 回届いても 1 件だけ作る（PreventsDoubleSubmit）
+        $write = function () use ($before, $after, $values, $skips, $others, $fixedTokens) {
             // 0 時 5 分の自動の記録と同じ順番（予定の行 → 口座 → 相手）で押さえる（逆の順番だと、押さえあいになることがあるため）
             if ($before !== null) {
                 $recurring = Recurring::query()->lockForUpdate()->find($before->id);
                 if ($recurring === null) {
                     throw ValidationException::withMessages(['save' => 'この定期的な記録は、ほかの画面で削除されました。一覧から開き直してください']);
                 }
-                if ($this->openedAt !== null && $recurring->updated_at?->toDateTimeString() !== $this->openedAt) {
+                if ($this->openedFingerprint !== null && ($recurring->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($recurring->partner_id))) {
                     throw ValidationException::withMessages(['save' => 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください']);
+                }
+                // 予定を押さえたあとで、記録された月をもう一度確かめる（確かめたあと、保存までの間に自動の記録が入っても、
+                // 記録された月より前に最後の月を置かないため。自動の記録も、予定の行を押さえてから記録する）
+                $latest = $this->latestRecordedMonth();
+                if ($latest !== null && $values['end_month'] !== null && CarbonImmutable::parse($values['end_month'])->lt($latest)) {
+                    throw ValidationException::withMessages(['endMonth' => $this->recordedMonthMessage($latest)]);
+                }
+                // 小窓で知らせた「消える金額」「記録される月」も、予定を押さえたあとで、もう一度確かめる。
+                // 知らせたあと、保存までの間に、ほかの画面で金額が入った・記録された月があれば、知らせていない分を黙って消さない・記録しない
+                if ($this->fixedTokens($this->fixedChange($recurring, $after, $others)) !== $fixedTokens) {
+                    throw ValidationException::withMessages(['save' => '保存の途中で、ほかの画面で金額が入った（または記録された）月があるので、保存していません。もう一度「保存」を押して、内容を確かめてください']);
                 }
             } else {
                 $recurring = new Recurring;
@@ -334,7 +385,8 @@ class RecurringForm extends Component
 
             // 日付が今日か過ぎていて金額がある月は、次の 0 時 5 分を待たずに記録する（今日を最初の月にした・小窓で「記録する」を選んだ など）
             return RecurringRecorder::recordDue($recurring);
-        }, 3);
+        };
+        $recorded = $this->saveOnce($before === null, [$values, $this->partnerName], fn () => DB::transaction($write, 3), 'save', 0);
 
         session()->flash('status', $recorded === 0 ? '保存しました' : '保存しました。日付が来ている分を記録しました');
 
@@ -475,6 +527,14 @@ class RecurringForm extends Component
                 // 最後の月は、最初の月より前にできない
                 if ($this->monthFrom($this->endYear, $this->endMonth)?->lt($this->monthFrom($this->startYear, $this->startMonth)) ?? false) {
                     $fail('最後の月は、最初の月より前にはできません。');
+
+                    return;
+                }
+                // すでに記録された月があるときは、いちばん新しく記録された月より前にもできない
+                // （記録は残るのに予定が終わった扱いになり、「月ごとの金額」の画面から見えなくなるため）
+                $latest = $this->latestRecordedMonth();
+                if ($latest !== null && ($this->monthFrom($this->endYear, $this->endMonth)?->lt($latest) ?? false)) {
+                    $fail($this->recordedMonthMessage($latest));
                 }
             }],
             'isActive' => ['boolean'],
@@ -668,6 +728,89 @@ class RecurringForm extends Component
     {
         $this->endYear = $month === null ? '' : (string) $month->year;
         $this->endMonth = $month === null ? '' : (string) $month->month;
+    }
+
+    /**
+     * 「毎月変わる」から「決まっている」に変えて保存したときに、黙って起きること（画面設計書 5.10 の「決まり」）：
+     * 記録されていない月に入れておいた金額が消える／金額がまだだった過ぎた月が、決まった金額で記録される
+     *
+     * @param  list<CarbonImmutable>  $others  「今回はなし」にする月・日付が過ぎた月（別の知らせで伝える月）
+     * @return array{erase: list<RecurringAmount>, record: list<CarbonImmutable>}
+     */
+    private function fixedChange(Recurring $before, Recurring $after, array $others): array
+    {
+        if ($before->is_fixed || ! $after->is_fixed) {
+            return ['erase' => [], 'record' => []];
+        }
+
+        // 保存で消す金額と同じ条件（記録されていない月の金額）
+        $erase = $before->amounts()
+            ->whereNotIn('month', $before->records()->whereNotNull('recurring_month')->select('recurring_month'))
+            ->orderBy('month')->get()->all();
+
+        // 変えたあとの予定で、いま記録する月（日付が来ていて、まだ記録も「今回はなし」もしていない月）。金額がまだだった月だけでなく、
+        // 金額を入れてあったがまだ記録されていない月も、入れた金額ではなく決まった金額で記録されるので、どちらも知らせる。
+        // 保存の前の予定には id がないので、いまの予定の id を入れて、記録済み・今回はなしを読めるようにする
+        $probe = $after->replicate();
+        $probe->id = $before->id;
+        $otherKeys = array_map(fn (CarbonImmutable $m) => $m->toDateString(), $others);
+        $record = array_values(array_filter(
+            RecurringRecorder::dueMonths($probe),
+            fn (CarbonImmutable $m) => ! in_array($m->toDateString(), $otherKeys, true),
+        ));
+
+        return ['erase' => $erase, 'record' => $record];
+    }
+
+    /**
+     * @param  array{erase: list<RecurringAmount>, record: list<CarbonImmutable>}  $fixed
+     */
+    private function fixedNoticeText(array $fixed, Recurring $after): string
+    {
+        $lines = [];
+        if ($fixed['erase'] !== []) {
+            $lines[] = '入れておいた金額は消えます：'.implode('、', array_map(
+                fn (RecurringAmount $a) => $a->month->format('Y年n月').' '.number_format($a->amount).' 円',
+                $fixed['erase'],
+            ));
+        }
+        if ($fixed['record'] !== []) {
+            $lines[] = self::monthsLabel($fixed['record']).'の分は、決まった金額（'
+                .number_format((int) $after->amount).' 円）で記録します。金額がまだ入っていなかった月も、入れてあった金額は使いません';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * 小窓で知らせた「消える金額」「記録される月」の印。保存の前と、予定を押さえたあとで比べて、
+     * 知らせたあとに金額が入った・記録された月があれば、知らせていない分を黙って消さない・記録しないために使う
+     *
+     * @param  array{erase: list<RecurringAmount>, record: list<CarbonImmutable>}  $fixed
+     * @return list<string>
+     */
+    private function fixedTokens(array $fixed): array
+    {
+        return [
+            ...array_map(fn (RecurringAmount $a) => 'erase:'.$a->month->toDateString().':'.$a->amount, $fixed['erase']),
+            ...array_map(fn (CarbonImmutable $m) => 'record:'.$m->toDateString(), $fixed['record']),
+        ];
+    }
+
+    /** この予定から自動で記録された月のうち、いちばん新しい月。まだ記録がない・登録のときは null */
+    private function latestRecordedMonth(): ?CarbonImmutable
+    {
+        if ($this->recurringId === null) {
+            return null;
+        }
+        $latest = Record::query()->where('recurring_id', $this->recurringId)->max('recurring_month');
+
+        return $latest === null ? null : CarbonImmutable::parse((string) $latest)->startOfMonth();
+    }
+
+    private function recordedMonthMessage(CarbonImmutable $latest): string
+    {
+        return '最後の月は、記録された'.$latest->format('Y年n月').'より前にはできません。';
     }
 
     /** 年と月の欄から、その月の 1 日を作る。どちらかが空・数でないときは null */

@@ -21,6 +21,10 @@
                         <label class="btn btn-outline-primary" for="type-{{ $value }}">{{ $label }}</label>
                     @endforeach
                 </div>
+                {{-- 種類を切りかえたあと、保存されなくなる品物・相手が欄に残っているときの知らせ（画面設計書 5.4）。保存は止めない --}}
+                @foreach ($this->unsavedNotices as $notice)
+                    <div class="alert alert-warning py-2 small" role="status">{{ $notice }}</div>
+                @endforeach
             @endif
 
             <form wire:submit="save" novalidate>

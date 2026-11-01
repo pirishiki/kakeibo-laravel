@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RecordType;
+use App\Models\Concerns\HasContentFingerprint;
 use Carbon\CarbonImmutable;
 use Database\Factories\RecordFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -31,6 +32,8 @@ use Illuminate\Support\Carbon;
 #[Fillable(['date', 'type', 'amount', 'account_id', 'to_account_id', 'category_id', 'partner_id', 'item', 'memo'])]
 class Record extends Model
 {
+    use HasContentFingerprint;
+
     /** @use HasFactory<RecordFactory> */
     use HasFactory;
 

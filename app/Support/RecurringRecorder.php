@@ -55,8 +55,10 @@ class RecurringRecorder
     public static function recordDue(Recurring $recurring, ?CarbonImmutable $today = null): int
     {
         $count = 0;
+        // 押さえた行で、記録する月をもう一度確かめるために、今日はここで 1 回決める
+        $today ??= today()->toImmutable();
         foreach (self::dueMonths($recurring, $today) as $month) {
-            if (self::record($recurring, $month)) {
+            if (self::record($recurring, $month, $today)) {
                 $count++;
             }
         }
@@ -139,16 +141,23 @@ class RecurringRecorder
      * 0 時 5 分の自動の記録と、画面での金額の保存・今回はなしが同時に動いても食いちがわないように、
      * その予定の行を押さえて（lockForUpdate）から、記録済みか・今回はなしか・金額を読み直す
      *
+     * @param  CarbonImmutable|null  $dueToday  日付が来た月だけを記録するとき（自動の記録）の今日。渡すと、予定の行を押さえたあとで、
+     *                                          その月が「いま記録する月」のままかを、いちばん新しい中身で確かめ直す。
+     *                                          読んでから押さえるまでの間に、ほかの画面で「使わない」にされた・最後の月が前になった・
+     *                                          日付が先に直されたときに、記録しないため。渡さない（「もどす」・月ごとの金額の保存）ときは確かめない
      * @return bool 記録したか
      */
-    public static function record(Recurring $recurring, CarbonImmutable $month): bool
+    public static function record(Recurring $recurring, CarbonImmutable $month, ?CarbonImmutable $dueToday = null): bool
     {
         $month = $month->startOfMonth();
 
-        return DB::transaction(function () use ($recurring, $month) {
+        return DB::transaction(function () use ($recurring, $month, $dueToday) {
             // 押さえた行の中身（いちばん新しい口座・金額など）で記録する。0 時 5 分の処理が最初に読んだ中身は古いことがあるため
             $recurring = Recurring::query()->lockForUpdate()->find($recurring->id);
             if ($recurring === null) {
+                return false;
+            }
+            if ($dueToday !== null && ! in_array($month->toDateString(), array_map(fn (CarbonImmutable $m) => $m->toDateString(), self::dueMonths($recurring, $dueToday)), true)) {
                 return false;
             }
             // 口座を押さえて、押さえた行で「使う」かを確かめる（同じときに「使わない」にされても、使わない口座に入らないように）

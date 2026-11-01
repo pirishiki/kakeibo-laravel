@@ -232,7 +232,10 @@ class RecurringEditTest extends TestCase
         Livewire::test(RecurringForm::class, ['recurring' => $this->rent])
             ->set('isFixed', '1')
             ->set('amount', '9000')
+            // 入れておいた金額が消えるので、先に確認の小窓で知らせる（RecurringFixedChangeTest）。確認して保存する
             ->call('save')
+            ->assertNoRedirect()
+            ->call('save', true)
             ->assertHasNoErrors();
 
         $this->rent->refresh();

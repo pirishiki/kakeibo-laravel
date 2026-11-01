@@ -175,8 +175,9 @@ class RecordSearch
             // 保存した品物は半角カナを全角カナにそろえてあるので（Record::normalizeItem）、打った言葉も同じ形にそろえて探す
             // 大文字・小文字を同じにするため、品物も打った言葉も、データベースの同じやり方（LOWER）で小文字にしてくらべる
             // （PHP で小文字にすると、ギリシャ文字の Σ などで MySQL とちがう文字になり、入れたとおりの言葉で探しても見つからないため）
-            ->when($this->item, fn (Builder $q, string $item) => $q->whereRaw(self::ITEM_LIKE, [
-                self::likePattern((string) Record::normalizeItem($item)),
+            // 「0」は PHP では偽なので、when($this->item, …) と書くと「0」で探したときに条件が黙って外れる。null かどうかで判定する
+            ->when($this->item !== null, fn (Builder $q) => $q->whereRaw(self::ITEM_LIKE, [
+                self::likePattern((string) Record::normalizeItem($this->item)),
             ]));
     }
 
