@@ -227,7 +227,7 @@ php artisan serve
 php artisan recurrings:record
 ```
 
-同じく本番では、毎日 0 時 10 分に、期限が切れたキャッシュの行（登録の画面の「送信用の合言葉」）を消す。手元で確かめたいときは `php artisan cache:prune-expired`。
+同じく本番では、毎日 0 時 10 分に、期限が切れたキャッシュの行（追加・登録の画面の「送信用の合言葉」）を消す。手元で確かめたいときは `php artisan cache:prune-expired`。
 
 ### 7. 自動チェックを手元で動かす
 
