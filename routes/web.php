@@ -27,7 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/', [HomeController::class, 'index'])->name('home');
 
     // 口座の管理（画面設計書 5.6）。1 つの口座だけを見る画面（show）はない。行を押すと変更の画面へ行く
-    Route::resource('accounts', AccountController::class)->except(['show']);
+    Route::resource('accounts', AccountController::class)->except(['show'])->middlewareFor('store', 'prevent-double-add');
     Route::patch('/accounts/{account}/deactivate', [AccountController::class, 'deactivate'])->name('accounts.deactivate');
     // 残高を合わせる（画面設計書 5.7）。入力欄と保存は Livewire の部品（app/Livewire/AdjustBalance.php）
     Route::get('/accounts/{account}/adjust', [AccountController::class, 'adjust'])->name('accounts.adjust');
@@ -35,11 +35,11 @@ Route::middleware('auth')->group(function () {
     // 分類の管理（画面設計書 5.8）。口座と同じ形に、ドラッグの並べかえ（reorder）を足したもの
     // reorder は resource より先に書く（あとに書くと、/categories/reorder の reorder が分類の id として読まれてしまうため）
     Route::patch('/categories/reorder', [CategoryController::class, 'reorder'])->name('categories.reorder');
-    Route::resource('categories', CategoryController::class)->except(['show']);
+    Route::resource('categories', CategoryController::class)->except(['show'])->middlewareFor('store', 'prevent-double-add');
     Route::patch('/categories/{category}/deactivate', [CategoryController::class, 'deactivate'])->name('categories.deactivate');
 
     // 相手の管理（画面設計書 5.9）。口座と同じ形に、ほかの相手にまとめる（merge）を足したもの
-    Route::resource('partners', PartnerController::class)->except(['show']);
+    Route::resource('partners', PartnerController::class)->except(['show'])->middlewareFor('store', 'prevent-double-add');
     Route::patch('/partners/{partner}/deactivate', [PartnerController::class, 'deactivate'])->name('partners.deactivate');
     Route::post('/partners/{partner}/merge', [PartnerController::class, 'merge'])->name('partners.merge');
 

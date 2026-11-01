@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\PreventsDoubleAdd;
 use App\Http\Middleware\RestoreExpiredInput;
 use App\Http\Middleware\UseFormOrigin;
 use App\Support\ConcurrencyError;
@@ -30,6 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: RestoreExpiredInput::class);
         // ブラウザが Referer を送らないときも、フォームを送った画面へ戻せるようにする（app/Http/Middleware/UseFormOrigin.php）
         $middleware->web(prepend: UseFormOrigin::class);
+        // 口座・分類・相手の追加で、保存が 2 回届いても 1 件だけ作る（routes/web.php の store に付けている）
+        $middleware->alias(['prevent-double-add' => PreventsDoubleAdd::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

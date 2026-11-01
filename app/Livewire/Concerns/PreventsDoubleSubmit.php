@@ -2,15 +2,15 @@
 
 namespace App\Livewire\Concerns;
 
+use App\Support\SubmitOnce;
 use Closure;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Throwable;
 
 /**
- * 新しく登録する画面で、保存が 2 回届いても 1 件だけ作る（画面設計書 5.4・5.10、5.13 の「2 回押し」と同じ考え方）。
+ * 新しく登録する画面で、保存が 2 回届いても 1 件だけ作る（画面設計書 5.4・5.7・5.10、5.13 の「2 回押し」と同じ考え方）。
  *
  * 同じ内容の記録は、ふつうに何件もあるので、内容だけでは 2 回目かどうか見分けられない。
  * そこで、画面を開くたびに「送信用の合言葉」を 1 つ作っておき、保存するときに使い切る。
@@ -42,35 +42,34 @@ trait PreventsDoubleSubmit
      * @param  Closure(): mixed  $write  保存する処理。返した値を、そのまま返す
      * @param  string  $errorKey  保存できなかったことを知らせる欄の名前
      * @param  mixed  $whenDuplicate  同じ中身の 2 回目だったときに返す値
+     * @param  string  $savedHint  保存済みの画面で別の内容を保存しようとしたときの知らせに、足す案内（その画面にあるボタンの案内など）
      */
-    protected function saveOnce(bool $isNew, array $content, Closure $write, string $errorKey, mixed $whenDuplicate = null): mixed
+    protected function saveOnce(bool $isNew, array $content, Closure $write, string $errorKey, mixed $whenDuplicate = null, string $savedHint = ''): mixed
     {
         if (! $isNew) {
             return $write();
         }
 
-        $key = 'submitted:'.$this->submitToken;
-        $hash = md5(json_encode($content, JSON_THROW_ON_ERROR));
-        // Cache::add は「なければ入れる」を 1 回で行うので、2 つの通信が同時に来ても、通るのは 1 つだけ
-        if (! Cache::add($key, ['state' => 'saving', 'hash' => $hash], now()->addDay())) {
-            $state = Cache::get($key);
-            if (is_array($state) && ($state['state'] ?? null) === 'saved' && ($state['hash'] ?? null) === $hash) {
-                return $whenDuplicate;
-            }
-
-            throw ValidationException::withMessages([$errorKey => is_array($state) && ($state['state'] ?? null) === 'saving'
-                ? 'いま保存しています。終わるまで少し待ってから、もう一度押してください'
-                : 'この画面からは、もう保存しています。続けて入れるときは、画面を開き直してください（「保存して続けて入力」を使うと、すぐに次を入れられます）']);
+        // 合言葉の扱い（保存中・保存済み・2 回目の見分け）は、口座・分類・相手の追加と共通（SubmitOnce）
+        $hash = SubmitOnce::hash($content);
+        $claim = SubmitOnce::claim($this->submitToken, $hash);
+        if ($claim === SubmitOnce::SAME) {
+            return $whenDuplicate;
+        }
+        if ($claim !== SubmitOnce::NEW) {
+            throw ValidationException::withMessages([$errorKey => $claim === SubmitOnce::SAVING
+                ? SubmitOnce::SAVING_MESSAGE
+                : SubmitOnce::SAVED_MESSAGE.$savedHint]);
         }
 
         try {
             $result = $write();
         } catch (Throwable $e) {
-            Cache::forget($key);
+            SubmitOnce::release($this->submitToken);
 
             throw $e;
         }
-        Cache::put($key, ['state' => 'saved', 'hash' => $hash], now()->addDay());
+        SubmitOnce::saved($this->submitToken, $hash);
 
         return $result;
     }

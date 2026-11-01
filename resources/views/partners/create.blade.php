@@ -10,6 +10,8 @@
         <div class="card-body">
             <form method="POST" action="{{ route('partners.store') }}" novalidate>
                 @csrf
+                {{-- 保存が 2 回届いても 1 件だけ作るための「送信用の合言葉」。画面を開くたびに変わる（app/Http/Middleware/PreventsDoubleAdd.php） --}}
+                <input type="hidden" name="submit_token" value="{{ old('submit_token') ?: Str::uuid() }}">
                 @include('partners._form')
                 <button type="submit" class="btn btn-primary mt-2">保存</button>
             </form>

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * 期限が切れたキャッシュの行を消す。毎日 0 時 10 分にスケジューラーが動かす（routes/console.php）。
- * 登録の画面の「送信用の合言葉」（PreventsDoubleSubmit。期限 1 日）が、登録のたびにキャッシュに 1 行ずつ入る。
+ * 追加・登録・残高を合わせる画面の「送信用の合言葉」（記録・定期的な記録・残高を合わせるは PreventsDoubleSubmit、口座・分類・相手は PreventsDoubleAdd。どちらも SubmitOnce を使う。期限 1 日）が、保存のたびにキャッシュに 1 行ずつ入る。
  * データベースのキャッシュは、期限が切れた行を自動では消さないので、放っておくと行が増え続け、バックアップにも入ってしまう。
  * 使い方：php artisan cache:prune-expired
  */
