@@ -244,7 +244,7 @@ class RecordForm extends Component
             $values['partner_id'] = $hasCategory ? $this->partnerIdToSave($record !== null) : null;
             $locked === null ? Record::create($values) : $locked->update($values);
         };
-        $this->saveOnce($record === null, [$values, $this->partnerName], fn () => DB::transaction($write, 3), 'blocker');
+        $this->saveOnce($record === null, [$values, $this->partnerName], fn () => DB::transaction($write, 3), 'blocker', null, '（「保存して続けて入力」を使うと、すぐに次を入れられます）');
 
         session()->flash('status', '保存しました');
 

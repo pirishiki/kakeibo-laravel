@@ -3,10 +3,11 @@
 namespace App\Support;
 
 use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 /**
  * 「送信用の合言葉」の置き場。新しく追加する画面で、保存が 2 回届いても 1 件だけ作るために使う
- * （記録・定期的な記録は Livewire の PreventsDoubleSubmit、口座・分類・相手は PreventsDoubleAdd が、これを使う）。
+ * （記録・定期的な記録・残高を合わせるは Livewire の PreventsDoubleSubmit、口座・分類・相手は PreventsDoubleAdd が、これを使う）。
  *
  * 合言葉は、追加の画面を開くたびに 1 つ作る。キャッシュに「保存中」か「保存済み＋保存した中身の印」を覚えておき、
  * 同じ合言葉で 2 回目が届いたときの扱いを決める：
@@ -69,7 +70,18 @@ final class SubmitOnce
      */
     public static function saved(string $token, string $hash, array $extra = []): void
     {
-        Cache::put(self::key($token), ['state' => 'saved', 'hash' => $hash, ...$extra], now()->addDay());
+        // 保存はもう済んでいる。キャッシュに書けなくても、保存できたことを失敗にしない（合言葉が「保存中」のまま残ると、
+        // 保存済みなのに「いま保存しています」と出つづけるので、書けなかったら合言葉の行を消す。消せないときは期限（1 日）で消える）
+        try {
+            Cache::put(self::key($token), ['state' => 'saved', 'hash' => $hash, ...$extra], now()->addDay());
+        } catch (Throwable $e) {
+            report($e);
+            try {
+                self::release($token);
+            } catch (Throwable) {
+                // 期限で消えるのを待つ
+            }
+        }
     }
 
     /** 保存の途中で失敗した。合言葉を戻す */

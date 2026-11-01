@@ -10,7 +10,7 @@ use Livewire\Attributes\Locked;
 use Throwable;
 
 /**
- * 新しく登録する画面で、保存が 2 回届いても 1 件だけ作る（画面設計書 5.4・5.10、5.13 の「2 回押し」と同じ考え方）。
+ * 新しく登録する画面で、保存が 2 回届いても 1 件だけ作る（画面設計書 5.4・5.7・5.10、5.13 の「2 回押し」と同じ考え方）。
  *
  * 同じ内容の記録は、ふつうに何件もあるので、内容だけでは 2 回目かどうか見分けられない。
  * そこで、画面を開くたびに「送信用の合言葉」を 1 つ作っておき、保存するときに使い切る。
@@ -42,8 +42,9 @@ trait PreventsDoubleSubmit
      * @param  Closure(): mixed  $write  保存する処理。返した値を、そのまま返す
      * @param  string  $errorKey  保存できなかったことを知らせる欄の名前
      * @param  mixed  $whenDuplicate  同じ中身の 2 回目だったときに返す値
+     * @param  string  $savedHint  保存済みの画面で別の内容を保存しようとしたときの知らせに、足す案内（その画面にあるボタンの案内など）
      */
-    protected function saveOnce(bool $isNew, array $content, Closure $write, string $errorKey, mixed $whenDuplicate = null): mixed
+    protected function saveOnce(bool $isNew, array $content, Closure $write, string $errorKey, mixed $whenDuplicate = null, string $savedHint = ''): mixed
     {
         if (! $isNew) {
             return $write();
@@ -58,7 +59,7 @@ trait PreventsDoubleSubmit
         if ($claim !== SubmitOnce::NEW) {
             throw ValidationException::withMessages([$errorKey => $claim === SubmitOnce::SAVING
                 ? SubmitOnce::SAVING_MESSAGE
-                : SubmitOnce::SAVED_MESSAGE.'（「保存して続けて入力」を使うと、すぐに次を入れられます）']);
+                : SubmitOnce::SAVED_MESSAGE.$savedHint]);
         }
 
         try {

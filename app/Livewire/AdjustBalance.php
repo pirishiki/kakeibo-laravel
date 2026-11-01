@@ -3,10 +3,12 @@
 namespace App\Livewire;
 
 use App\Enums\RecordType;
+use App\Livewire\Concerns\PreventsDoubleSubmit;
 use App\Models\Account;
 use App\Models\Record;
 use App\Support\FormInput;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -25,6 +27,11 @@ use Livewire\Component;
  */
 class AdjustBalance extends Component
 {
+    use PreventsDoubleSubmit;
+
+    /** 保存が 2 回届いて、同じ中身の 2 回目だったことを表す印（saveOnce の戻り値） */
+    private const DUPLICATE = 'duplicate';
+
     private const TOO_LARGE = '差が大きすぎます。一度に合わせられるのは、差が 99,999,999 円までです。';
 
     /** 保存のとき、口座がほかの画面で削除されていたことを表す印 */
@@ -63,6 +70,8 @@ class AdjustBalance extends Component
         $back = request()->query('back');
 
         $this->accountId = $account->id;
+        // 保存が 2 回届いても、調整の記録を 1 件だけ作るための合言葉（PreventsDoubleSubmit）
+        $this->startSubmitToken();
         $this->date = today()->toDateString();
         $this->backUrl = FormInput::backUrl(
             is_string($back) && $back !== '' ? $back : url()->previous(),
@@ -146,21 +155,58 @@ class AdjustBalance extends Component
             'memo.max' => 'メモは 1,000 文字以内で入れてください。',
         ]);
 
-        // 0 円の調整の記録はつくらない（データベース設計書 3.5）。画面ではボタンを押せなくしているが、念のためここでも止める
-        $difference = $this->difference;
-        if ($difference === null || $difference === 0) {
-            $this->addError('actual', 'ずれはありません。');
+        // 保存が 2 回届いても、調整の記録は 1 件だけにする（PreventsDoubleSubmit。画面設計書 5.7）。
+        // 2 回目が届いたときは、1 回目で残高が合っていて差が 0 になっているので、「ずれはありません」という失敗の形で出さず、
+        // 保存したのと同じ流れで戻る。そのため、合言葉の確認を、差の確かめより先に行う。
+        // 差が 0・大きすぎ・押さえたあとの食いちがいは、保存できなかったことなので、例外（DomainException）にして合言葉を戻す
+        try {
+            $error = $this->saveOnce(true, [$this->accountId, $this->date, $this->actual, $this->memo], function () {
+                // 0 円の調整の記録はつくらない（データベース設計書 3.5）。画面ではボタンを押せなくしているが、念のためここでも止める
+                $difference = $this->difference;
+                if ($difference === null || $difference === 0) {
+                    throw new DomainException('ずれはありません。');
+                }
+                // 差は調整の記録の金額になる。記録の金額の上限をこえると、あとで直せない記録になるので止める
+                if ($this->differenceTooLarge()) {
+                    throw new DomainException(self::TOO_LARGE);
+                }
+
+                $error = $this->createAdjustment();
+                if ($error !== null) {
+                    throw new DomainException($error);
+                }
+
+                return null;
+            }, 'actual', self::DUPLICATE);
+        } catch (DomainException $e) {
+            $error = $e->getMessage();
+        }
+        // 同じ中身の 2 回目は、何も作らずに戻る。ただし、1 回目の保存のあとに、ほかの画面でこの口座の記録が変わって
+        // 差が 0 でなくなっているときは、「保存しました」と言うと、実際の金額と残高がずれたままになるので知らせる
+        if ($error === self::DUPLICATE) {
+            unset($this->appBalance, $this->difference);
+            $error = $this->difference === 0 ? null : '先に保存した分のあと、この口座の残高が変わりました。画面を開き直して、差を確かめてください。';
+        }
+        if ($error === self::DELETED) {
+            return $this->leaveDeleted();
+        }
+        if ($error !== null) {
+            $this->addError('actual', $error);
 
             return null;
         }
-        // 差は調整の記録の金額になる。記録の金額の上限をこえると、あとで直せない記録になるので止める
-        if ($this->differenceTooLarge()) {
-            $this->addError('actual', self::TOO_LARGE);
 
-            return null;
-        }
+        session()->flash('status', '保存しました');
 
-        $error = DB::transaction(function () {
+        return $this->redirect($this->backUrl);
+    }
+
+    /**
+     * 口座を押さえて、差の調整の記録を 1 つ作る。作れないときは理由の文（口座が削除されていたときは DELETED）、作れたときは null
+     */
+    private function createAdjustment(): ?string
+    {
+        return DB::transaction(function () {
             // 口座を押さえてから、「使う」か・差をもう一度確かめる。
             // 画面を開いたあとに、ほかのタブで「使わない」にされたときや、ほかのタブで先に合わせたとき（差が変わる）に、二重に調整しないため
             $account = Account::query()->whereKey($this->accountId)->lockForUpdate()->first();
@@ -193,18 +239,6 @@ class AdjustBalance extends Component
 
             return null;
         }, 3);
-        if ($error === self::DELETED) {
-            return $this->leaveDeleted();
-        }
-        if ($error !== null) {
-            $this->addError('actual', $error);
-
-            return null;
-        }
-
-        session()->flash('status', '保存しました');
-
-        return $this->redirect($this->backUrl);
     }
 
     public function render(): View|string

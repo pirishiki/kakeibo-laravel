@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\AccountType;
 use App\Enums\CategoryKind;
+use App\Livewire\AdjustBalance;
 use App\Livewire\RecordForm;
 use App\Livewire\RecurringForm;
 use App\Models\Account;
@@ -190,5 +191,78 @@ class DoubleSubmitTest extends TestCase
         $keys = DB::table('cache')->pluck('key')->all();
         $this->assertCount(0, array_filter($keys, fn (string $k) => str_contains($k, 'submitted:expired')), '期限が切れた行は消える');
         $this->assertCount(1, array_filter($keys, fn (string $k) => str_contains($k, 'submitted:alive')), 'まだ使える行は残る');
+    }
+
+    // ------------------------------------------------------------------
+    // 残高を合わせる（画面設計書 5.7）：保存が 2 回届いても、調整の記録は 1 件だけで、2 回目も「保存しました」の流れで戻る
+    // ------------------------------------------------------------------
+
+    private function adjustForm(Account $account, string $actual = '9000'): Testable
+    {
+        return Livewire::test(AdjustBalance::class, ['account' => $account])->set('actual', $actual);
+    }
+
+    public function test_残高を合わせる保存が2回届いても_調整の記録は1件だけで_2回目も保存したのと同じ流れで戻る(): void
+    {
+        $account = Account::factory()->create(['initial_balance' => 10000]);
+        $form = $this->adjustForm($account);
+
+        $form->call('save')->assertHasNoErrors()->assertRedirect();
+        // 2 回目が届く。差は 0 になっているが、「ずれはありません」と失敗の形で出さない
+        $form->call('save')->assertHasNoErrors()->assertRedirect();
+
+        $this->assertSame(1, Record::query()->where('type', 'adjustment')->count());
+        $this->assertSame(-1000, Record::query()->where('type', 'adjustment')->sole()->amount);
+    }
+
+    public function test_残高を合わせたあと同じ画面で別の金額を保存しても_保存したと言わずに知らせる(): void
+    {
+        $account = Account::factory()->create(['initial_balance' => 10000]);
+        $form = $this->adjustForm($account);
+        $form->call('save')->assertRedirect();
+
+        $form->set('actual', '8000')->call('save')->assertHasErrors('actual')->assertNoRedirect();
+
+        $this->assertSame(1, Record::query()->where('type', 'adjustment')->count());
+    }
+
+    public function test_残高を合わせる保存がずれなしで止まったあとは_金額を直して保存し直せる(): void
+    {
+        $account = Account::factory()->create(['initial_balance' => 10000]);
+        $form = $this->adjustForm($account, '10000');
+
+        // ずれはない（差が 0）ので、保存できない。合言葉は使い切らない
+        $form->call('save')->assertHasErrors('actual');
+        $form->set('actual', '9000')->call('save')->assertHasNoErrors()->assertRedirect();
+
+        $this->assertSame(1, Record::query()->where('type', 'adjustment')->count());
+    }
+
+    public function test_残高を合わせたあと日付だけ変えて保存しても_保存したと言わずに知らせ_存在しないボタンの案内は出ない(): void
+    {
+        $account = Account::factory()->create(['initial_balance' => 10000]);
+        $form = $this->adjustForm($account);
+        $form->call('save')->assertRedirect();
+
+        $form->set('date', today()->subDay()->toDateString())->call('save')
+            ->assertHasErrors('actual')->assertNoRedirect();
+        // この画面に「保存して続けて入力」のボタンはない。案内にも出さない
+        $message = $form->errors()->first('actual');
+        $this->assertStringContainsString('もう保存しています', $message);
+        $this->assertStringNotContainsString('続けて入力', $message);
+        $this->assertSame(1, Record::query()->where('type', 'adjustment')->count());
+    }
+
+    public function test_残高を合わせたあと別の画面で記録が増えて差が変わっていたら_同じ金額の2回目は保存したと言わずに知らせる(): void
+    {
+        $account = Account::factory()->create(['initial_balance' => 10000]);
+        $form = $this->adjustForm($account);
+        $form->call('save')->assertRedirect();
+
+        // 1 回目の保存のあと、別の画面でこの口座の記録が増えた（実際の金額 9,000 円と、アプリの残高がずれた）
+        Record::factory()->create(['account_id' => $account->id, 'type' => 'expense', 'amount' => 500, 'date' => today()->toDateString()]);
+        $form->call('save')->assertHasErrors('actual')->assertNoRedirect();
+
+        $this->assertSame(1, Record::query()->where('type', 'adjustment')->count());
     }
 }
