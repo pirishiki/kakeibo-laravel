@@ -28,7 +28,8 @@ class AvailableAmount
      */
     public static function calculate(?CarbonImmutable $today = null): array
     {
-        $today ??= today()->toImmutable();
+        // 時刻つきの日付が渡されても、日の数え方がずれないように 0 時にそろえる（13:00 のままだと、末日までの日数を 1 日少なく数える）
+        $today = ($today ?? today()->toImmutable())->startOfDay();
         $accounts = Account::query()->where('is_active', true)->ordered()->get();
         $balances = Account::balances($today, $accounts->modelKeys());
 

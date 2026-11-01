@@ -82,8 +82,10 @@ class AdjustBalance extends Component
     {
         $until = FormInput::isDate($this->date) ? CarbonImmutable::parse($this->date) : today();
 
-        // ほかの画面で口座が削除されていたときは 0（画面は出さずに口座の一覧へ戻す。render()）
-        return $this->account()?->balance($until) ?? 0;
+        // ほかの画面で口座が削除されていたときは 0（画面は出さずに口座の一覧へ戻す。render()）。
+        // 残高は「出た分」「入った分」「最初の残高」を別々に問い合わせて足すので、1 つのトランザクションの中で読む
+        // （外で読むと、別のタブの移動の保存と重なったときに、ちがう時点の数字を足して、画面の残高と差が一瞬ずれるため）
+        return DB::transaction(fn () => $this->account()?->balance($until) ?? 0);
     }
 
     /**

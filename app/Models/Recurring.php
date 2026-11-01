@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\RecordType;
 use App\Enums\RecurringShift;
+use App\Models\Concerns\HasContentFingerprint;
 use App\Support\RecurringDate;
 use Carbon\CarbonImmutable;
 use Database\Factories\RecurringFactory;
@@ -42,6 +43,8 @@ use Illuminate\Support\Carbon;
     'category_id', 'partner_id', 'start_month', 'end_month', 'is_active'])]
 class Recurring extends Model
 {
+    use HasContentFingerprint;
+
     /** @use HasFactory<RecurringFactory> */
     use HasFactory;
 

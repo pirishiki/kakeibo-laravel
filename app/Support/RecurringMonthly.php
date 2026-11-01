@@ -171,7 +171,13 @@ class RecurringMonthly
 
         return DB::transaction(function () use ($recurring, $month, $key, $amount, $today) {
             // 0 時 5 分の自動の記録と重なっても食いちがわないように、予定の行を押さえてから、記録済みかを確かめ直す
-            Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
+            // 押さえた行のいまの中身で確かめる：読んだあとに、ほかの画面で「決まっている」に直された・日付が直されたとき、
+            // 古い中身のまま金額の行を作ったり、まだ来ていない日付で記録したりしないため
+            $locked = Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
+            if ($locked === null || $locked->is_fixed) {
+                return false;
+            }
+            $recurring = $locked;
             if ($recurring->records()->where('recurring_month', $key)->lockForUpdate()->exists()) {
                 return false;
             }
@@ -225,6 +231,12 @@ class RecurringMonthly
     {
         $today ??= today()->toImmutable();
         $month = $month->startOfMonth();
+        // 保存し終わったあとの、いちばん新しい中身で確かめる（読んだあとに、ほかの画面で直されていることがあるため）
+        $recurring = Recurring::query()->find($recurring->id) ?? $recurring;
+        // 金額を入れたのに、読んだあとに「決まっている」予定に変わっていると、入れた金額は使われない。黙らずに知らせる
+        if ($entered !== null && $recurring->is_fixed) {
+            return '「'.$recurring->name.'」は、ほかの画面で金額が決まっている予定に変わっていたので、入れた金額は使っていません。月ごとの金額の画面で確かめてください。';
+        }
         if ($recurring->scheduledDate($month)->gt($today) || $recurring->skips()->where('month', $month->toDateString())->exists()) {
             return null;
         }
@@ -253,9 +265,15 @@ class RecurringMonthly
         $month = $month->startOfMonth();
 
         return DB::transaction(function () use ($recurring, $month, $today) {
-            $recurring->skips()->where('month', $month->toDateString())->delete();
+            // 先に予定の行を押さえて（押さえる順番の決まり：予定→記録→口座）、いちばん新しい中身で日付が来たかを決める。
+            // 読んだあとに、ほかの画面で日付が先に直されていたら、まだ来ていない日付の記録を作らないため
+            $locked = Recurring::query()->whereKey($recurring->id)->lockForUpdate()->first();
+            if ($locked === null) {
+                return false;
+            }
+            $locked->skips()->where('month', $month->toDateString())->delete();
 
-            return self::recordIfDue($recurring, $month, $today);
+            return self::recordIfDue($locked, $month, $today);
         }, self::ATTEMPTS);
     }
 

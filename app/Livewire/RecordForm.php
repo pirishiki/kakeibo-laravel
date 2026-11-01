@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Enums\RecordType;
 use App\Livewire\Concerns\ChoosesPartnerCategoryAccount;
+use App\Livewire\Concerns\PreventsDoubleSubmit;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Partner;
@@ -36,6 +37,7 @@ class RecordForm extends Component
 {
     // 口座・分類・小分類・相手の欄（定期的な記録の登録と共通）
     use ChoosesPartnerCategoryAccount;
+    use PreventsDoubleSubmit;
 
     /** 金額の欄に入れられるいちばん大きい数（要件定義書 10.1） */
     public const MAX_AMOUNT = FormInput::MAX_AMOUNT;
@@ -47,9 +49,9 @@ class RecordForm extends Component
     #[Locked]
     public ?int $recordId = null;
 
-    /** 編集の画面を開いたときの、記録の最後に変えた日時。保存のときにちがえば、ほかの画面で直されている */
+    /** 編集の画面を開いたときの、記録の中身の印（Record::fingerprint）。保存のときにちがえば、ほかの画面で直されている */
     #[Locked]
-    public ?string $openedAt = null;
+    public ?string $openedFingerprint = null;
 
     /** ほかの画面で消された記録を、保存しようとしたときの文 */
     public const GONE_MESSAGE = 'この記録は、ほかの画面で削除されたので、保存できません。記録の一覧から開き直してください';
@@ -104,6 +106,8 @@ class RecordForm extends Component
             return;
         }
 
+        // 新しく登録する画面：保存が 2 回届いても 1 件だけ作るための合言葉（PreventsDoubleSubmit）
+        $this->startSubmitToken();
         $this->type = in_array($query('type'), ['expense', 'income', 'transfer'], true) ? $query('type') : 'expense';
         $this->date = FormInput::isDate($query('date')) ? $query('date') : today()->toDateString();
         $this->backUrl = $this->backUrlFrom($query('back') !== '' ? $query('back') : url()->previous());
@@ -178,7 +182,7 @@ class RecordForm extends Component
             return null;
         }
         // 開いたあとに、ほかの画面でこの記録が直されていたら、上書きせずに知らせる（あとから保存したほうが黙って勝たないように）
-        if ($record !== null && $this->openedAt !== null && $record->updated_at?->toDateTimeString() !== $this->openedAt) {
+        if ($record !== null && $this->openedFingerprint !== null && ($record->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($record->partner_id))) {
             $this->addError('blocker', 'この記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
 
             return null;
@@ -205,7 +209,8 @@ class RecordForm extends Component
             }
         }
 
-        DB::transaction(function () use ($record, $values, $hasCategory) {
+        // 新しく登録するときは、保存が 2 回届いても 1 件だけ作る（PreventsDoubleSubmit）
+        $write = function () use ($record, $values, $hasCategory) {
             // 記録の行 → 口座（前と後の両方）の順に押さえてから、もう一度確かめる。
             // チェックのあと保存するまでに、ほかの画面で直された・「使わない」にされたときに、上書きや「使わない」口座の残高の変化を起こさないため
             $locked = null;
@@ -214,7 +219,7 @@ class RecordForm extends Component
                 if ($locked === null) {
                     throw ValidationException::withMessages(['blocker' => self::GONE_MESSAGE]);
                 }
-                if ($this->openedAt !== null && $locked->updated_at?->toDateTimeString() !== $this->openedAt) {
+                if ($this->openedFingerprint !== null && ($locked->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($locked->partner_id))) {
                     throw ValidationException::withMessages(['blocker' => 'この記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください']);
                 }
             }
@@ -238,12 +243,13 @@ class RecordForm extends Component
             }
             $values['partner_id'] = $hasCategory ? $this->partnerIdToSave($record !== null) : null;
             $locked === null ? Record::create($values) : $locked->update($values);
-        }, 3);
+        };
+        $this->saveOnce($record === null, [$values, $this->partnerName], fn () => DB::transaction($write, 3), 'blocker');
 
         session()->flash('status', '保存しました');
 
         if ($record !== null) {
-            return $this->redirect($this->backUrlAfter($record->refresh()));
+            return $this->redirect($this->backUrlAfter(CarbonImmutable::parse($values['date'])));
         }
 
         if ($continue) {
@@ -317,7 +323,35 @@ class RecordForm extends Component
         }
         session()->flash('status', '削除しました');
 
-        return $this->redirect($this->backUrlAfter($record));
+        return $this->redirect($this->backUrlAfter($record->date));
+    }
+
+    /**
+     * 種類を切りかえたあと、欄が消えても中身が残っていて、保存すると黙って消えてしまうものの知らせ（画面設計書 5.4）。
+     * 品物は支出のときだけ、相手は支出・収入のときだけ保存する。保存は止めない（直したいのが種類だけのこともあるため）
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function unsavedNotices(): array
+    {
+        $label = ['expense' => '支出', 'income' => '収入', 'transfer' => '移動'][$this->type] ?? null;
+        // 調整の記録は、種類を切りかえられず、品物も相手もない
+        if ($label === null) {
+            return [];
+        }
+
+        $notices = [];
+        $item = trim($this->item);
+        if ($this->type !== 'expense' && $item !== '') {
+            $notices[] = '種類を『'.$label.'』にすると、品物『'.$item.'』は保存されません';
+        }
+        $partner = trim($this->partnerName);
+        if ($this->type === 'transfer' && $partner !== '') {
+            $notices[] = '種類を『'.$label.'』にすると、相手『'.$partner.'』は保存されません';
+        }
+
+        return $notices;
     }
 
     /**
@@ -435,7 +469,8 @@ class RecordForm extends Component
     private function fillFrom(Record $record): void
     {
         $this->recordId = $record->id;
-        $this->openedAt = $record->updated_at?->toDateTimeString();
+        $this->openedFingerprint = $record->fingerprint();
+        $this->openedPartnerId = $record->partner_id;
         $this->type = $record->type->value;
         $this->amount = number_format($record->amount);
         $this->date = $record->date->toDateString();
@@ -539,13 +574,13 @@ class RecordForm extends Component
      * 編集・削除のあとに戻る先。記録の一覧から開いたときは、その記録の月の一覧に戻る（画面設計書 5.4）。
      * 「探す」で探した一覧から開いたときは、同じ条件の一覧に戻る（探し直さなくてよいように）
      */
-    private function backUrlAfter(Record $record): string
+    private function backUrlAfter(CarbonImmutable $date): string
     {
         parse_str((string) parse_url($this->backUrl, PHP_URL_QUERY), $query);
         $fromSearch = array_intersect(array_keys($query), [...RecordSearch::FIELDS, RecordSearch::MARK]) !== [];
 
         return parse_url($this->backUrl, PHP_URL_PATH) === '/records' && ! $fromSearch
-            ? route('records.index', ['month' => $record->date->format('Y-m')])
+            ? route('records.index', ['month' => $date->format('Y-m')])
             : $this->backUrl;
     }
 
@@ -561,7 +596,8 @@ class RecordForm extends Component
     /** 記録の日付に入れられる、いちばん先の日（今日の 1 年先） */
     private function lastDate(): CarbonImmutable
     {
-        return today()->toImmutable()->addYear();
+        // 今日が 2 月 29 日のとき、addYear() だと翌年の 3 月 1 日にあふれて、上限が 1 日ゆるくなる。あふれさせずに 2 月 28 日にする
+        return today()->toImmutable()->addYearsNoOverflow(1);
     }
 
     private function dateRangeMessage(): string

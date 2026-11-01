@@ -12,6 +12,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 
 /**
  * 相手・分類・小分類・口座の欄（記録の登録 5.4 と、定期的な記録の登録 5.10 で同じ決まり）
@@ -40,6 +41,13 @@ trait ChoosesPartnerCategoryAccount
 
     /** 候補から選んだ相手。打ち直すと空に戻る */
     public ?int $partnerId = null;
+
+    /**
+     * 変更の画面を開いたときに入っていた相手。画面の側から書きかえられないようにする。
+     * 開いたあとに相手が「ほかの相手にまとめられて消えた」のか、「ほかの画面で別の相手に直された」のかを見分けるのに使う
+     */
+    #[Locked]
+    public ?int $openedPartnerId = null;
 
     /**
      * 変更しているものに、もともと入っている口座・分類（大分類と小分類）・相手。登録のときは空
@@ -265,8 +273,9 @@ trait ChoosesPartnerCategoryAccount
 
                 return $partner->id;
             }
-            // ほかの相手にまとめられて消えた：変更なら、いまの記録・予定の相手（まとめ先）のまま
-            $saved = $editing ? $this->lockedPartnerId($this->savedPartnerId()) : null;
+            // 開いたときに入っていた相手が、ほかの相手にまとめられて消えた（選び直していない）：変更なら、いまの記録・予定の相手（まとめ先）のまま。
+            // 候補から選び直した相手が消えたときは、元の相手のまま「保存しました」にせず、下で選び直しを求める（選んだ相手を黙って捨てないため）
+            $saved = $editing && $this->partnerId === $this->openedPartnerId ? $this->lockedPartnerId($this->savedPartnerId()) : null;
             if ($saved !== null) {
                 return $saved;
             }
@@ -290,6 +299,23 @@ trait ChoosesPartnerCategoryAccount
     private function lockedPartnerId(?int $id): ?int
     {
         return $id !== null && Partner::query()->sharedLock()->whereKey($id)->exists() ? $id : null;
+    }
+
+    /**
+     * 開いたあとに、ほかの画面で相手が別の相手に直されたか。
+     * 開いたときの相手が消えている（まとめられた）ときは、まとめ先に変わっただけなので、直されたとは見なさない
+     * （そのときは partnerIdToSave が、まとめ先の相手のまま保存する）
+     */
+    protected function partnerChangedElsewhere(?int $savedPartnerId): bool
+    {
+        if ($savedPartnerId === $this->openedPartnerId) {
+            return false;
+        }
+
+        // 相手を押さえずに読む：ここは予定・記録を押さえた直後で、押さえる順番の決まり（予定→記録→口座→分類→相手）より前に
+        // 相手を押さえないため。相手のまとめは、まとめる相手の記録・予定の行を先に押さえるので、
+        // 押さえてある記録・予定の相手が、ここと相手を保存に使う所（partnerIdToSave）の間で変わることはない
+        return $this->openedPartnerId === null || Partner::query()->whereKey($this->openedPartnerId)->exists();
     }
 
     /** いま保存してある記録・予定の相手（変更のとき）。登録のときは null */
