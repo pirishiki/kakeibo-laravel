@@ -4,11 +4,12 @@ namespace App\Http\Middleware;
 
 use App\Support\SubmitOnce;
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * 口座・分類・相手の追加で、保存が 2 回届いても 1 件だけ作る（画面設計書 5.6。分類 5.8・相手 5.9 も同じ）。
+ * 口座・分類・相手・目標の追加で、保存が 2 回届いても 1 件だけ作る（画面設計書 5.6。分類 5.8・相手 5.9・目標 5.13 も同じ）。
  *
  * 追加の画面には、開くたびに「送信用の合言葉」（submit_token）を入れてある（SubmitOnce）。
  * 2 回目が同じ合言葉・同じ中身で届いたら、名前が重なったというエラーにせず、1 回目と同じ「保存しました」の流れで戻る
@@ -22,6 +23,19 @@ class PreventsDoubleAdd
     /** 保存済みの画面で、別の内容を保存しようとしたとき（追加の画面は描き直すと新しい合言葉になるので、もう一度押せば新しく追加できる） */
     public const SAVED_MESSAGE = 'この画面からは、もう保存しています。入れた内容を新しく追加するときは、もう一度「保存」を押してください';
 
+    /** 1 回目で作ったものを覚えておく、リクエストの中の置き場の名前（remember） */
+    private const CREATED = 'prevents-double-add.created';
+
+    /**
+     * 1 回目の保存で作ったもの（または、2 回目と見分けて使ったもの）を覚えておく。保存の処理（コントローラー）から呼ぶ。
+     * 2 回目が届いたとき、それがまだあるかを確かめる（1 回目のあと、ほかの画面で削除されていたら、何もないのに
+     * 「保存しました」と出さないため。画面設計書 5.13。2026-11-07 に決定）
+     */
+    public static function remember(Model $model): void
+    {
+        request()->attributes->set(self::CREATED, SubmitOnce::created($model));
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
         $token = $request->input('submit_token');
@@ -34,8 +48,21 @@ class PreventsDoubleAdd
         $claim = SubmitOnce::claim($token, $hash);
 
         if ($claim === SubmitOnce::SAME) {
+            $state = SubmitOnce::state($token) ?? [];
+            // 1 回目で作ったものが、そのあとほかの画面で削除されていた：作り直さず（同じ合言葉の 2 回目なので）、保存していないと知らせる。
+            // 入れた内容は欄に残し、合言葉は引きつがない（描き直した画面は新しい合言葉になるので、もう一度押せば新しく追加できる）
+            if (SubmitOnce::createdIsGone($state)) {
+                $message = SubmitOnce::goneMessage($state, '追加');
+                $back = UseFormOrigin::origin($request);
+
+                return $back === null
+                    ? redirect()->route('home')->with('warning', $message)
+                    : redirect()->to($back)->withInput($request->except(['_token', '_method', '_from', 'submit_token']))->with('warning', $message);
+            }
+
             // 1 回目と同じ場所へ、同じ知らせで戻る。戻り先がわからないとき（合言葉の行が消えた直後など）は、送った画面へ
-            $to = SubmitOnce::state($token)['to'] ?? null;
+            // （1 回目のあとに、ほかの画面で直されていても、1 回目は保存できているので「保存しました」。名前・口座の重なりのまちがいにはしない）
+            $to = $state['to'] ?? null;
 
             return redirect()->to(is_string($to) && $to !== '' ? $to : (UseFormOrigin::origin($request) ?? route('home')))
                 ->with('status', '保存しました');
@@ -64,7 +91,8 @@ class PreventsDoubleAdd
         // 直したあとにもう一度押せば保存できるようにする
         $flashed = (array) $request->session()->get('_flash.new', []);
         if ($response->isRedirection() && in_array('status', $flashed, true) && ! in_array('errors', $flashed, true)) {
-            SubmitOnce::saved($token, $hash, ['to' => $response->headers->get('Location')]);
+            $created = $request->attributes->get(self::CREATED);
+            SubmitOnce::saved($token, $hash, ['to' => $response->headers->get('Location'), ...(is_array($created) ? $created : [])]);
         } else {
             SubmitOnce::release($token);
         }

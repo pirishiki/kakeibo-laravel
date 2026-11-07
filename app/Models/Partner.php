@@ -26,8 +26,24 @@ class Partner extends Model
     /** 候補を押したときに、その相手がもう選べなかったときの文（ほかの画面で「使わない」にしたか削除したとき） */
     public const UNAVAILABLE_MESSAGE = 'この相手は、ほかの画面で『使わない』にしたか削除したので、選べません。相手の名前を入れ直してください';
 
+    /**
+     * 最初からある相手「その他」の名前。急ぐときの受け皿で、いつも選べる状態でなければならないので、
+     * 削除・「使わない」・ほかの相手へのまとめる・名前の変更をしない（画面設計書 5.9。2026-11-07 に決定）。
+     * 列は足さず、名前で見分ける（データベース設計書 3.4）
+     */
+    public const OTHER_NAME = 'その他';
+
+    /** 「その他」を守っていることを知らせる文（変更の画面に出す。古い画面などから送られて止めたときも同じ文） */
+    public const PROTECTED_MESSAGE = '『その他』は急ぐときの受け皿なので、削除・『使わない』・まとめる・名前の変更はできません';
+
     /** @use HasFactory<PartnerFactory> */
     use HasFactory;
+
+    /** 守られている相手「その他」か */
+    public function isProtected(): bool
+    {
+        return $this->name === self::OTHER_NAME;
+    }
 
     /**
      * @return array<string, string>
@@ -91,7 +107,7 @@ class Partner extends Model
      * 全部やるか、何もしないか（トランザクション）。2 つの相手の行を押さえてから、まとめ先が「使う」で自分でないかを確かめ直す
      * （確かめたあと、別の画面でまとめ先を「使わない」にしたときなどに、まちがってまとめないため）
      *
-     * @return bool まとめたら true。まとめ先が「使わない」・自分・なくなっていたら、何もせずに false
+     * @return bool まとめたら true。まとめ先が「使わない」・自分・なくなっていた、この相手が「その他」だったら、何もせずに false
      */
     public function mergeInto(Partner $target): bool
     {
@@ -103,7 +119,8 @@ class Partner extends Model
             $locked = self::query()->whereKey([$this->id, $target->id])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $fresh = $locked->get($target->id);
 
-            if ($target->id === $this->id || $fresh === null || ! $fresh->is_active || ! $locked->has($this->id)) {
+            // まとめる相手（この相手）が「その他」なら、まとめない（画面設計書 5.9。押さえた行のいまの名前で見分ける）
+            if ($target->id === $this->id || $fresh === null || ! $fresh->is_active || ! $locked->has($this->id) || $locked->get($this->id)?->isProtected()) {
                 return false;
             }
 

@@ -29,6 +29,20 @@ class Category extends Model
     /** @use HasFactory<CategoryFactory> */
     use HasFactory;
 
+    // 「使わない」大分類の下に、「使う」小分類は置けない（画面設計書 5.8。2026-11-07 に決定）。止めたときの文
+
+    /** 「使う」小分類がある大分類を「使わない」にしようとしたとき */
+    public const HAS_ACTIVE_CHILD_MESSAGE = 'この大分類の下に、使っている小分類があります。その小分類を使うなら、大分類を『使う』のままにするか、小分類を別の大分類へ移してください。使わないなら、先に小分類を『使わない』にしてください';
+
+    /** 小分類を「使わない」大分類の下へ移そうとしたとき */
+    public const MOVE_TO_INACTIVE_MESSAGE = '移す先の大分類は『使わない』です。先に大分類を『使う』にするか、別の大分類を選んでください';
+
+    /** 小分類を「使わない」大分類の下へ追加しようとしたとき */
+    public const ADD_TO_INACTIVE_MESSAGE = '追加先の大分類は『使わない』です。先に大分類を『使う』にするか、別の大分類を選んでください';
+
+    /** 「使わない」大分類の下の小分類を「使う」に戻そうとしたとき */
+    public const RESTORE_UNDER_INACTIVE_MESSAGE = 'この小分類の大分類は『使わない』です。小分類を『使う』に戻すときは、先に大分類を『使う』にするか、小分類を別の大分類へ移してください';
+
     /**
      * @return array<string, string>
      */

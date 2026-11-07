@@ -111,7 +111,11 @@ class MonthlyAmounts extends Component
             $id = $row['recurring']->id;
             if ($row['status'] !== RecurringMonthly::VARIABLE && array_key_exists($id, $this->opened)) {
                 $text = $this->amounts[$id] ?? '';
-                if (FormInput::normalizeAmount(is_string($text) ? $text : '') !== $this->opened[$id]) {
+                $entered = FormInput::normalizeAmount(is_string($text) ? $text : '');
+                // 記録済みで、記録の金額が入れた金額と同じなら、入れた金額は使われている（「保存」が 2 回届いて、1 回目で記録された行など）。
+                // 「使っていません」とは出さない。ほかの画面で記録された行に、ちがう金額を打っていたときは、今までどおり知らせる（画面設計書 5.10。2026-11-07 に決定）
+                $usedAsRecorded = $row['status'] === RecurringMonthly::RECORDED && $entered !== '' && $entered === (string) $row['amount'];
+                if ($entered !== $this->opened[$id] && ! $usedAsRecorded) {
                     $unused[] = $row['recurring']->name;
                 }
                 unset($this->amounts[$id], $this->opened[$id]);
@@ -137,6 +141,14 @@ class MonthlyAmounts extends Component
         $this->notice = '';
         $row = $this->row($recurringId, [RecurringMonthly::FIXED, RecurringMonthly::VARIABLE]);
         if ($row === null) {
+            // もう「今回はなし」になっている（2 回届いた 2 回目や、ほかのタブで同じ操作をした）なら、したかったことはできているので、
+            // 失敗の知らせを出さず、何もしないで戻る（ホームの「今回はなし」と同じ。画面設計書 5.10。2026-11-07 に決定）。
+            // 記録されていたときなど、ほかの形に変わっていたら、今までどおり知らせる
+            if ($this->row($recurringId, [RecurringMonthly::SKIPPED]) !== null) {
+                $this->forgetAmount($recurringId);
+
+                return;
+            }
             $this->changedNotice($recurringId, '今回はなしにできませんでした');
 
             return;
@@ -148,7 +160,12 @@ class MonthlyAmounts extends Component
             return;
         }
         unset($this->rows);
-        // 今回はなしにした行の欄は、もう出さないので覚えておかない（次の保存で「使っていない」と言わないように）
+        $this->forgetAmount($recurringId);
+    }
+
+    /** 今回はなしにした行の欄は、もう出さないので覚えておかない（次の保存で「使っていない」と言わないように） */
+    private function forgetAmount(int $recurringId): void
+    {
         unset($this->amounts[$recurringId], $this->opened[$recurringId]);
     }
 
@@ -158,6 +175,18 @@ class MonthlyAmounts extends Component
         $this->notice = '';
         $row = $this->row($recurringId, [RecurringMonthly::SKIPPED]);
         if ($row === null) {
+            // もう元に戻っているか、記録済み（2 回届いた 2 回目で、1 回目にもどして記録された、など）なら、「今回はなし」ではなくなっていて、
+            // したかったことはできているので、失敗の知らせを出さず、何もしないで戻る（画面設計書 5.10。2026-11-07 に決定）。
+            // 行そのものがない（予定が削除された・その月の分でなくなった）ときは、今までどおり知らせる
+            $current = $this->row($recurringId, [RecurringMonthly::FIXED, RecurringMonthly::VARIABLE, RecurringMonthly::RECORDED]);
+            if ($current !== null) {
+                // ほかのタブでもどされていて、この画面では欄をまだ覚えていないときは、1 回目と同じく、入れてある金額を欄に出す
+                if ($current['status'] === RecurringMonthly::VARIABLE && ! array_key_exists($recurringId, $this->amounts)) {
+                    $this->fillAmount($recurringId, $current['amount']);
+                }
+
+                return;
+            }
             $this->changedNotice($recurringId, 'もどせませんでした');
 
             return;

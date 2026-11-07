@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\PreventsDoubleAdd;
 use App\Http\Requests\PartnerRequest;
 use App\Models\Partner;
 use App\Models\Recurring;
@@ -32,7 +33,8 @@ class PartnerController extends Controller
     public function store(PartnerRequest $request): RedirectResponse
     {
         try {
-            Partner::create($request->validated());
+            // 2 回目が届いたとき、1 回目で作った相手がまだあるかを確かめられるように覚えておく（PreventsDoubleAdd）
+            PreventsDoubleAdd::remember(Partner::create($request->validated()));
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
         }
@@ -61,6 +63,11 @@ class PartnerController extends Controller
             // なければ一覧へ戻して知らせる。app/Support/DeletedElsewhere.php）
             DB::transaction(function () use ($partner, $data) {
                 $locked = Partner::query()->lockForUpdate()->findOrFail($partner->id);
+                // 「その他」は、名前を変えない・「使わない」にしない（画面設計書 5.9）。押さえた行のいまの名前で見分ける
+                // （もう「使わない」になっている古いデータの「その他」を「使う」に戻すのは、止めない）
+                if ($locked->isProtected() && ($data['name'] !== $locked->name || ($locked->is_active && ! ($data['is_active'] ?? true)))) {
+                    throw ValidationException::withMessages(['protected' => Partner::PROTECTED_MESSAGE]);
+                }
                 // 入力のチェックのあと、押さえるまでに、ほかの画面で動いている予定がこの相手を使うようになっていたら、「使わない」にしない（4 章の 9）
                 if ($locked->is_active && ! ($data['is_active'] ?? true) && Recurring::usingPartner($locked->id)->running()->exists()) {
                     throw ValidationException::withMessages(['is_active' => Recurring::IN_USE_MESSAGE]);
@@ -77,6 +84,10 @@ class PartnerController extends Controller
     /** 削除。記録がある相手は削除できない（4 章の 9） */
     public function destroy(Partner $partner): RedirectResponse
     {
+        // 「その他」は、記録がなくても削除できない（画面設計書 5.9）
+        if ($partner->isProtected()) {
+            return to_route('partners.edit', $partner)->withErrors(['protected' => Partner::PROTECTED_MESSAGE]);
+        }
         if ($partner->records()->exists()) {
             return to_route('partners.edit', $partner)->withErrors(['delete' => '記録があるので削除できません']);
         }
@@ -86,13 +97,18 @@ class PartnerController extends Controller
 
         // 確かめてから削除するまでのあいだに記録ができたときも、データベースが止めるので、同じ文で戻す
         // （データベースが止めたことを受けとれるように、表に直接「消す」を送る）
+        // 名前も条件に入れる：確かめたあと、消すまでに、ほかの画面でこの相手の名前が「その他」に変わっていたら、消さない
+        // （「その他」が無くなったあとに名前を変えて作り直した、など。消す 1 文の中で確かめるので、あいだに変わることはない）
         try {
-            Partner::query()->whereKey($partner->id)->delete();
+            $deleted = Partner::query()->whereKey($partner->id)->where('name', '!=', Partner::OTHER_NAME)->delete();
         } catch (QueryException $e) {
             // 23000 は、データベースの決まり（外部キーなど）で止まったとき。それ以外（つながらないなど）は、そのままエラーとして知らせる
             throw_if($e->getCode() !== '23000', $e);
 
             return to_route('partners.edit', $partner)->withErrors(['delete' => '記録があるので削除できません']);
+        }
+        if ($deleted === 0 && Partner::query()->whereKey($partner->id)->exists()) {
+            return to_route('partners.edit', $partner)->withErrors(['protected' => Partner::PROTECTED_MESSAGE]);
         }
 
         return to_route('partners.index')->with('status', '削除しました');
@@ -101,23 +117,23 @@ class PartnerController extends Controller
     /** 削除の小窓から「使わない」にする（4 章の 9） */
     public function deactivate(Partner $partner): RedirectResponse
     {
-        if (Recurring::usingPartner($partner->id)->running()->exists()) {
-            return to_route('partners.edit', $partner)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
-        }
-
-        // 押さえて読み直してから、もう一度確かめて変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる。
-        // 確かめたあとに、ほかの画面で動いている予定がこの相手を使うようになっていたら、「使わない」にしない）
+        // 押さえて読み直してから確かめて変える（ほかの画面で削除されていたら、「使わない」にしましたと出さずに知らせる。
+        // 確かめたあとに、ほかの画面で動いている予定がこの相手を使うようになっていたら、「使わない」にしない）。
+        // 「その他」は「使わない」にできない（画面設計書 5.9）。止めた理由の欄の名前と文を返す
         $blocked = DB::transaction(function () use ($partner) {
             $locked = Partner::query()->lockForUpdate()->findOrFail($partner->id);
+            if ($locked->isProtected()) {
+                return ['protected' => Partner::PROTECTED_MESSAGE];
+            }
             if (Recurring::usingPartner($locked->id)->running()->exists()) {
-                return true;
+                return ['is_active' => Recurring::IN_USE_MESSAGE];
             }
             $locked->update(['is_active' => false]);
 
-            return false;
+            return null;
         }, 3);
-        if ($blocked) {
-            return to_route('partners.edit', $partner)->withErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
+        if ($blocked !== null) {
+            return to_route('partners.edit', $partner)->withErrors($blocked);
         }
 
         return to_route('partners.index')->with('status', '「使わない」にしました');
@@ -129,6 +145,10 @@ class PartnerController extends Controller
      */
     public function merge(Request $request, Partner $partner): RedirectResponse
     {
+        // 「その他」は、ほかの相手にまとめられない（ほかの相手を「その他」にまとめるのは、できる。画面設計書 5.9）
+        if ($partner->isProtected()) {
+            return to_route('partners.edit', $partner)->withErrors(['protected' => Partner::PROTECTED_MESSAGE]);
+        }
         if (is_string($request->input('merge_target'))) {
             $request->merge(['merge_target' => Partner::normalizeName($request->input('merge_target'))]);
         }
@@ -154,6 +174,10 @@ class PartnerController extends Controller
             $merged = false;
         }
 
+        // 確かめたあと、押さえるまでに、ほかの画面でこの相手の名前が「その他」に変わっていた（mergeInto が、押さえた行で見て止めた）
+        if (! $merged && Partner::query()->whereKey($partner->id)->where('name', Partner::OTHER_NAME)->exists()) {
+            return to_route('partners.edit', $partner)->withErrors(['protected' => Partner::PROTECTED_MESSAGE]);
+        }
         if (! $merged && ! Partner::query()->whereKey($partner->id)->exists()) {
             // まとめる相手が、ほかの画面でまとめられたか削除された（まとめるを 2 回押して 2 回届いたときもここ）
             return to_route('partners.index')->with('status', 'この相手は、もうまとめられているか、削除されています');

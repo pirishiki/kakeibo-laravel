@@ -12,7 +12,6 @@ use App\Models\Record;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 /**
  * デプロイした環境に入れるテスト用のデータ（php artisan db:seed --class=TestDataSeeder --force）。
@@ -60,9 +59,10 @@ class TestDataSeeder extends Seeder
             $ic = Account::create(['name' => 'Suica', 'type' => AccountType::TransitIc, 'initial_balance' => 3000]);
             $card = Account::create(['name' => 'クレジットカード', 'type' => AccountType::CreditCard, 'initial_balance' => 0]);
 
-            // 分類は最初からある 19 に、小分類「食費 > 外食」を足して 20
+            // 分類は最初からある 19 に、小分類「食費 > 外食」を足して 20。
+            // 最初の分類を消したり名前を変えたりしていても止めず、見つからない分類を使う記録だけ飛ばして知らせる（SampleSeeder と同じ。イシュー #88）
             $food = $this->category('食費');
-            $eatOut = Category::create(['parent_id' => $food->id, 'name' => '外食', 'kind' => CategoryKind::Expense]);
+            $eatOut = $this->child($food, '外食');
             $daily = $this->category('日用品');
             $transport = $this->category('交通費');
             $housing = $this->category('住まい');
@@ -111,6 +111,12 @@ class TestDataSeeder extends Seeder
                     if ($date->greaterThan($today) || ($m === 0 && $toAccount?->is($card))) {
                         continue;
                     }
+                    // 支出・収入には分類がいる。分類が見つからなかった行は飛ばす（移動には分類がないので、そのまま入れる）
+                    if ($type !== RecordType::Transfer && $category === null) {
+                        $this->skipped++;
+
+                        continue;
+                    }
                     $fixed[] = [$date, $type, $amount, $account, $toAccount, $category, $partner];
                 }
             }
@@ -148,28 +154,49 @@ class TestDataSeeder extends Seeder
                     continue;
                 }
                 if ($i % 20 === 1) {
-                    $rows[] = [$date, RecordType::Expense, 178 * mt_rand(1, 3), $ic, null, $transport, $railway];
+                    // 数の並びが変わらないように、飛ばすときも mt_rand は呼ぶ（ほかの行は、分類があるときと同じデータになる）
+                    $fare = 178 * mt_rand(1, 3);
+                    if ($transport === null) {
+                        $this->skipped++;
+                    } else {
+                        $rows[] = [$date, RecordType::Expense, $fare, $ic, null, $transport, $railway];
+                    }
 
                     continue;
                 }
                 [$shop, $category, $account, $min, $max] = $usual[$picks[mt_rand(0, count($picks) - 1)]];
                 // 10 円単位にそろえる
                 $amount = intdiv(mt_rand($min, $max), 10) * 10;
-                $rows[] = [$date, RecordType::Expense, $amount, $account, null, $category, $partners[$shop][mt_rand(0, count($partners[$shop]) - 1)]];
+                $partner = $partners[$shop][mt_rand(0, count($partners[$shop]) - 1)];
+                if ($category === null) {
+                    $this->skipped++;
+
+                    continue;
+                }
+                $rows[] = [$date, RecordType::Expense, $amount, $account, null, $category, $partner];
                 if ($account->is($card)) {
                     $cardTotals[$monthIndex($date)] = ($cardTotals[$monthIndex($date)] ?? 0) + $amount;
                 }
             }
 
             // カードの引き落とし：前の月にカードで使った分を、銀行口座からカードへ移す。
-            // 前の月に使っていないと 0 円の移動になる（移動は 1 円以上の決まり）。金額を変えるとカードの残高がずれるので、止めて知らせる
+            // 前の月に使っていないと 0 円の移動になる（移動は 1 円以上の決まり）。金額を黙って変えるとカードの残高がずれるので、
+            // その月の引き落としの行だけ飛ばして、月をまとめて知らせる（カードで払う分類が手元で全部消されていた、など。全体は止めない。イシュー #88）。
+            // 乱数はここでは使わないので、ほかの行のデータは変わらない
+            $noWithdrawal = [];
             foreach ($fixed as $i => $row) {
                 if ($row[4]?->is($card)) {
                     $fixed[$i][2] = $cardTotals[$monthIndex($row[0]) - 1] ?? 0;
                     if ($fixed[$i][2] === 0) {
-                        throw new RuntimeException($row[0]->format('Y年n月').'のカードの引き落としが 0 円になるので、テスト用のデータを作れません。ふだんの記録の並びを見直してください。');
+                        $noWithdrawal[] = $row[0]->format('Y年n月');
+                        unset($fixed[$i]);
+                        $this->skipped++;
                     }
                 }
+            }
+            if ($noWithdrawal !== []) {
+                $this->command->warn('前の月にカードで使った分がないので、カードの引き落とし（'.count($noWithdrawal).' 件：'
+                    .$noWithdrawal[0].(count($noWithdrawal) > 1 ? '〜'.end($noWithdrawal) : '').'）は入れません。');
             }
 
             // 1,000 件ずつまとめて入れる（1 件ずつより、ずっと速い）
@@ -190,11 +217,51 @@ class TestDataSeeder extends Seeder
             }
         });
 
-        $this->command->info('テスト用のデータを入れました（口座 5・分類 20・相手 50・記録 '.number_format(Record::query()->count()).' 件）。');
+        // 入れた数は、数えて出す（飛ばした行があると、決まった数にならないため）
+        $this->command->info('テスト用のデータを入れました（口座 '.Account::query()->count().'・分類 '.Category::query()->count()
+            .'・相手 '.Partner::query()->count().'・記録 '.number_format(Record::query()->count()).' 件）。'
+            .($this->skipped > 0 ? '分類が見つからないなどで、'.number_format($this->skipped).' 件は入れていません。' : ''));
     }
 
-    private function category(string $name, CategoryKind $kind = CategoryKind::Expense): Category
+    /** 分類が見つからないなどで飛ばした記録の数（最後の知らせに出す） */
+    private int $skipped = 0;
+
+    /**
+     * 最初からある大分類を名前で探す。見つからないとき（手元で消した・名前を変えた）は、知らせて null を返す
+     * （その分類を使う記録だけを飛ばし、ほかは入れる。全体をエラーで止めないため）
+     */
+    private function category(string $name, CategoryKind $kind = CategoryKind::Expense): ?Category
     {
-        return Category::query()->whereNull('parent_id')->where('kind', $kind)->where('name', $name)->firstOrFail();
+        $category = Category::query()->whereNull('parent_id')->where('kind', $kind)->where('name', $name)->first();
+        if ($category === null) {
+            $this->command->warn('分類「'.$name.'」が見つからないので、この分類を使う記録は入れません。');
+        }
+
+        return $category;
+    }
+
+    /**
+     * 大分類の下の小分類（なければ作る。「使わない」になっていたら「使う」に戻して、同じ段のいちばん下に入れる）。
+     * 大分類が見つからない・「使わない」のときは、知らせて null を返す（「使わない」大分類の下に「使う」小分類は置けないため。画面設計書 5.8）
+     */
+    private function child(?Category $parent, string $name): ?Category
+    {
+        if ($parent === null) {
+            return null;
+        }
+        if (! $parent->is_active) {
+            $this->command->warn('分類「'.$parent->name.'」が『使わない』なので、小分類「'.$name.'」と、それを使う記録は入れません。');
+
+            return null;
+        }
+
+        $child = Category::firstOrCreate(['parent_id' => $parent->id, 'name' => $name], ['kind' => $parent->kind]);
+        if (! $child->wasRecentlyCreated && ! $child->is_active) {
+            $child->is_active = true;
+            $child->sort_order = (int) Category::query()->sameLevelAs($child)->max('sort_order') + 1;
+            $child->save();
+        }
+
+        return $child;
     }
 }

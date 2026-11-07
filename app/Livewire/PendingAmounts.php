@@ -2,7 +2,9 @@
 
 namespace App\Livewire;
 
+use App\Models\Record;
 use App\Models\Recurring;
+use App\Models\RecurringAmount;
 use App\Models\RecurringSkip;
 use App\Support\FormInput;
 use App\Support\RecurringMonthly;
@@ -123,8 +125,20 @@ class PendingAmounts extends Component
         $unused = [];
         foreach ($this->amounts as $key => $text) {
             $key = (string) $key;
-            if (! array_key_exists($key, $values) && FormInput::normalizeAmount(is_string($text) ? $text : '') !== ''
-                && preg_match('/^(\d+)_\d{6}$/', $key, $m) === 1) {
+            $entered = FormInput::normalizeAmount(is_string($text) ? $text : '');
+            if (! array_key_exists($key, $values) && $entered !== ''
+                && preg_match('/^(\d+)_(\d{4})(\d{2})$/', $key, $m) === 1) {
+                // その月が、入れた金額のまま記録された・金額が入った（「まとめて保存」が 2 回届いて、1 回目で保存された、など）なら、
+                // 入れた金額は使われているので知らせない（月ごとの金額の「保存」と同じ。画面設計書 5.10。2026-11-07 に決定）
+                $month = $m[2].'-'.$m[3].'-01';
+                // 記録があれば記録の金額。なければ、「今回はなし」になっていない月の、入れてある金額（日付がまだ来ていない月）
+                $savedAs = Record::query()->where('recurring_id', (int) $m[1])->where('recurring_month', $month)->value('amount')
+                    ?? (RecurringSkip::query()->where('recurring_id', (int) $m[1])->where('month', $month)->exists()
+                        ? null
+                        : RecurringAmount::query()->where('recurring_id', (int) $m[1])->where('month', $month)->value('amount'));
+                if ($savedAs !== null && (string) $savedAs === $entered) {
+                    continue;
+                }
                 // 書きかえられた欄の名前（ない予定）は、名前が出せないので知らせない
                 $name = Recurring::query()->whereKey((int) $m[1])->value('name');
                 if (is_string($name)) {

@@ -55,6 +55,21 @@ class PartnerRequest extends FormRequest
                 /** @var Partner|null $partner */
                 $partner = $this->route('partner');
 
+                // 「その他」の名前を変える（空で送られたときもふくむ）・「使わない」にするときは、ほかのまちがいより先に、守りの文だけを出して終える
+                // （画面設計書 5.9。名前の欄は変えられない形なので、ほかの文を出しても直しようがないため）。保存の直前にも、押さえて確かめ直す（PartnerController）
+                if ($partner !== null && $partner->isProtected()
+                    && ($this->input('name') !== $partner->name || ($partner->is_active && ! $this->boolean('is_active')))) {
+                    // 欄ごとのまちがい（名前が空など）は消して、守りの文だけにする
+                    foreach (array_keys($validator->errors()->messages()) as $key) {
+                        $validator->errors()->forget($key);
+                    }
+                    $validator->errors()->add('protected', Partner::PROTECTED_MESSAGE);
+                }
+            },
+            function (Validator $validator) {
+                /** @var Partner|null $partner */
+                $partner = $this->route('partner');
+
                 // もう「使わない」の相手を、そのまま保存するときは止めない
                 if ($partner === null || ! $partner->is_active || $this->boolean('is_active') || $validator->errors()->isNotEmpty()) {
                     return;

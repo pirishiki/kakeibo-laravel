@@ -32,9 +32,12 @@
                                         </div>
                                     @endforeach
                                 </div>
-                                <div class="list-group-item ps-5 py-1">
-                                    <a href="{{ route('categories.create', ['parent' => $parent->id]) }}" class="small">＋ 小分類を追加</a>
-                                </div>
+                                {{-- 「使わない」大分類の下には、小分類を追加できない（画面設計書 5.8）ので、追加のリンクは出さない --}}
+                                @if ($parent->is_active)
+                                    <div class="list-group-item ps-5 py-1">
+                                        <a href="{{ route('categories.create', ['parent' => $parent->id]) }}" class="small">＋ 小分類を追加</a>
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>

@@ -181,12 +181,6 @@ class RecordForm extends Component
 
             return null;
         }
-        // 開いたあとに、ほかの画面でこの記録が直されていたら、上書きせずに知らせる（あとから保存したほうが黙って勝たないように）
-        if ($record !== null && $this->openedFingerprint !== null && ($record->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($record->partner_id))) {
-            $this->addError('blocker', 'この記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
-
-            return null;
-        }
         $hasCategory = in_array($this->type, ['expense', 'income'], true);
         $values = [
             'type' => $this->type,
@@ -198,6 +192,20 @@ class RecordForm extends Component
             'item' => $this->type === 'expense' && $data['item'] !== '' ? $data['item'] : null,
             'memo' => $data['memo'] !== '' ? $data['memo'] : null,
         ];
+
+        // 送られた中身が、いまの中身と同じなら、もう保存できているので、何もせずに「保存しました」の流れで戻る
+        // （保存が 2 回届いた 2 回目など。1 回目で中身の印が変わるので、下の「開いたあとに…直されました」より先に見る。画面設計書 5.4。2026-11-07 に決定）
+        if ($record !== null && $this->sameAsSaved($record, $values)) {
+            session()->flash('status', '保存しました');
+
+            return $this->redirect($this->backUrlAfter(CarbonImmutable::parse($values['date'])));
+        }
+        // 開いたあとに、ほかの画面でこの記録が直されていたら、上書きせずに知らせる（あとから保存したほうが黙って勝たないように）
+        if ($record !== null && $this->openedFingerprint !== null && ($record->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($record->partner_id))) {
+            $this->addError('blocker', 'この記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
+
+            return null;
+        }
 
         if ($record !== null) {
             // 「使わない」口座の残高が 0 円でなくなる直しは止める
@@ -218,6 +226,10 @@ class RecordForm extends Component
                 $locked = Record::query()->lockForUpdate()->find($record->id);
                 if ($locked === null) {
                     throw ValidationException::withMessages(['blocker' => self::GONE_MESSAGE]);
+                }
+                // 押さえるまでのあいだに、ほかの画面（2 回届いた 1 回目など）で同じ中身に直されていたら、何もしない（上と同じ理由で、直されましたより先）
+                if ($this->sameAsSaved($locked, $values)) {
+                    return;
                 }
                 if ($this->openedFingerprint !== null && ($locked->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($locked->partner_id))) {
                     throw ValidationException::withMessages(['blocker' => 'この記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください']);
@@ -242,7 +254,12 @@ class RecordForm extends Component
                 throw ValidationException::withMessages(['blocker' => $blocker]);
             }
             $values['partner_id'] = $hasCategory ? $this->partnerIdToSave($record !== null) : null;
-            $locked === null ? Record::create($values) : $locked->update($values);
+            if ($locked === null) {
+                // 2 回目が届いたとき、まだあるかを確かめられるように、作った記録を覚えておく（PreventsDoubleSubmit）
+                $this->rememberCreated(Record::create($values));
+            } else {
+                $locked->update($values);
+            }
         };
         $this->saveOnce($record === null, [$values, $this->partnerName], fn () => DB::transaction($write, 3), 'blocker', null, '（「保存して続けて入力」を使うと、すぐに次を入れられます）');
 
@@ -487,6 +504,16 @@ class RecordForm extends Component
         // 相手は選んである状態にする（候補を出さない）
         $this->partnerId = $record->partner_id;
         $this->partnerName = (string) $record->partner?->name;
+    }
+
+    /**
+     * 送られた中身（相手もふくむ）が、いま保存してある中身と同じか
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function sameAsSaved(Record $record, array $values): bool
+    {
+        return $record->hasSameContent($values) && $this->partnerUnchanged($record->partner_id);
     }
 
     private function isAdjustment(): bool
