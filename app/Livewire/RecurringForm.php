@@ -262,6 +262,13 @@ class RecurringForm extends Component
         if ($this->recurringId !== null && $before === null) {
             return null;
         }
+        // 送られた中身が、いまの中身と同じなら、もう保存できているので、何もせずに「保存しました」の流れで戻る
+        // （保存が 2 回届いた 2 回目など。1 回目で中身の印が変わるので、下の「開いたあとに…直されました」より先に見る。画面設計書 5.4・5.10。2026-11-07 に決定）
+        if ($before !== null && $this->sameAsSaved($before, $this->valuesToSave($data))) {
+            session()->flash('status', '保存しました');
+
+            return $this->redirect(route('recurrings.index'));
+        }
         if ($before !== null && $this->openedFingerprint !== null && ($before->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($before->partner_id))) {
             $this->addError('save', 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください');
 
@@ -313,6 +320,11 @@ class RecurringForm extends Component
                 $recurring = Recurring::query()->lockForUpdate()->find($before->id);
                 if ($recurring === null) {
                     throw ValidationException::withMessages(['save' => 'この定期的な記録は、ほかの画面で削除されました。一覧から開き直してください']);
+                }
+                // 押さえるまでのあいだに、ほかの画面（2 回届いた 1 回目など）で同じ中身に直されていたら、何もしない（上と同じ理由で、直されましたより先）。
+                // 「今回はなし」にする月なども、その保存のほうで済んでいる
+                if ($this->sameAsSaved($recurring, $values)) {
+                    return 0;
                 }
                 if ($this->openedFingerprint !== null && ($recurring->fingerprint() !== $this->openedFingerprint || $this->partnerChangedElsewhere($recurring->partner_id))) {
                     throw ValidationException::withMessages(['save' => 'この定期的な記録は、開いたあとにほかの画面で直されました。画面を読みこみ直して、いまの内容を見てから直してください']);
@@ -372,6 +384,10 @@ class RecurringForm extends Component
             }
             $wasFixed = $recurring->exists ? $recurring->is_fixed : null;
             $recurring->fill($values)->save();
+            if ($before === null) {
+                // 2 回目が届いたとき、まだあるかを確かめられるように、作った予定を覚えておく（PreventsDoubleSubmit）
+                $this->rememberCreated($recurring);
+            }
             // 「毎月変わる」から「決まっている」に変えたら、まだ記録されていない月に入れておいた金額を消す（「今回はなし」は残す）
             if ($recurring->is_fixed && $wasFixed === false) {
                 $recurring->amounts()
@@ -649,6 +665,16 @@ class RecurringForm extends Component
     protected function savedPartnerId(): ?int
     {
         return $this->recurringId === null ? null : Recurring::query()->whereKey($this->recurringId)->value('partner_id');
+    }
+
+    /**
+     * 送られた中身（相手もふくむ）が、いま保存してある中身と同じか
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function sameAsSaved(Recurring $recurring, array $values): bool
+    {
+        return $recurring->hasSameContent($values) && $this->partnerUnchanged($recurring->partner_id);
     }
 
     /** 予定の値を、欄に入れる */

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AccountType;
+use App\Http\Middleware\PreventsDoubleAdd;
 use App\Http\Requests\AccountRequest;
 use App\Models\Account;
 use App\Models\Recurring;
@@ -39,7 +40,8 @@ class AccountController extends Controller
     public function store(AccountRequest $request): RedirectResponse
     {
         try {
-            Account::create($request->accountData());
+            // 2 回目が届いたとき、1 回目で作った口座がまだあるかを確かめられるように覚えておく（PreventsDoubleAdd）
+            PreventsDoubleAdd::remember(Account::create($request->accountData()));
         } catch (UniqueConstraintViolationException) {
             return $this->nameTaken();
         }

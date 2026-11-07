@@ -65,7 +65,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/budgets', [BudgetController::class, 'update'])->name('budgets.update');
 
     // 貯金の目標（画面設計書 5.13）。1 つの目標だけを見る画面（show）はない。行を押すと変更の画面へ行く
-    Route::resource('goals', GoalController::class)->except(['show']);
+    // 追加は、口座と同じく、保存が 2 回届いても 1 つだけ作る（画面設計書 5.13。2026-11-07 に決定）
+    Route::resource('goals', GoalController::class)->except(['show'])->middlewareFor('store', 'prevent-double-add');
 
     // 設定（画面設計書 5.12）。たまにしか使わない画面へのリンクを並べる
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');

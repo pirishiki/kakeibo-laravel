@@ -38,9 +38,14 @@
     {{-- 親の大分類：小分類だけ。同じ用の大分類から選ぶ。選び直すと、この小分類の記録もいっしょに移る --}}
     <div class="mb-4">
         <label for="parent_id" class="form-label">親の大分類</label>
+        {{-- 保存できずに戻ったとき、選んでいた親が選ぶ欄にない（「使わない」だった・削除された）なら、いまの親を選んでおく
+             （どれも選ばれていないと、ブラウザが最初の大分類を黙って選び、次の保存でそこへ移ってしまうため。画面設計書 5.8） --}}
+        {{-- 1 行の形で書く（このファイルの先頭も 1 行の形。かたまりの形とまぜると、Blade が読みちがえてエラーの画面になるため） --}}
+        @php($oldParent = (int) old('parent_id', $category->parent_id))
+        @php($selectedParent = $parentOptions->contains('id', $oldParent) ? $oldParent : $category->parent_id)
         <select id="parent_id" name="parent_id" class="form-select @error('parent_id') is-invalid @enderror" required>
             @foreach ($parentOptions as $option)
-                <option value="{{ $option->id }}" @selected((int) old('parent_id', $category->parent_id) === $option->id)>
+                <option value="{{ $option->id }}" @selected($selectedParent === $option->id)>
                     {{ $option->name }}@unless ($option->is_active)（使わない）@endunless
                 </option>
             @endforeach
@@ -48,6 +53,12 @@
         @error('parent_id')
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
+        @if ($inactiveParent ?? null)
+            {{-- 決まり（「使わない」大分類の下に「使う」小分類は置けない。画面設計書 5.8）ができる前からある形。勝手に変えず、知らせる --}}
+            <div class="form-text text-danger">
+                大分類が『使わない』です。この小分類は、記録の登録で選べません。{{ $category->is_active ? '使うなら' : '『使う』に戻すときは' }}、先に大分類を『使う』にするか、別の大分類へ移してください
+            </div>
+        @endif
         @if ($category->exists && $recordCount > 0)
             {{-- 親を選び直したときだけ出す（resources/js/app.js） --}}
             <div class="form-text text-primary" data-show-when-changed="parent_id" data-original="{{ $category->parent_id }}" hidden>
@@ -77,14 +88,15 @@
             @checked(old('is_active', $category->is_active))>
         <label for="is_active" class="form-check-label">使う</label>
         @if ($category->isParent())
-            <div class="form-text">外すと、この下の小分類も記録で選べなくなります</div>
+            <div class="form-text">この下に「使う」小分類があるうちは、外せません（「使わない」大分類の下の小分類は、記録で選べないため）</div>
         @endif
-        @error('is_active')
+        {{-- 理由が 2 つ（動いている定期的な記録・「使う」小分類）のときは、両方出す（どちらも直してもらうため） --}}
+        @foreach ($errors->get('is_active') as $message)
             <div class="invalid-feedback">{{ $message }}
                 @if ($message === \App\Models\Recurring::IN_USE_MESSAGE)
                     @include('recurrings._used-by', ['recurrings' => $runningUsedBy])
                 @endif
             </div>
-        @enderror
+        @endforeach
     </div>
 @endif

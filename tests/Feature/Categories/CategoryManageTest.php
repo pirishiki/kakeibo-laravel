@@ -249,8 +249,10 @@ class CategoryManageTest extends TestCase
     public function test_使わない大分類は小分類ごとその用のいちばん下に出て_使うに戻すと使う分類のいちばん下に入る(): void
     {
         $food = $this->find('食費');
-        Category::factory()->childOf($food)->create(['name' => '外食']);
+        $eatOut = Category::factory()->childOf($food)->create(['name' => '外食']);
 
+        // 「使わない」大分類の下に「使う」小分類は置けない（画面設計書 5.8。イシュー #88）ので、先に小分類を「使わない」にする
+        $this->put("/categories/{$eatOut->id}", ['name' => '外食', 'parent_id' => $food->id, 'is_active' => '0'])->assertSessionHasNoErrors();
         $this->put("/categories/{$food->id}", ['name' => '食費', 'is_active' => '0'])->assertSessionHasNoErrors();
         $this->assertFalse($food->refresh()->is_active);
         $this->get('/categories')->assertSeeInOrder(['支出の分類', '日用品', '税金・社会保険', 'その他', '食費', '（使わない）', '外食', '収入の分類']);

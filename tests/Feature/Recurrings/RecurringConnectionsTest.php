@@ -112,7 +112,10 @@ class RecurringConnectionsTest extends TestCase
             ->assertSessionHasErrors(['is_active' => Recurring::IN_USE_MESSAGE]);
         $this->assertTrue($this->food->refresh()->is_active);
 
+        // 定期的な記録を止めたら「使わない」にできる。「使わない」大分類の下に「使う」小分類は置けない（画面設計書 5.8。イシュー #88）ので、
+        // 先に小分類を「使わない」にしてから、大分類を「使わない」にする
         $recurring->update(['is_active' => false]);
+        $this->patch(route('categories.deactivate', $sub))->assertSessionHasNoErrors();
         $this->patch(route('categories.deactivate', $this->food))->assertSessionHasNoErrors();
     }
 

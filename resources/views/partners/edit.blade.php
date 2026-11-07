@@ -14,6 +14,17 @@
         </div>
     @enderror
 
+    {{-- 相手「その他」は守る（画面設計書 5.9）。古い画面などから送られて止めたときは、同じ文を赤で出す --}}
+    @if ($partner->isProtected())
+        <div @class(['alert', 'alert-danger' => $errors->has('protected'), 'alert-info' => ! $errors->has('protected')]) role="alert" style="max-width: 560px">
+            {{ \App\Models\Partner::PROTECTED_MESSAGE }}
+        </div>
+    @else
+        @error('protected')
+            <div class="alert alert-danger" role="alert" style="max-width: 560px">{{ $message }}</div>
+        @enderror
+    @endif
+
     <div class="card mb-4" style="max-width: 560px">
         <div class="card-body">
             <form method="POST" action="{{ route('partners.update', $partner) }}" novalidate>
@@ -22,7 +33,8 @@
                 @include('partners._form')
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">保存</button>
-                    <button type="button" class="btn btn-outline-danger ms-auto" data-bs-toggle="modal" data-bs-target="#delete-dialog">削除</button>
+                    {{-- 「その他」は削除できないので、押せない形にする --}}
+                    <button type="button" class="btn btn-outline-danger ms-auto" data-bs-toggle="modal" data-bs-target="#delete-dialog" @disabled($partner->isProtected())>削除</button>
                 </div>
             </form>
         </div>
@@ -32,7 +44,10 @@
     <div class="card" style="max-width: 560px">
         <div class="card-body">
             <h2 class="h6">ほかの相手にまとめる</h2>
-            @if ($mergeTargets->isEmpty())
+            @if ($partner->isProtected())
+                {{-- 「その他」は、ほかの相手にまとめられない（ほかの相手を「その他」にまとめるのは、その相手の画面からできる） --}}
+                <p class="text-secondary mb-0">「その他」は、ほかの相手にまとめられません。ほかの相手を「その他」にまとめるときは、その相手の画面から行ってください</p>
+            @elseif ($mergeTargets->isEmpty())
                 <p class="text-secondary mb-0">まとめ先にできる相手がありません（「使う」になっている、ほかの相手が必要です）</p>
             @else
             <form method="POST" action="{{ route('partners.merge', $partner) }}" id="merge-form" novalidate>

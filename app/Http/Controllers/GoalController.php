@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AccountType;
+use App\Http\Middleware\PreventsDoubleAdd;
 use App\Http\Requests\GoalRequest;
 use App\Models\Account;
 use App\Models\Goal;
@@ -52,12 +53,16 @@ class GoalController extends Controller
             DB::transaction(function () use ($data) {
                 $account = Account::query()->lockForUpdate()->find($data['account_id']);
                 // 保存を 2 回押して 2 回届いたとき：1 回目で同じ中身の目標ができていれば、2 回目は作らずに「保存しました」にする
+                // （合言葉のない古い画面から届いたとき。合言葉があるときは、2 回目は PreventsDoubleAdd が先に受けとる）
                 $existing = Goal::query()->where('account_id', $data['account_id'])->first();
                 if ($existing !== null && $existing->hasContent($data)) {
+                    PreventsDoubleAdd::remember($existing);
+
                     return;
                 }
                 $this->checkAccount($account, null);
-                Goal::create($data);
+                // 2 回目が届いたとき、1 回目で作った目標がまだあるかを確かめられるように覚えておく（PreventsDoubleAdd）
+                PreventsDoubleAdd::remember(Goal::create($data));
             }, 3);
         } catch (UniqueConstraintViolationException) {
             // チェックのあと、保存までに同じ口座の目標ができていた（2 つの画面から同時に保存したなど）

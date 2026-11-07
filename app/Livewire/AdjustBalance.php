@@ -229,13 +229,14 @@ class AdjustBalance extends Component
                 return 'ほかの画面でこの口座の記録が変わったので、差が '.number_format($difference).' 円になりました。差を確かめてから、もう一度保存してください。';
             }
 
-            Record::create([
+            // 2 回目が届いたとき、まだあるかを確かめられるように、作った調整の記録を覚えておく（PreventsDoubleSubmit）
+            $this->rememberCreated(Record::create([
                 'date' => $this->date,
                 'type' => RecordType::Adjustment,
                 'amount' => $difference,
                 'account_id' => $this->accountId,
                 'memo' => $this->memo !== '' ? $this->memo : null,
-            ]);
+            ]));
 
             return null;
         }, 3);

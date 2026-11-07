@@ -2,12 +2,19 @@
 
 namespace App\Support;
 
+use App\Models\Account;
+use App\Models\Category;
+use App\Models\Goal;
+use App\Models\Partner;
+use App\Models\Record;
+use App\Models\Recurring;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
  * 「送信用の合言葉」の置き場。新しく追加する画面で、保存が 2 回届いても 1 件だけ作るために使う
- * （記録・定期的な記録・残高を合わせるは Livewire の PreventsDoubleSubmit、口座・分類・相手は PreventsDoubleAdd が、これを使う）。
+ * （記録・定期的な記録・残高を合わせるは Livewire の PreventsDoubleSubmit、口座・分類・相手・目標は PreventsDoubleAdd が、これを使う）。
  *
  * 合言葉は、追加の画面を開くたびに 1 つ作る。キャッシュに「保存中」か「保存済み＋保存した中身の印」を覚えておき、
  * 同じ合言葉で 2 回目が届いたときの扱いを決める：
@@ -88,6 +95,58 @@ final class SubmitOnce
     public static function release(string $token): void
     {
         Cache::forget(self::key($token));
+    }
+
+    /**
+     * 1 回目で作ったものを、保存済みの印といっしょに覚える形（saved の $extra に入れる）
+     *
+     * @return array{model: class-string<Model>, id: mixed}
+     */
+    public static function created(Model $model): array
+    {
+        return ['model' => $model::class, 'id' => $model->getKey()];
+    }
+
+    /**
+     * 同じ合言葉・同じ中身の 2 回目で、1 回目で作ったものが、もうないか（ほかの画面で削除された）。
+     * そのときは作り直さず（同じ合言葉の 2 回目のため）、「保存しました」とも言わずに知らせる（何もないのに保存したと出さないため。
+     * 画面設計書 5.4・5.6・5.7・5.10・5.13。2026-11-07 に決定）。覚えていないとき・形がおかしいときは、ないとは言わない
+     *
+     * @param  array<string, mixed>|null  $state
+     */
+    public static function createdIsGone(?array $state): bool
+    {
+        $model = $state['model'] ?? null;
+        $id = $state['id'] ?? null;
+        if (! is_string($model) || ! is_subclass_of($model, Model::class) || (! is_int($id) && ! is_string($id))) {
+            return false;
+        }
+
+        return ! $model::query()->whereKey($id)->exists();
+    }
+
+    /**
+     * 1 回目で作ったものが削除されていたときの文
+     *
+     * @param  array<string, mixed>|null  $state
+     * @param  string  $again  もう一度押したときにできること（「追加」「保存」など）
+     */
+    public static function goneMessage(?array $state, string $again): string
+    {
+        $label = match ($state['model'] ?? null) {
+            Account::class => '口座',
+            Category::class => '分類',
+            Partner::class => '相手',
+            Goal::class => '目標',
+            Record::class => '記録',
+            Recurring::class => '定期的な記録',
+            default => '内容',
+        };
+
+        // 相手は、削除のほかに、ほかの相手にまとめられても無くなる（画面設計書 5.9）ので、どちらかわかるように書く
+        $gone = $label === '相手' ? 'ほかの画面で削除されたか、ほかの相手にまとめられていた' : 'ほかの画面で削除されていた';
+
+        return 'この画面から保存した'.$label.'は、'.$gone.'ので、今回は保存していません。入れた内容を新しく'.$again.'するときは、もう一度「保存」を押してください';
     }
 
     /** @return array<string, mixed>|null */

@@ -321,6 +321,26 @@ trait ChoosesPartnerCategoryAccount
     /** いま保存してある記録・予定の相手（変更のとき）。登録のときは null */
     abstract protected function savedPartnerId(): ?int;
 
+    /**
+     * 保存しようとしている相手が、いま保存してある相手と同じか（変更の保存で「送られた中身がいまの中身と同じ」かを見分けるとき。画面設計書 5.4）。
+     * 相手を作ったり「使う」に戻したりはしない（見るだけ）。候補から選んだ相手は id で、打った名前は、いまの相手の名前とくらべる
+     */
+    protected function partnerUnchanged(?int $savedPartnerId): bool
+    {
+        // 移動などの相手の欄がない種類は、相手を保存しない
+        if (! $this->hasCategory()) {
+            return $savedPartnerId === null;
+        }
+        if ($savedPartnerId === null) {
+            return false;
+        }
+        if ($this->partnerId !== null) {
+            return $this->partnerId === $savedPartnerId;
+        }
+
+        return Partner::query()->whereKey($savedPartnerId)->value('name') === $this->partnerName;
+    }
+
     /** 打った名前の相手を返す。ないときは新しく作り、「使わない」相手なら「使う」に戻す（画面設計書 5.4 の相手の欄） */
     protected function resolvePartner(): Partner
     {
